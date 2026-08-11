@@ -1,5 +1,6 @@
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
+import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import CodeField from "./CodeField";
 import Button from "@mui/material/Button";
@@ -18,8 +19,10 @@ import {
   OPT_HIGHLIGHT_WORDS_DISABLE,
   OPT_SPLIT_PARAGRAPH_ALL,
   OPT_HIGHLIGHT_WORDS_ALL,
+  API_SPE_TYPES,
 } from "../../config";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useOutletContext } from "react-router-dom";
 import { useI18n } from "../../hooks/I18n";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -69,6 +72,33 @@ import ShowMoreButton from "./ShowMoreButton";
 import { useConfirm } from "../../hooks/Confirm";
 import { useAllTextStyles } from "../../hooks/CustomStyles";
 
+const ruleSectionSx = {
+  p: { xs: 2, sm: 2.5 },
+  border: 1,
+  borderColor: "divider",
+  borderRadius: 3,
+  boxShadow: "none",
+  backgroundImage: "none",
+};
+
+function RuleSection({ title, description, children }) {
+  return (
+    <Paper variant="outlined" sx={ruleSectionSx}>
+      <Stack spacing={0.5} sx={{ mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700}>
+          {title}
+        </Typography>
+        {description && (
+          <Typography variant="body2" color="text.secondary">
+            {description}
+          </Typography>
+        )}
+      </Stack>
+      {children}
+    </Paper>
+  );
+}
+
 // 计算规则的初始表单值
 const calculateInitialValues = (rule) => {
   // REVIEW: GLOBLA_RULE 存在拼写错误，疑似应为 GLOBAL_RULE。此处为兼容底层导出的拼写而沿用。
@@ -77,7 +107,15 @@ const calculateInitialValues = (rule) => {
 };
 
 // 规则编辑/添加表单字段组件
-function RuleFields({ rule, rules, setShow, setKeyword }) {
+function RuleFields({
+  rule,
+  rules,
+  setShow,
+  setKeyword,
+  dirtyKey,
+  onDirtyChange,
+  onNavigateToService,
+}) {
   // 判断当前是编辑已有规则模式还是添加新规则模式
   const editMode = useMemo(() => !!rule, [rule]);
 
@@ -95,7 +133,7 @@ function RuleFields({ rule, rules, setShow, setKeyword }) {
   // 是否展示高级选项（订阅规则查看时不显示 rules，默认展示高级；自定义规则默认折叠高级选项）
   const [showMore, setShowMore] = useState(!rules);
   // 获取当前已启用的翻译服务 API 列表
-  const { enabledApis } = useApiList();
+  const { enabledApis = [], transApis = [] } = useApiList();
   // 获取自定义文本样式列表
   const { allTextStyles } = useAllTextStyles();
 
@@ -159,6 +197,31 @@ function RuleFields({ rule, rules, setShow, setKeyword }) {
     return JSON.stringify(initialFormValues) !== JSON.stringify(formValues);
   }, [initialFormValues, formValues]);
 
+  useEffect(() => {
+    onDirtyChange?.(dirtyKey, isModified);
+  }, [dirtyKey, isModified, onDirtyChange]);
+
+  useEffect(
+    () => () => {
+      onDirtyChange?.(dirtyKey, false);
+    },
+    [dirtyKey, onDirtyChange]
+  );
+
+  const isGlobalRule = pattern === GLOBAL_KEY;
+  const selectedApi = useMemo(
+    () => transApis.find((api) => api.apiSlug === apiSlug),
+    [apiSlug, transApis]
+  );
+  const ruleApiOptions = useMemo(
+    () =>
+      selectedApi?.isDisabled &&
+      !enabledApis.some((api) => api.apiSlug === selectedApi.apiSlug)
+        ? [selectedApi, ...enabledApis]
+        : enabledApis,
+    [enabledApis, selectedApi]
+  );
+
   // 校验当前输入的 pattern 是否与已有的其他规则冲突（重复的域名规则）
   const hasSamePattern = (str) => {
     for (const item of rules.list) {
@@ -210,11 +273,16 @@ function RuleFields({ rule, rules, setShow, setKeyword }) {
   // 恢复默认设置处理器：将当前规则配置内容还原为系统预置规则
   const handleRestore = (e) => {
     e.preventDefault();
-    setFormValues(({ pattern }) => ({
-      // REVIEW: GLOBLA_RULE 存在拼写错误。此处继续沿用。
-      ...(pattern === "*" ? GLOBLA_RULE : DEFAULT_RULE),
-      pattern,
-    }));
+    setFormValues((currentValues) => {
+      const { pattern } = currentValues;
+      return {
+        // REVIEW: GLOBLA_RULE 存在拼写错误。此处继续沿用。
+        ...(pattern === "*" ? GLOBLA_RULE : DEFAULT_RULE),
+        pattern,
+        // 默认服务只由“服务与模型”管理；恢复页面规则时不能暗中改回 Microsoft。
+        ...(pattern === "*" ? { apiSlug: currentValues.apiSlug } : {}),
+      };
+    });
   };
 
   // 规则表单保存/新增提交处理器
@@ -253,79 +321,199 @@ function RuleFields({ rule, rules, setShow, setKeyword }) {
   // 全局继承选项（仅在非全局配置项本身编辑时展示，用于子配置继承全局配置值）
   const GlobalItem = rule?.pattern !== "*" && (
     <MenuItem key={GLOBAL_KEY} value={GLOBAL_KEY}>
-      {GLOBAL_KEY}
+      {i18n("inherit_website_default", "Inherit website default")}
     </MenuItem>
   );
 
+  const renderActions = () =>
+    rules && (
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        flexWrap="wrap"
+        alignItems="center"
+      >
+        {editMode ? (
+          disabled ? (
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDisabled(false);
+                }}
+                startIcon={<EditIcon />}
+              >
+                {i18n("edit")}
+              </Button>
+              {rule?.pattern !== GLOBAL_KEY && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    rules.del(rule.pattern);
+                  }}
+                  startIcon={<DeleteIcon />}
+                >
+                  {i18n("delete")}
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                type="submit"
+                startIcon={<SaveIcon />}
+                disabled={!isModified}
+              >
+                {i18n("save")}
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleCancel}
+                startIcon={<CancelIcon />}
+              >
+                {i18n("cancel")}
+              </Button>
+              <Button size="small" variant="text" onClick={handleRestore}>
+                {i18n("restore_default")}
+              </Button>
+            </>
+          )
+        ) : (
+          <>
+            <Button
+              size="small"
+              variant="contained"
+              type="submit"
+              startIcon={<SaveIcon />}
+            >
+              {i18n("save")}
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleCancel}
+              startIcon={<CancelIcon />}
+            >
+              {i18n("cancel")}
+            </Button>
+          </>
+        )}
+        <ShowMoreButton showMore={showMore} onChange={setShowMore} />
+      </Stack>
+    );
+
   return (
     <form onSubmit={handleSubmit}>
-      <Stack spacing={2}>
-        {/* 规则匹配模式输入框（如域名或通配符 '*'） */}
-        <CodeField
-          size="small"
-          label={i18n("pattern")}
-          error={!!errors.pattern}
-          helperText={errors.pattern || i18n("pattern_helper")}
-          name="pattern"
-          value={pattern}
-          disabled={rule?.pattern === "*" || disabled}
-          onChange={handleChange}
-          onFocus={handleFocus}
-        />
-        {/* 翻译根容器选择器配置 */}
-        <CodeField
-          size="small"
-          label={i18n("root_selector")}
-          helperText={i18n("root_selector_helper")}
-          name="rootsSelector"
-          value={rootsSelector}
-          disabled={disabled}
-          onChange={handleChange}
-        />
-        {/* 忽略翻译的元素选择器配置 */}
-        <CodeField
-          size="small"
-          label={i18n("ignore_selector")}
-          helperText={i18n("ignore_selector_helper")}
-          name="ignoreSelector"
-          value={ignoreSelector}
-          disabled={disabled}
-          onChange={handleChange}
-        />
-        {/* 目标翻译元素选择器配置 */}
-        <CodeField
-          size="small"
-          label={i18n("target_selector")}
-          error={!!errors.selector}
-          helperText={errors.selector || i18n("selector_helper")}
-          name="selector"
-          value={selector}
-          disabled={autoScan === "true" || disabled}
-          onChange={handleChange}
-          onFocus={handleFocus}
-        />
-        {/* 保持不翻译元素选择器配置 */}
-        <CodeField
-          size="small"
-          label={i18n("keep_selector")}
-          helperText={i18n("keep_selector_helper")}
-          name="keepSelector"
-          value={keepSelector}
-          disabled={disabled}
-          onChange={handleChange}
-        />
-        {/* 自定义块级元素选择器配置 */}
-        <CodeField
-          size="small"
-          label={i18n("block_selector")}
-          helperText={i18n("block_selector_helper")}
-          name="blockSelector"
-          value={blockSelector}
-          disabled={disabled}
-          onChange={handleChange}
-        />
+      <Stack spacing={2.5}>
+        {renderActions()}
+        <RuleSection
+          title={i18n("website_scope", "Website scope")}
+          description={i18n(
+            "website_scope_description",
+            "Choose which addresses and page regions this rule applies to. CSS selectors only control content on the website."
+          )}
+        >
+          <Stack spacing={2}>
+            {/* 规则匹配模式输入框（如域名或通配符 '*'） */}
+            <CodeField
+              size="small"
+              label={i18n("pattern")}
+              error={!!errors.pattern}
+              helperText={errors.pattern || i18n("pattern_helper")}
+              name="pattern"
+              value={pattern}
+              disabled={rule?.pattern === "*" || disabled}
+              onChange={handleChange}
+              onFocus={handleFocus}
+            />
+            <Grid container spacing={2} columns={12}>
+              {/* 翻译根容器选择器配置 */}
+              <Grid item xs={12} md={6}>
+                <CodeField
+                  size="small"
+                  fullWidth
+                  label={i18n("root_selector")}
+                  helperText={i18n("root_selector_helper")}
+                  name="rootsSelector"
+                  value={rootsSelector}
+                  disabled={disabled}
+                  onChange={handleChange}
+                />
+              </Grid>
+              {/* 目标翻译元素选择器配置 */}
+              <Grid item xs={12} md={6}>
+                <CodeField
+                  size="small"
+                  fullWidth
+                  label={i18n("target_selector")}
+                  error={!!errors.selector}
+                  helperText={errors.selector || i18n("selector_helper")}
+                  name="selector"
+                  value={selector}
+                  disabled={autoScan === "true" || disabled}
+                  onChange={handleChange}
+                  onFocus={handleFocus}
+                />
+              </Grid>
+              {/* 忽略翻译的元素选择器配置 */}
+              <Grid item xs={12} md={6}>
+                <CodeField
+                  size="small"
+                  fullWidth
+                  label={i18n("ignore_selector")}
+                  helperText={i18n("ignore_selector_helper")}
+                  name="ignoreSelector"
+                  value={ignoreSelector}
+                  disabled={disabled}
+                  onChange={handleChange}
+                />
+              </Grid>
+              {/* 保持不翻译元素选择器配置 */}
+              <Grid item xs={12} md={6}>
+                <CodeField
+                  size="small"
+                  fullWidth
+                  label={i18n("keep_selector")}
+                  helperText={i18n("keep_selector_helper")}
+                  name="keepSelector"
+                  value={keepSelector}
+                  disabled={disabled}
+                  onChange={handleChange}
+                />
+              </Grid>
+              {/* 自定义块级元素选择器配置 */}
+              <Grid item xs={12}>
+                <CodeField
+                  size="small"
+                  fullWidth
+                  label={i18n("block_selector")}
+                  helperText={i18n("block_selector_helper")}
+                  name="blockSelector"
+                  value={blockSelector}
+                  disabled={disabled}
+                  onChange={handleChange}
+                />
+              </Grid>
+            </Grid>
+          </Stack>
+        </RuleSection>
 
-        <Box>
+        <RuleSection
+          title={i18n("page_behavior", "Page behavior")}
+          description={i18n(
+            "page_behavior_description",
+            "Control when this website translates, which languages it uses, and how the page scanner behaves."
+          )}
+        >
           <Grid container spacing={2} columns={12}>
             {/* 翻译开关设置 */}
             <Grid item xs={12} sm={12} md={6} lg={3}>
@@ -344,25 +532,150 @@ function RuleFields({ rule, rules, setShow, setKeyword }) {
                 <MenuItem value={"false"}>{i18n("default_disabled")}</MenuItem>
               </TextField>
             </Grid>
-            {/* 翻译引擎服务设置 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                size="small"
-                fullWidth
-                name="apiSlug"
-                value={apiSlug}
-                label={i18n("translate_service")}
-                disabled={disabled}
-                onChange={handleChange}
-              >
-                {GlobalItem}
-                {enabledApis.map((api) => (
-                  <MenuItem key={api.apiSlug} value={api.apiSlug}>
-                    {api.apiName}
-                  </MenuItem>
-                ))}
-              </TextField>
+            {/* 站点规则只选择服务覆盖；服务和模型本身统一在服务页面管理。 */}
+            <Grid item xs={12}>
+              {isGlobalRule ? (
+                <Alert
+                  severity="info"
+                  action={
+                    <Button
+                      component="a"
+                      href={
+                        apiSlug
+                          ? `#/apis?service=${encodeURIComponent(apiSlug)}`
+                          : "#/apis"
+                      }
+                      color="inherit"
+                      size="small"
+                      onClick={(event) => {
+                        if (!onNavigateToService) return;
+                        event.preventDefault();
+                        void onNavigateToService(
+                          apiSlug
+                            ? `/apis?service=${encodeURIComponent(apiSlug)}`
+                            : "/apis"
+                        );
+                      }}
+                    >
+                      {i18n(
+                        "manage_default_translation_service",
+                        "Manage default service"
+                      )}
+                    </Button>
+                  }
+                >
+                  {i18n(
+                    "default_service_managed_in_services",
+                    "The default translation service and model are managed on the Services & models page."
+                  )}
+                </Alert>
+              ) : (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: "action.hover",
+                  }}
+                >
+                  <Stack spacing={1.5}>
+                    <Box>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {i18n(
+                          "optional_service_override",
+                          "Optional translation service override"
+                        )}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {i18n(
+                          "optional_service_override_description",
+                          "Keep the website default, or choose a different saved service for this site. Credentials and models are managed separately."
+                        )}
+                      </Typography>
+                    </Box>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          size="small"
+                          fullWidth
+                          name="apiSlug"
+                          value={apiSlug}
+                          label={i18n("service_override", "Service override")}
+                          disabled={disabled}
+                          onChange={handleChange}
+                        >
+                          {GlobalItem}
+                          {apiSlug !== GLOBAL_KEY && !selectedApi && (
+                            <MenuItem value={apiSlug} disabled>
+                              {i18n(
+                                "missing_translation_service",
+                                "Missing service"
+                              )}{" "}
+                              ({apiSlug})
+                            </MenuItem>
+                          )}
+                          {ruleApiOptions.map((api) => (
+                            <MenuItem
+                              key={api.apiSlug}
+                              value={api.apiSlug}
+                              disabled={api.isDisabled}
+                            >
+                              {api.apiName}
+                              {api.isDisabled ? ` (${i18n("disabled")})` : ""}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      {apiSlug !== GLOBAL_KEY && selectedApi && (
+                        <Grid item xs={12} md={6}>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            alignItems={{ xs: "flex-start", sm: "center" }}
+                          >
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ flex: 1, overflowWrap: "anywhere" }}
+                            >
+                              {API_SPE_TYPES.ai.has(selectedApi.apiType)
+                                ? `${i18n("model", "Model")}: ${
+                                    selectedApi.model ||
+                                    i18n(
+                                      "model_not_selected",
+                                      "No model selected"
+                                    )
+                                  }`
+                                : i18n(
+                                    "model_not_required",
+                                    "This service does not use a model"
+                                  )}
+                            </Typography>
+                            <Button
+                              component="a"
+                              href={`#/apis?service=${encodeURIComponent(apiSlug)}`}
+                              size="small"
+                              onClick={(event) => {
+                                if (!onNavigateToService) return;
+                                event.preventDefault();
+                                void onNavigateToService(
+                                  `/apis?service=${encodeURIComponent(apiSlug)}`
+                                );
+                              }}
+                              variant="outlined"
+                            >
+                              {i18n(
+                                "manage_translation_service",
+                                "Manage service & model"
+                              )}
+                            </Button>
+                          </Stack>
+                        </Grid>
+                      )}
+                    </Grid>
+                  </Stack>
+                </Box>
+              )}
             </Grid>
             {/* 源语言设置 */}
             <Grid item xs={12} sm={12} md={6} lg={3}>
@@ -472,6 +785,27 @@ function RuleFields({ rule, rules, setShow, setKeyword }) {
                 <MenuItem value={"false"}>{i18n("disable")}</MenuItem>
                 <MenuItem value={"true"}>{i18n("enable")}</MenuItem>
               </TextField>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Box
+                sx={{
+                  mt: 1,
+                  pt: 2,
+                  borderTop: 1,
+                  borderColor: "divider",
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={700}>
+                  {i18n("translation_display", "Translation display")}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {i18n(
+                    "translation_display_description",
+                    "Choose how original text and translations appear on the page."
+                  )}
+                </Typography>
+              </Box>
             </Grid>
 
             {/* 仅显示译文设置 */}
@@ -659,248 +993,174 @@ function RuleFields({ rule, rules, setShow, setKeyword }) {
               </TextField>
             </Grid>
           </Grid>
-        </Box>
+        </RuleSection>
 
         {/* 高级选项面板 */}
         {showMore && (
-          <>
-            {/* 专有名词对照翻译设置 */}
-            <TextField
-              size="small"
-              label={i18n("terms")}
-              helperText={i18n("terms_helper")}
-              name="terms"
-              value={terms}
-              disabled={disabled}
-              onChange={handleChange}
-              multiline
-              maxRows={10}
-            />
-            {/* AI 翻译专有名词对照翻译设置 */}
-            <TextField
-              size="small"
-              label={i18n("ai_terms")}
-              helperText={i18n("ai_terms_helper")}
-              name="aiTerms"
-              value={aiTerms}
-              disabled={disabled}
-              onChange={handleChange}
-              multiline
-              maxRows={10}
-            />
+          <RuleSection
+            title={i18n("advanced_rule_controls", "Advanced controls")}
+            description={i18n(
+              "advanced_rule_controls_description",
+              "Technical overrides for terminology, custom styling, hooks, and injected page code."
+            )}
+          >
+            <Stack spacing={2}>
+              {/* 专有名词对照翻译设置 */}
+              <TextField
+                size="small"
+                label={i18n("terms")}
+                helperText={i18n("terms_helper")}
+                name="terms"
+                value={terms}
+                disabled={disabled}
+                onChange={handleChange}
+                multiline
+                maxRows={10}
+              />
+              {/* AI 翻译专有名词对照翻译设置 */}
+              <TextField
+                size="small"
+                label={i18n("ai_terms")}
+                helperText={i18n("ai_terms_helper")}
+                name="aiTerms"
+                value={aiTerms}
+                disabled={disabled}
+                onChange={handleChange}
+                multiline
+                maxRows={10}
+              />
 
-            {/* 术语高亮 CSS 样式定义 */}
-            <CodeField
-              size="small"
-              label={i18n("terms_style")}
-              name="termsStyle"
-              value={termsStyle}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-            {/* 重点词高亮 CSS 样式定义 */}
-            <CodeField
-              size="small"
-              label={i18n("highlight_style")}
-              name="highlightStyle"
-              value={highlightStyle}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-            {/* 译文额外 CSS 样式定义 */}
-            <CodeField
-              size="small"
-              label={i18n("text_ext_style")}
-              name="textExtStyle"
-              value={textExtStyle}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-            {/* 针对翻译元素自身的 CSS 样式定义 */}
-            <CodeField
-              size="small"
-              label={i18n("selector_style")}
-              name="selectStyle"
-              value={selectStyle}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-            {/* 针对翻译元素直接父级的 CSS 样式定义 */}
-            <CodeField
-              size="small"
-              label={i18n("selector_parent_style")}
-              name="parentStyle"
-              value={parentStyle}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-            {/* 针对翻译元素祖父级的 CSS 样式定义 */}
-            <CodeField
-              size="small"
-              label={i18n("selector_grand_style")}
-              name="grandStyle"
-              value={grandStyle}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
+              {/* 术语高亮 CSS 样式定义 */}
+              <CodeField
+                size="small"
+                label={i18n("terms_style")}
+                name="termsStyle"
+                value={termsStyle}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+              {/* 重点词高亮 CSS 样式定义 */}
+              <CodeField
+                size="small"
+                label={i18n("highlight_style")}
+                name="highlightStyle"
+                value={highlightStyle}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+              {/* 译文额外 CSS 样式定义 */}
+              <CodeField
+                size="small"
+                label={i18n("text_ext_style")}
+                name="textExtStyle"
+                value={textExtStyle}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+              {/* 针对翻译元素自身的 CSS 样式定义 */}
+              <CodeField
+                size="small"
+                label={i18n("selector_style")}
+                name="selectStyle"
+                value={selectStyle}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+              {/* 针对翻译元素直接父级的 CSS 样式定义 */}
+              <CodeField
+                size="small"
+                label={i18n("selector_parent_style")}
+                name="parentStyle"
+                value={parentStyle}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+              {/* 针对翻译元素祖父级的 CSS 样式定义 */}
+              <CodeField
+                size="small"
+                label={i18n("selector_grand_style")}
+                name="grandStyle"
+                value={grandStyle}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
 
-            {/* 翻译开始回调脚本配置 */}
-            <CodeField
-              size="small"
-              label={i18n("translate_start_hook")}
-              helperText={i18n("translate_start_hook_helper")}
-              name="transStartHook"
-              value={transStartHook}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-            {/* 翻译结束回调脚本配置 */}
-            <CodeField
-              size="small"
-              label={i18n("translate_end_hook")}
-              helperText={i18n("translate_end_hook_helper")}
-              name="transEndHook"
-              value={transEndHook}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
+              {/* 翻译开始回调脚本配置 */}
+              <CodeField
+                size="small"
+                label={i18n("translate_start_hook")}
+                helperText={i18n("translate_start_hook_helper")}
+                name="transStartHook"
+                value={transStartHook}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+              {/* 翻译结束回调脚本配置 */}
+              <CodeField
+                size="small"
+                label={i18n("translate_end_hook")}
+                helperText={i18n("translate_end_hook_helper")}
+                name="transEndHook"
+                value={transEndHook}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
 
-            {/* 页面注入的 CSS 样式代码 */}
-            <CodeField
-              size="small"
-              label={i18n("inject_css")}
-              helperText={i18n("inject_css_helper")}
-              name="injectCss"
-              value={injectCss}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-            {/* 页面注入的 JS 脚本代码 */}
-            <CodeField
-              size="small"
-              label={i18n("inject_js")}
-              helperText={i18n("inject_js_helper")}
-              name="injectJs"
-              value={injectJs}
-              disabled={disabled}
-              onChange={handleChange}
-              maxRows={10}
-            />
-          </>
+              {/* 页面注入的 CSS 样式代码 */}
+              <CodeField
+                size="small"
+                label={i18n("inject_css")}
+                helperText={i18n("inject_css_helper")}
+                name="injectCss"
+                value={injectCss}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+              {/* 页面注入的 JS 脚本代码 */}
+              <CodeField
+                size="small"
+                label={i18n("inject_js")}
+                helperText={i18n("inject_js_helper")}
+                name="injectJs"
+                value={injectJs}
+                disabled={disabled}
+                onChange={handleChange}
+                maxRows={10}
+              />
+            </Stack>
+          </RuleSection>
         )}
 
         {/* 规则保存/编辑/删除控制按钮区域 */}
-        {rules &&
-          (editMode ? (
-            // 编辑已有规则模式
-            <Stack direction="row" spacing={2}>
-              {disabled ? (
-                <>
-                  {/* 点击开启表单编辑 */}
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDisabled(false);
-                    }}
-                    startIcon={<EditIcon />}
-                  >
-                    {i18n("edit")}
-                  </Button>
-                  {/* 全局默认规则（'*'）不允许删除 */}
-                  {rule?.pattern !== "*" && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        rules.del(rule.pattern);
-                      }}
-                      startIcon={<DeleteIcon />}
-                    >
-                      {i18n("delete")}
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* 保存编辑修改 */}
-                  <Button
-                    size="small"
-                    variant="contained"
-                    type="submit"
-                    startIcon={<SaveIcon />}
-                    disabled={!isModified}
-                  >
-                    {i18n("save")}
-                  </Button>
-                  {/* 取消并撤销更改 */}
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={handleCancel}
-                    startIcon={<CancelIcon />}
-                  >
-                    {i18n("cancel")}
-                  </Button>
-                  {/* 恢复至系统预置规则配置 */}
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={handleRestore}
-                  >
-                    {i18n("restore_default")}
-                  </Button>
-                </>
-              )}
-              {/* 高级选项折叠展示开关 */}
-              <ShowMoreButton showMore={showMore} onChange={setShowMore} />
-            </Stack>
-          ) : (
-            // 新建添加规则模式
-            <Stack direction="row" spacing={2}>
-              {/* 新增规则保存 */}
-              <Button
-                size="small"
-                variant="contained"
-                type="submit"
-                startIcon={<SaveIcon />}
-              >
-                {i18n("save")}
-              </Button>
-              {/* 新增规则取消 */}
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={handleCancel}
-                startIcon={<CancelIcon />}
-              >
-                {i18n("cancel")}
-              </Button>
-              {/* 高级选项折叠展示开关 */}
-              <ShowMoreButton showMore={showMore} onChange={setShowMore} />
-            </Stack>
-          ))}
+        {renderActions()}
       </Stack>
     </form>
   );
 }
 
 // 规则折叠面板组件，用于展示和启用/禁用单个规则
-function RuleAccordion({ rule, rules, sourceUrl, isExpanded = false }) {
+function RuleAccordion({
+  rule,
+  rules,
+  sourceUrl,
+  isExpanded = false,
+  onDirtyChange,
+  onRequestDiscard,
+  onNavigateToService,
+}) {
   const i18n = useI18n();
   // 面板展开状态
   const [expanded, setExpanded] = useState(isExpanded);
+  const [isDirty, setIsDirty] = useState(false);
   const isPersonalRule = !!rules && rule.pattern !== GLOBAL_KEY;
   const isSubRule = !rules;
   const isRuleEnabled = isPersonalRule ? rule.enabled !== false : true;
@@ -908,6 +1168,7 @@ function RuleAccordion({ rule, rules, sourceUrl, isExpanded = false }) {
   // 用户是否手动禁用了该订阅规则
   const [disabledByUser, setDisabledByUser] = useState(false);
   const alert = useAlert();
+  const dirtyKey = `rule:${rule.pattern}`;
 
   // 若为订阅规则（rules 不存在且 sourceUrl 存在），则在初始化时从存储中读取该 pattern 的启用/禁用状态
   useEffect(() => {
@@ -926,9 +1187,25 @@ function RuleAccordion({ rule, rules, sourceUrl, isExpanded = false }) {
   }, [rule, rules, sourceUrl]);
 
   // 面板展开/折叠切换
-  const handleChange = (e) => {
+  const handleChange = async () => {
+    if (
+      expanded &&
+      isDirty &&
+      onRequestDiscard &&
+      !(await onRequestDiscard())
+    ) {
+      return;
+    }
     setExpanded((pre) => !pre);
   };
+
+  const handleDirtyChange = useCallback(
+    (key, dirty) => {
+      setIsDirty(dirty);
+      onDirtyChange?.(key, dirty);
+    },
+    [onDirtyChange]
+  );
 
   const stopSummaryToggle = (e) => {
     e.stopPropagation();
@@ -961,8 +1238,18 @@ function RuleAccordion({ rule, rules, sourceUrl, isExpanded = false }) {
               }}
               onPointerDown={stopSummaryToggle}
               onClick={stopSummaryToggle}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const enabled = e.target.checked;
+                if (
+                  isDirty &&
+                  onRequestDiscard &&
+                  !(await onRequestDiscard())
+                ) {
+                  return;
+                }
+
+                setIsDirty(false);
+                onDirtyChange?.(dirtyKey, false);
                 rules.put(rule.pattern, { enabled });
                 alert.success(i18n(enabled ? "rule_enabled" : "rule_disabled"));
               }}
@@ -1011,7 +1298,15 @@ function RuleAccordion({ rule, rules, sourceUrl, isExpanded = false }) {
         </Stack>
       </AccordionSummary>
       <AccordionDetails>
-        {expanded && <RuleFields rule={rule} rules={rules} />}
+        {expanded && (
+          <RuleFields
+            rule={rule}
+            rules={rules}
+            dirtyKey={dirtyKey}
+            onDirtyChange={handleDirtyChange}
+            onNavigateToService={onNavigateToService}
+          />
+        )}
       </AccordionDetails>
     </Accordion>
   );
@@ -1068,7 +1363,14 @@ function ShareButton({ rules, injectRules, selectedUrl }) {
 }
 
 // 个人自定义规则面板组件
-function UserRules({ subRules, rules }) {
+function UserRules({
+  subRules,
+  rules,
+  onDirtyChange,
+  onRequestDiscard,
+  onConfirmDiscardChanges,
+  onNavigateToService,
+}) {
   const i18n = useI18n();
   // 控制是否显示“添加新规则”的表单面板
   const [showAdd, setShowAdd] = useState(false);
@@ -1086,6 +1388,10 @@ function UserRules({ subRules, rules }) {
 
   // 规则备份文件导入
   const handleImport = async (data) => {
+    if (onConfirmDiscardChanges && !(await onConfirmDiscardChanges())) {
+      return;
+    }
+
     try {
       await rules.merge(JSON.parse(data));
     } catch (err) {
@@ -1102,6 +1408,10 @@ function UserRules({ subRules, rules }) {
 
   // 清空所有自定义规则
   const handleClearAll = async () => {
+    if (onConfirmDiscardChanges && !(await onConfirmDiscardChanges())) {
+      return;
+    }
+
     const isConfirmed = await confirm({
       confirmText: i18n("confirm_title"),
       cancelText: i18n("cancel"),
@@ -1190,6 +1500,9 @@ function UserRules({ subRules, rules }) {
           rules={rules}
           setShow={setShowAdd}
           setKeyword={setKeyword}
+          dirtyKey="rule:new"
+          onDirtyChange={onDirtyChange}
+          onNavigateToService={onNavigateToService}
         />
       )}
 
@@ -1202,7 +1515,14 @@ function UserRules({ subRules, rules }) {
               (rule.pattern.includes(keyword) || keyword.includes(rule.pattern))
           )
           .map((rule) => (
-            <RuleAccordion key={rule.pattern} rule={rule} rules={rules} />
+            <RuleAccordion
+              key={rule.pattern}
+              rule={rule}
+              rules={rules}
+              onDirtyChange={onDirtyChange}
+              onRequestDiscard={onRequestDiscard}
+              onNavigateToService={onNavigateToService}
+            />
           ))}
       </Box>
 
@@ -1516,10 +1836,15 @@ function SubRules({ subRules }) {
 }
 
 // 全局默认规则面板组件（单独将 pattern 为 "*" 的规则抽出来，作为第一标签页展示）
-function GlobalRule({ rules }) {
-  // 从自定义规则列表的末尾提取全局默认规则 '*'
+function GlobalRule({
+  rules,
+  onDirtyChange,
+  onRequestDiscard,
+  onNavigateToService,
+}) {
+  // 全局规则以 pattern="*" 为稳定标识，不能依赖导入或排序后的数组位置。
   const globalRule = useMemo(
-    () => rules.list[rules.list.length - 1],
+    () => rules.list.find((rule) => rule.pattern === GLOBAL_KEY),
     [rules.list]
   );
 
@@ -1535,6 +1860,9 @@ function GlobalRule({ rules }) {
         rule={globalRule}
         rules={rules}
         isExpanded={true} // 默认展开全局规则面板
+        onDirtyChange={onDirtyChange}
+        onRequestDiscard={onRequestDiscard}
+        onNavigateToService={onNavigateToService}
       />
     </Stack>
   );
@@ -1543,44 +1871,148 @@ function GlobalRule({ rules }) {
 // 规则设置中心主入口组件，负责全局规则、自定义规则、订阅规则的三栏式标签切换展示
 export default function Rules() {
   const i18n = useI18n();
+  const outletContext = useOutletContext();
+  const confirm = useConfirm();
   // 当前处于激活状态的标签页索引 (0: 全局规则, 1: 自定义规则, 2: 订阅规则)
   const [activeTab, setActiveTab] = useState(0);
+  const [dirtyRuleKeys, setDirtyRuleKeys] = useState(() => new Set());
   const subRules = useSubRules();
   const rules = useRules();
+  const hasUnsavedChanges = dirtyRuleKeys.size > 0;
+  const tabDescriptions = [
+    i18n(
+      "website_defaults_description",
+      "Default page scope and behavior used when no site-specific rule matches."
+    ),
+    i18n(
+      "site_overrides_description",
+      "Override page scope or behavior for individual websites. Unchanged values inherit the website defaults."
+    ),
+    i18n(
+      "rule_subscriptions_description",
+      "Manage shared rule sources and inspect the website rules they provide."
+    ),
+  ];
 
-  // 标签页切换处理器
-  const handleTabChange = (e, newValue) => {
+  const handleDirtyChange = useCallback((key, dirty) => {
+    if (!key) return;
+
+    setDirtyRuleKeys((previous) => {
+      const next = new Set(previous);
+      if (dirty) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next.size === previous.size &&
+        Array.from(next).every((item) => previous.has(item))
+        ? previous
+        : next;
+    });
+  }, []);
+
+  const requestDiscard = useCallback(
+    () =>
+      confirm({
+        message: i18n(
+          "unsaved_rule_changes",
+          "This rule has unsaved changes. Discard them and continue?"
+        ),
+        confirmText: i18n("discard_changes", "Discard changes"),
+        cancelText: i18n("keep_editing", "Keep editing"),
+      }),
+    [confirm, i18n]
+  );
+
+  const confirmDiscardChanges = useCallback(
+    () => (hasUnsavedChanges ? requestDiscard() : Promise.resolve(true)),
+    [hasUnsavedChanges, requestDiscard]
+  );
+
+  useEffect(() => {
+    const registerNavigationGuard = outletContext?.registerNavigationGuard;
+    if (!registerNavigationGuard) return undefined;
+
+    registerNavigationGuard(hasUnsavedChanges ? confirmDiscardChanges : null);
+    return () => registerNavigationGuard(null);
+  }, [confirmDiscardChanges, hasUnsavedChanges, outletContext]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return undefined;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // 标签页切换会卸载当前表单，因此必须先处理未保存的草稿。
+  const handleTabChange = async (e, newValue) => {
+    if (newValue === activeTab || !(await confirmDiscardChanges())) return;
+
+    setDirtyRuleKeys(new Set());
     setActiveTab(newValue);
   };
 
   return (
     <Box>
       <Stack spacing={3}>
-        {/* 顶部规则警示/说明提示框 */}
-        <Alert severity="info">
-          {i18n("rules_warn_1")}
-          <br />
-          {i18n("rules_warn_2")}
-          <br />
-          {i18n("rules_warn_3")}
-        </Alert>
+        <Typography variant="body1" color="text.secondary">
+          {i18n(
+            "website_translation_rules_intro",
+            "Choose where page translation applies and how translated pages behave. Translation services, credentials, and models are managed separately under Services & models."
+          )}
+        </Typography>
 
         {/* 规则分类选项卡导航 */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Tabs value={activeTab} onChange={handleTabChange}>
-            <Tab label={i18n("global_rule")} />
-            <Tab label={i18n("personal_rules")} />
-            <Tab label={i18n("subscribe_rules")} />
-            {/* <Tab label={i18n("overwrite_subscribe_rules")} /> */}
-          </Tabs>
+        <Box>
+          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+              aria-label={i18n(
+                "website_rule_sections",
+                "Website rule sections"
+              )}
+            >
+              <Tab label={i18n("website_defaults", "Website defaults")} />
+              <Tab label={i18n("site_overrides", "Site overrides")} />
+              <Tab label={i18n("rule_subscriptions", "Rule subscriptions")} />
+              {/* <Tab label={i18n("overwrite_subscribe_rules")} /> */}
+            </Tabs>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+            {tabDescriptions[activeTab]}
+          </Typography>
         </Box>
         {/* 全局默认规则视图 (Tab 0) */}
         <div hidden={activeTab !== 0}>
-          {activeTab === 0 && <GlobalRule rules={rules} />}
+          {activeTab === 0 && (
+            <GlobalRule
+              rules={rules}
+              onDirtyChange={handleDirtyChange}
+              onRequestDiscard={requestDiscard}
+              onNavigateToService={outletContext?.navigateWithGuard}
+            />
+          )}
         </div>
         {/* 个人自定义规则视图 (Tab 1) */}
         <div hidden={activeTab !== 1}>
-          {activeTab === 1 && <UserRules subRules={subRules} rules={rules} />}
+          {activeTab === 1 && (
+            <UserRules
+              subRules={subRules}
+              rules={rules}
+              onDirtyChange={handleDirtyChange}
+              onRequestDiscard={requestDiscard}
+              onConfirmDiscardChanges={confirmDiscardChanges}
+              onNavigateToService={outletContext?.navigateWithGuard}
+            />
+          )}
         </div>
         {/* 外部规则订阅视图 (Tab 2) */}
         <div hidden={activeTab !== 2}>

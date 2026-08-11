@@ -1,4 +1,8 @@
-import { OPT_TRANS_GEMINI } from "../config/api";
+import {
+  OPT_TRANS_CLAUDE,
+  OPT_TRANS_GEMINI,
+  OPT_TRANS_GEMINI_2,
+} from "../config/api";
 
 // 模型列表 URL 中可显式放置该占位符；存在占位符时不会额外注入 Authorization 头。
 const MODEL_KEY_PLACEHOLDER = "{{key}}";
@@ -111,7 +115,8 @@ const appendQueryParam = (url, name, value) => {
  *
  * 鉴权规则：
  * - URL 包含 `{{key}}` 时，将 key 写入 URL，不再添加请求头，兼容特殊服务。
- * - Gemini 原生模型列表使用 `?key=...` 鉴权。
+ * - Gemini 原生模型列表使用 `?key=...` 鉴权，OpenAI 兼容路径仍使用 Bearer。
+ * - Claude 原生模型列表使用 `x-api-key` 和 `anthropic-version`。
  * - 其他接口默认使用 OpenAI 兼容的 `Authorization: Bearer ...`。
  *
  * @param {Object} params 参数对象。
@@ -122,19 +127,27 @@ const appendQueryParam = (url, name, value) => {
  */
 export function createModelListRequest({ apiType, modelListUrl, key }) {
   const trimmedUrl = (modelListUrl || "").trim();
-  const trimmedKey = (key || "").trim();
+  const requestKey = (key || "")
+    .split(/[,\r\n]+/)
+    .map((candidate) => candidate.trim())
+    .find(Boolean);
 
-  // 用户没有同时配置模型列表 URL 和 Key 时，不发起网络请求。
-  if (!trimmedUrl || !trimmedKey) {
+  // 模型列表 URL 是唯一必需配置；Ollama 等本地服务通常不需要鉴权。
+  if (!trimmedUrl) {
     return null;
   }
 
   // 显式占位符优先，允许用户自行决定 key 位于 path、query 或其他自定义位置。
   if (trimmedUrl.includes(MODEL_KEY_PLACEHOLDER)) {
+    // 占位符不能留在实际请求中，因此这种显式鉴权配置仍然要求至少一个 key。
+    if (!requestKey) {
+      return null;
+    }
+
     return {
       input: trimmedUrl.replaceAll(
         MODEL_KEY_PLACEHOLDER,
-        encodeURIComponent(trimmedKey)
+        encodeURIComponent(requestKey)
       ),
       init: {
         method: "GET",
@@ -142,24 +155,68 @@ export function createModelListRequest({ apiType, modelListUrl, key }) {
     };
   }
 
+  let isGoogleNativeModelsUrl = false;
+  let isAnthropicNativeModelsUrl = false;
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    isGoogleNativeModelsUrl =
+      parsedUrl.hostname === "generativelanguage.googleapis.com" &&
+      !parsedUrl.pathname.includes("/openai/");
+    isAnthropicNativeModelsUrl = parsedUrl.hostname === "api.anthropic.com";
+  } catch {
+    // 非标准自定义 URL 不猜测为 Google 原生接口，避免破坏代理的 Bearer 鉴权。
+  }
+  const usesNativeGeminiModelsApi =
+    apiType === OPT_TRANS_GEMINI ||
+    (apiType === OPT_TRANS_GEMINI_2 && isGoogleNativeModelsUrl);
+
   // Google Gemini 原生 REST API 不使用 Bearer header，而是通过 key query 参数鉴权。
-  if (apiType === OPT_TRANS_GEMINI) {
+  if (usesNativeGeminiModelsApi && requestKey) {
     return {
-      input: appendQueryParam(trimmedUrl, "key", trimmedKey),
+      input: appendQueryParam(trimmedUrl, "key", requestKey),
       init: {
         method: "GET",
       },
     };
   }
 
+  // Anthropic 原生 Models API 与消息接口使用相同的版本头和 x-api-key。
+  if (
+    apiType === OPT_TRANS_CLAUDE &&
+    isAnthropicNativeModelsUrl &&
+    requestKey
+  ) {
+    return {
+      input: trimmedUrl,
+      init: {
+        method: "GET",
+        headers: {
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "x-api-key": requestKey,
+        },
+      },
+    };
+  }
+
   // 大多数模型供应商兼容 OpenAI 风格的 Bearer 鉴权。
+  if (requestKey) {
+    return {
+      input: trimmedUrl,
+      init: {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${requestKey}`,
+        },
+      },
+    };
+  }
+
+  // 未配置 key 时保留无鉴权请求，支持 Ollama 等本地或公开模型列表接口。
   return {
     input: trimmedUrl,
     init: {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${trimmedKey}`,
-      },
     },
   };
 }

@@ -7,6 +7,17 @@ import { fetchModelList } from "../../libs/modelList";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 HTMLElement.prototype.scrollTo = jest.fn();
+const mockConfirm = jest.fn();
+const mockWarning = jest.fn();
+const mockRegisterNavigationGuard = jest.fn();
+let mockSetting = {};
+
+jest.mock("react-router-dom", () => ({
+  ...jest.requireActual("react-router-dom"),
+  useOutletContext: () => ({
+    registerNavigationGuard: mockRegisterNavigationGuard,
+  }),
+}));
 
 jest.mock("../../hooks/I18n", () => ({
   useI18n: () => (key, fallback) => fallback || key,
@@ -17,24 +28,52 @@ jest.mock("../../hooks/Api", () => ({
   useApiItem: jest.fn(),
 }));
 
+jest.mock("../../hooks/Rules", () => ({
+  useRules: jest.fn(),
+}));
+
 jest.mock("../../hooks/Prompt", () => ({
-  usePromptList: () => ({ prompts: [] }),
+  usePromptList: () => ({
+    prompts: [
+      {
+        slug: "nobatch-translation",
+        category: "user prompt",
+        name: "Non-batch translation",
+      },
+      {
+        slug: "batch-translation-json",
+        category: "batch system prompt",
+        name: "Batch translation",
+      },
+      {
+        slug: "subtitle-segmentation",
+        category: "subtitle prompt",
+        name: "Subtitle segmentation",
+      },
+      {
+        slug: "dictionary-en-zh",
+        category: "dictionary prompt",
+        name: "Dictionary",
+      },
+    ],
+  }),
 }));
 
 jest.mock("../../hooks/Confirm", () => ({
-  useConfirm: () => jest.fn(),
+  useConfirm: () => mockConfirm,
 }));
 
 jest.mock("../../hooks/Alert", () => ({
   useAlert: () => ({
     success: jest.fn(),
     error: jest.fn(),
+    warning: mockWarning,
   }),
 }));
 
 jest.mock("../../hooks/Setting", () => ({
   useSetting: () => ({
-    setting: { prompts: [], subtitleSetting: {}, uiLang: "zh" },
+    setting: mockSetting,
   }),
 }));
 
@@ -76,6 +115,7 @@ jest.mock("./ReusableAutocomplete", () => {
 });
 
 const { useApiList, useApiItem } = require("../../hooks/Api");
+const { useRules } = require("../../hooks/Rules");
 
 function createApi(overrides = {}) {
   return {
@@ -92,6 +132,16 @@ function createApi(overrides = {}) {
   };
 }
 
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 async function flushEffects() {
   await act(async () => {
     await Promise.resolve();
@@ -99,13 +149,18 @@ async function flushEffects() {
   });
 }
 
-async function renderApis(api = createApi(), update = jest.fn()) {
+async function renderApis(
+  apiOrApis = createApi(),
+  update = jest.fn(),
+  { rulesList } = {}
+) {
+  const apis = Array.isArray(apiOrApis) ? apiOrApis : [apiOrApis];
+  const firstApi = apis[0];
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
 
-  useApiList.mockReturnValue({
-    transApis: [api],
+  const apiListActions = {
     addApi: jest.fn(),
     deleteApi: jest.fn(),
     deleteApis: jest.fn(),
@@ -115,11 +170,35 @@ async function renderApis(api = createApi(), update = jest.fn()) {
     copyApi: jest.fn(),
     alphaSortApis: jest.fn(),
     reorderApis: jest.fn(),
+  };
+  useApiList.mockReturnValue({
+    transApis: apis,
+    ...apiListActions,
   });
-  useApiItem.mockReturnValue({
-    api,
-    update,
-    reset: jest.fn(),
+  useApiItem.mockImplementation((apiSlug) => {
+    const api = apis.find((item) => item.apiSlug === apiSlug);
+    return {
+      api,
+      update,
+      reset: jest.fn(),
+      resetData: api
+        ? {
+            ...createApi(),
+            apiSlug: api.apiSlug,
+            apiName: api.apiName,
+            apiType: api.apiType,
+            key: api.key,
+          }
+        : {},
+    };
+  });
+  const putRule = jest.fn();
+  useRules.mockReturnValue({
+    list:
+      rulesList === undefined
+        ? [{ pattern: "*", apiSlug: firstApi.apiSlug }]
+        : rulesList,
+    put: putRule,
   });
 
   await act(async () => {
@@ -130,6 +209,8 @@ async function renderApis(api = createApi(), update = jest.fn()) {
   return {
     container,
     update,
+    putRule,
+    ...apiListActions,
     unmount: () => {
       act(() => root.unmount());
       container.remove();
@@ -152,6 +233,17 @@ function getSaveButton(container) {
 }
 
 describe("Apis model list", () => {
+  beforeEach(() => {
+    mockConfirm.mockResolvedValue(true);
+    mockSetting = {
+      prompts: [],
+      inputRule: {},
+      tranboxSetting: {},
+      subtitleSetting: {},
+      uiLang: "zh",
+    };
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
     document.body.innerHTML = "";
@@ -184,8 +276,8 @@ describe("Apis model list", () => {
     view.unmount();
   });
 
-  test("does not load model list without url or key", async () => {
-    const view = await renderApis(createApi({ key: "" }));
+  test("does not load model list without a model list url", async () => {
+    const view = await renderApis(createApi({ modelListUrl: "" }));
     const modelInput = getInput(view.container, "model");
 
     await act(async () => {
@@ -194,6 +286,28 @@ describe("Apis model list", () => {
     });
 
     expect(fetchModelList).not.toHaveBeenCalled();
+
+    view.unmount();
+  });
+
+  test("loads a keyless local model list", async () => {
+    fetchModelList.mockResolvedValue(["qwen2.5:7b"]);
+    const view = await renderApis(createApi({ key: "" }));
+    const modelInput = getInput(view.container, "model");
+
+    await act(async () => {
+      Simulate.focus(modelInput);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchModelList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "",
+        modelListUrl: "https://api.openai.com/v1/models",
+      })
+    );
+    expect(modelInput.getAttribute("data-options")).toContain("qwen2.5:7b");
 
     view.unmount();
   });
@@ -221,6 +335,34 @@ describe("Apis model list", () => {
       expect.objectContaining({
         model: "manual-model",
       })
+    );
+
+    view.unmount();
+  });
+
+  test("keeps restore-default changes in the draft until save", async () => {
+    const update = jest.fn();
+    const view = await renderApis(
+      createApi({ model: "custom-before-reset" }),
+      update
+    );
+    const restoreButton = Array.from(
+      view.container.querySelectorAll("button")
+    ).find((button) => button.textContent === "restore_default");
+
+    await act(async () => {
+      Simulate.click(restoreButton);
+    });
+
+    expect(update).not.toHaveBeenCalled();
+    expect(getInput(view.container, "model").value).toBe("gpt-4");
+
+    await act(async () => {
+      Simulate.click(getSaveButton(view.container));
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "gpt-4" })
     );
 
     view.unmount();
@@ -271,6 +413,194 @@ describe("Apis model list", () => {
 
     expect(modelInput.getAttribute("aria-invalid")).toBe("false");
     expect(view.container.textContent).not.toContain("model_list_fetch_failed");
+
+    view.unmount();
+  });
+
+  test("ignores a stale model list response after connection settings change", async () => {
+    const oldRequest = createDeferred();
+    const newRequest = createDeferred();
+    fetchModelList
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise);
+    const view = await renderApis();
+    const modelInput = getInput(view.container, "model");
+    const modelListUrlInput = getInput(view.container, "modelListUrl");
+
+    await act(async () => {
+      Simulate.focus(modelInput);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      Simulate.change(modelListUrlInput, {
+        target: {
+          name: "modelListUrl",
+          value: "http://localhost:11434/api/tags",
+        },
+      });
+    });
+
+    const refreshButton = Array.from(
+      view.container.querySelectorAll("button")
+    ).find((button) => button.textContent === "Refresh models");
+    await act(async () => {
+      Simulate.click(refreshButton);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      newRequest.resolve(["local-model"]);
+      await newRequest.promise;
+    });
+    expect(modelInput.getAttribute("data-options")).toContain("local-model");
+
+    await act(async () => {
+      oldRequest.resolve(["stale-cloud-model"]);
+      await oldRequest.promise;
+    });
+    expect(modelInput.getAttribute("data-options")).toContain("local-model");
+    expect(modelInput.getAttribute("data-options")).not.toContain(
+      "stale-cloud-model"
+    );
+
+    view.unmount();
+  });
+
+  test("changes the default page service through the services page", async () => {
+    const firstApi = createApi();
+    const secondApi = createApi({
+      apiSlug: "OpenAI-second",
+      apiName: "OpenAI second",
+      model: "gpt-4.1",
+    });
+    const view = await renderApis([firstApi, secondApi]);
+    const defaultServiceInput = getInput(view.container, "defaultApiSlug");
+
+    await act(async () => {
+      Simulate.change(defaultServiceInput, {
+        target: { name: "defaultApiSlug", value: secondApi.apiSlug },
+      });
+      await Promise.resolve();
+    });
+
+    expect(view.putRule).toHaveBeenCalledWith("*", {
+      apiSlug: secondApi.apiSlug,
+    });
+
+    view.unmount();
+  });
+
+  test("does not discard an edited service when switching is cancelled", async () => {
+    const firstApi = createApi();
+    const secondApi = createApi({
+      apiSlug: "OpenAI-second",
+      apiName: "OpenAI second",
+      model: "gpt-4.1",
+    });
+    const view = await renderApis([firstApi, secondApi]);
+    const modelInput = getInput(view.container, "model");
+
+    await act(async () => {
+      Simulate.change(modelInput, {
+        target: { name: "model", value: "unsaved-model" },
+      });
+    });
+    await flushEffects();
+
+    const secondServiceButton = view.container.querySelector(
+      `[data-api-slug="${secondApi.apiSlug}"]`
+    );
+    mockConfirm.mockResolvedValueOnce(false);
+
+    await act(async () => {
+      Simulate.click(secondServiceButton);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockConfirm).toHaveBeenCalled();
+    expect(getInput(view.container, "model").value).toBe("unsaved-model");
+
+    view.unmount();
+  });
+
+  test("registers a route guard while a service draft is dirty", async () => {
+    const view = await renderApis();
+
+    await act(async () => {
+      Simulate.change(getInput(view.container, "model"), {
+        target: { name: "model", value: "unsaved-model" },
+      });
+    });
+    await flushEffects();
+
+    const guard = mockRegisterNavigationGuard.mock.calls
+      .map(([candidate]) => candidate)
+      .findLast((candidate) => typeof candidate === "function");
+    expect(guard).toEqual(expect.any(Function));
+
+    mockConfirm.mockResolvedValueOnce(false);
+    await expect(guard()).resolves.toBe(false);
+    expect(mockConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("unsaved") })
+    );
+
+    view.unmount();
+  });
+
+  test("blocks deleting a service that is referenced by website rules", async () => {
+    const view = await renderApis();
+    const deleteButton = Array.from(
+      view.container.querySelectorAll("button")
+    ).find((button) => button.textContent === "delete");
+
+    await act(async () => {
+      Simulate.click(deleteButton);
+    });
+
+    expect(mockWarning).toHaveBeenCalledWith(
+      expect.stringContaining("Website defaults")
+    );
+    expect(view.deleteApi).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+
+    view.unmount();
+  });
+
+  test("blocks deleting a service referenced outside website rules", async () => {
+    mockSetting = {
+      ...mockSetting,
+      inputRule: { apiSlug: "OpenAI" },
+      tranboxSetting: {
+        apiSlugs: ["OpenAI"],
+        aiDictApiSlug: "OpenAI",
+      },
+      subtitleSetting: {
+        apiSlug: "OpenAI",
+        segSlug: "OpenAI",
+        aiContextSlug: "OpenAI",
+      },
+    };
+    const view = await renderApis(createApi(), jest.fn(), { rulesList: [] });
+    const deleteButton = Array.from(
+      view.container.querySelectorAll("button")
+    ).find((button) => button.textContent === "delete");
+
+    await act(async () => {
+      Simulate.click(deleteButton);
+    });
+
+    expect(mockWarning).toHaveBeenCalledWith(
+      expect.stringContaining("Input translation")
+    );
+    expect(mockWarning).toHaveBeenCalledWith(
+      expect.stringContaining("Selection translation")
+    );
+    expect(mockWarning).toHaveBeenCalledWith(
+      expect.stringContaining("Video subtitles")
+    );
+    expect(view.deleteApi).not.toHaveBeenCalled();
 
     view.unmount();
   });

@@ -1,128 +1,149 @@
+import Box from "@mui/material/Box";
+import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import ListSubheader from "@mui/material/ListSubheader";
 import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import { NavLink, useMatch } from "react-router-dom";
-import SettingsIcon from "@mui/icons-material/Settings";
-import InfoIcon from "@mui/icons-material/Info";
-import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import { useI18n } from "../../hooks/I18n";
-import SyncIcon from "@mui/icons-material/Sync";
-import ApiIcon from "@mui/icons-material/Api";
-import InputIcon from "@mui/icons-material/Input";
-import SelectAllIcon from "@mui/icons-material/SelectAll";
-import EventNoteIcon from "@mui/icons-material/EventNote";
-import MouseIcon from "@mui/icons-material/Mouse";
-import SubtitlesIcon from "@mui/icons-material/Subtitles";
-import FormatColorText from "@mui/icons-material/FormatColorText";
-import BugReportIcon from "@mui/icons-material/BugReport";
-import TextSnippetIcon from "@mui/icons-material/TextSnippet";
+import { getSettingsNavigation } from "./settingsNavigation";
 
-/**
- * 单个侧边栏路由导航菜单项组件
- */
-function LinkItem({ label, url, icon }) {
-  // 检查当前 URL 路由是否与该菜单项匹配，匹配的会被激活高亮显示
-  const match = useMatch(url);
+function LinkItem({ item, onNavigate }) {
+  const match = useMatch({ path: item.url, end: item.url === "/" });
+  const Icon = item.icon;
+  const handleClick = (event) => {
+    if (
+      !onNavigate ||
+      match ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    void onNavigate(item.url);
+  };
+
   return (
-    <ListItemButton component={NavLink} to={url} selected={!!match}>
-      <ListItemIcon>{icon}</ListItemIcon>
-      <ListItemText>{label}</ListItemText>
+    <ListItemButton
+      component={NavLink}
+      to={item.url}
+      selected={!!match}
+      onClick={handleClick}
+      sx={(theme) => ({
+        mx: 1.25,
+        mb: 0.4,
+        minHeight: 42,
+        borderRadius: 2,
+        color: "text.secondary",
+        "& .MuiListItemIcon-root": {
+          color: "text.secondary",
+        },
+        "&.Mui-selected": {
+          color: "primary.main",
+          backgroundColor: alpha(theme.palette.primary.main, 0.11),
+          "& .MuiListItemIcon-root": {
+            color: "primary.main",
+          },
+          "&:hover": {
+            backgroundColor: alpha(theme.palette.primary.main, 0.16),
+          },
+        },
+      })}
+    >
+      <ListItemIcon sx={{ minWidth: 36 }}>
+        <Icon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText
+        primary={item.title}
+        primaryTypographyProps={{
+          variant: "body2",
+          fontWeight: match ? 700 : 560,
+          lineHeight: 1.3,
+        }}
+      />
     </ListItemButton>
   );
 }
 
-/**
- * 侧边栏导航列表栏组件 (Navigator)
- */
-export default function Navigator(props) {
+export default function Navigator({
+  drawerWidth = 272,
+  PaperProps,
+  onNavigate,
+  ...props
+}) {
   const i18n = useI18n();
-  // 选项设置页的菜单列表项配置
-  const memus = [
-    {
-      id: "basic_setting",
-      label: i18n("basic_setting"),
-      url: "/",
-      icon: <SettingsIcon />,
-    },
-    {
-      id: "rules_setting",
-      label: i18n("rules_setting"),
-      url: "/rules",
-      icon: <DesignServicesIcon />,
-    },
-    {
-      id: "apis_setting",
-      label: i18n("apis_setting"),
-      url: "/apis",
-      icon: <ApiIcon />,
-    },
-    {
-      id: "prompt_management",
-      label: i18n("prompt_management", "提示词管理"),
-      url: "/prompts",
-      icon: <TextSnippetIcon />,
-    },
-    {
-      id: "styles_setting",
-      label: i18n("styles_setting"),
-      url: "/styles",
-      icon: <FormatColorText />,
-    },
-    {
-      id: "sync",
-      label: i18n("sync_setting"),
-      url: "/sync",
-      icon: <SyncIcon />,
-    },
-    {
-      id: "input_translate",
-      label: i18n("input_translate"),
-      url: "/input",
-      icon: <InputIcon />,
-    },
-    {
-      id: "selection_translate",
-      label: i18n("selection_translate"),
-      url: "/tranbox",
-      icon: <SelectAllIcon />,
-    },
-    {
-      id: "mousehover_translate",
-      label: i18n("mousehover_translate"),
-      url: "/mousehover",
-      icon: <MouseIcon />,
-    },
-    {
-      id: "subtitle_translate",
-      label: i18n("subtitle_translate"),
-      url: "/subtitle",
-      icon: <SubtitlesIcon />,
-    },
-    {
-      id: "words",
-      label: i18n("favorite_words"),
-      url: "/words",
-      icon: <EventNoteIcon />,
-    },
-    {
-      id: "playground",
-      label: "Playground",
-      url: "/playground",
-      icon: <BugReportIcon />,
-    },
-    { id: "about", label: i18n("about"), url: "/about", icon: <InfoIcon /> },
-  ];
+  const groups = getSettingsNavigation(i18n);
+
   return (
-    <Drawer {...props}>
-      <Toolbar variant="dense" />
-      <List component="nav">
-        {memus.map(({ id, label, url, icon }) => (
-          <LinkItem key={id} label={label} url={url} icon={icon} />
+    <Drawer
+      {...props}
+      PaperProps={{
+        ...PaperProps,
+        sx: (theme) => ({
+          width: drawerWidth,
+          boxSizing: "border-box",
+          borderRightColor: alpha(theme.palette.divider, 0.82),
+          backgroundColor:
+            theme.palette.mode === "dark"
+              ? alpha(theme.palette.background.paper, 0.96)
+              : "#fbfcfe",
+          backgroundImage: "none",
+        }),
+      }}
+    >
+      <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
+      <Box
+        component="nav"
+        aria-label={i18n("settings_navigation", "Settings navigation")}
+        sx={{ flex: 1, minHeight: 0, overflowY: "auto", py: 1 }}
+      >
+        {groups.map((group, index) => (
+          <List
+            key={group.id}
+            disablePadding
+            subheader={
+              <ListSubheader
+                component="div"
+                disableSticky
+                sx={{
+                  px: 2.5,
+                  pt: index === 0 ? 0.5 : 1.25,
+                  pb: 0.65,
+                  color: "text.disabled",
+                  bgcolor: "transparent",
+                  fontSize: "0.69rem",
+                  fontWeight: 760,
+                  lineHeight: 1.5,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {group.label}
+              </ListSubheader>
+            }
+          >
+            {group.items.map((item) => (
+              <LinkItem key={item.id} item={item} onNavigate={onNavigate} />
+            ))}
+          </List>
         ))}
-      </List>
+      </Box>
+      <Divider />
+      <Box sx={{ px: 2.5, py: 1.5 }}>
+        <Typography variant="caption" color="text.disabled">
+          {`KISS Translator v${process.env.REACT_APP_VERSION}`}
+        </Typography>
+      </Box>
     </Drawer>
   );
 }

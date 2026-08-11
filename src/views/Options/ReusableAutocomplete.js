@@ -10,12 +10,14 @@ import TextField from "@mui/material/TextField";
  * @param {any} props.value - 受控组件的当前值
  * @param {function} props.onChange - 值改变时的回调函数 (event) => {}
  * @param {Array} props.options - Autocomplete 的选项列表
+ * @param {boolean} props.commitOnInputChange - 是否在自由输入时立即同步外部值
  */
 export default function ReusableAutocomplete({
   name,
   label,
   value,
   onChange,
+  commitOnInputChange = false,
   textFieldProps = {},
   ...rest
 }) {
@@ -62,9 +64,12 @@ export default function ReusableAutocomplete({
   };
 
   // 输入框文字内容变化时的处理
-  const handleInputChange = (event, newInputValue) => {
+  const handleInputChange = (event, newInputValue, reason) => {
     isChangeCommitted.current = false;
     setInputValue(newInputValue);
+    if (commitOnInputChange && reason === "input" && newInputValue !== value) {
+      triggerOnChange(newInputValue);
+    }
   };
 
   return (

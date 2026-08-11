@@ -1,92 +1,223 @@
-import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import CssBaseline from "@mui/material/CssBaseline";
-import Box from "@mui/material/Box";
-import Navigator from "./Navigator";
-import Header from "./Header";
-import { useTheme } from "@mui/material/styles";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Outlet, useBlocker, useLocation, useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import CssBaseline from "@mui/material/CssBaseline";
 import Link from "@mui/material/Link";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { alpha, useTheme } from "@mui/material/styles";
 import { useI18n } from "../../hooks/I18n";
+import Header from "./Header";
+import Navigator from "./Navigator";
+import { SettingsPageHeader } from "./SettingsSurface";
+import { getSettingsPageMeta } from "./settingsNavigation";
 
-/**
- * 设置中心后台页面的通风格子骨架布局组件 (Layout)
- */
+const NAV_WIDTH = 272;
+
 export default function Layout() {
-  const navWidth = 256; // 左侧 Navigator 导航宽度为 256px
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
-  // 移动端下控制临时侧边导航栏抽屉的展开状态
-  const [open, setOpen] = useState(false);
-  // 匹配屏幕宽度大于等于 sm 的桌面设备环境
-  const isSm = useMediaQuery(theme.breakpoints.up("sm"));
-
   const i18n = useI18n();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
+  const [open, setOpen] = useState(false);
   const [latestVersion, setLatestVersion] = useState("");
+  const navigationGuardRef = useRef(null);
+  const pendingNavigationDecisionRef = useRef(null);
+  const shouldBlockNavigation = useCallback(
+    ({ currentLocation, nextLocation }) => {
+      const registeredGuard = navigationGuardRef.current;
+      const changesLocation =
+        currentLocation.pathname !== nextLocation.pathname ||
+        currentLocation.search !== nextLocation.search ||
+        currentLocation.hash !== nextLocation.hash;
+      if (!registeredGuard || !changesLocation) return false;
+
+      // Start the custom confirmation during the navigation callback. A POP
+      // can change the address bar before a passive effect runs, while the
+      // form must remain mounted until the user decides what to do.
+      if (!pendingNavigationDecisionRef.current) {
+        let decision;
+        try {
+          decision = Promise.resolve(registeredGuard.confirm());
+        } catch {
+          decision = Promise.resolve(false);
+        }
+        pendingNavigationDecisionRef.current = {
+          currentLocation,
+          nextLocation,
+          decision,
+        };
+      }
+
+      return true;
+    },
+    []
+  );
+  const blocker = useBlocker(shouldBlockNavigation);
+  const blockerRef = useRef(blocker);
+  blockerRef.current = blocker;
+  const pageMeta = getSettingsPageMeta(location.pathname, i18n);
+  const registerNavigationGuard = useCallback((guard) => {
+    navigationGuardRef.current =
+      typeof guard === "function" ? { confirm: guard } : null;
+  }, []);
+  const handleNavigate = useCallback(
+    async (path) => {
+      const registeredGuard = navigationGuardRef.current;
+      if (registeredGuard && !(await registeredGuard.confirm())) {
+        return;
+      }
+
+      navigationGuardRef.current = null;
+      navigate(path);
+    },
+    [navigate]
+  );
+  const outletContext = useMemo(
+    () => ({ registerNavigationGuard, navigateWithGuard: handleNavigate }),
+    [handleNavigate, registerNavigationGuard]
+  );
 
   useEffect(() => {
+    if (blocker.state !== "blocked") return undefined;
+
+    const pendingNavigation = pendingNavigationDecisionRef.current;
+    if (!pendingNavigation) {
+      blocker.reset();
+      return undefined;
+    }
+
+    pendingNavigation.decision
+      .then((shouldProceed) => {
+        if (pendingNavigationDecisionRef.current !== pendingNavigation) return;
+
+        pendingNavigationDecisionRef.current = null;
+        const currentBlocker = blockerRef.current;
+
+        if (shouldProceed) {
+          navigationGuardRef.current = null;
+          if (currentBlocker.state === "blocked") {
+            currentBlocker.proceed();
+          } else {
+            const { pathname, search, hash } = pendingNavigation.nextLocation;
+            navigate(`${pathname}${search}${hash}`);
+          }
+        } else {
+          if (currentBlocker.state === "blocked") {
+            currentBlocker.reset();
+          }
+
+          const { pathname, search, hash } = pendingNavigation.currentLocation;
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `#${pathname}${search}${hash}`
+          );
+        }
+      })
+      .catch(() => {
+        if (pendingNavigationDecisionRef.current !== pendingNavigation) return;
+        pendingNavigationDecisionRef.current = null;
+        if (blockerRef.current.state === "blocked") {
+          blockerRef.current.reset();
+        }
+      });
+
+    return undefined;
+  }, [blocker, navigate]);
+
+  useEffect(() => {
+    let active = true;
+
     fetch(`${process.env.REACT_APP_VERSION_URL}?t=${Date.now()}`)
       .then((res) => res.text())
       .then((text) => {
-        const lv = text.trim();
+        if (!active) return;
+
+        const nextVersion = text.trim();
         const currentVersion = process.env.REACT_APP_VERSION;
-        if (lv && currentVersion && lv !== currentVersion) {
-          setLatestVersion(lv);
+        if (nextVersion && currentVersion && nextVersion !== currentVersion) {
+          setLatestVersion(nextVersion);
         }
       })
       .catch((err) => console.error("fetch version error:", err));
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // 展开或收起侧边栏
-  const handleDrawerToggle = () => {
-    setOpen(!open);
-  };
-
-  // 路由/导航路径一旦发生变化，立即关闭侧边栏 (主要适配移动端体验)
   useEffect(() => {
     setOpen(false);
-  }, [location]);
+  }, [location.pathname]);
 
   return (
-    <Box>
-      {/* 浏览器默认样式归一化 */}
+    <Box
+      sx={(currentTheme) => ({
+        minHeight: "100vh",
+        "@supports (height: 100dvh)": {
+          minHeight: "100dvh",
+        },
+        backgroundColor:
+          currentTheme.palette.mode === "dark"
+            ? "#0b1016"
+            : alpha(currentTheme.palette.primary.main, 0.025),
+      })}
+    >
       <CssBaseline />
-      {/* 设置页公共导航头部 */}
-      <Header onDrawerToggle={handleDrawerToggle} />
+      <Header onDrawerToggle={() => setOpen((value) => !value)} />
 
       <Box sx={{ display: "flex" }}>
-        {/* 左侧导航栏容器 */}
         <Box
           component="nav"
-          sx={{ width: { sm: navWidth }, flexShrink: { sm: 0 } }}
+          sx={{ width: { md: NAV_WIDTH }, flexShrink: { md: 0 } }}
         >
-          {/* 在大屏下是常驻固定栏 (permanent)，在小屏下为弹出临时抽屉 (temporary) */}
           <Navigator
-            PaperProps={{ style: { width: navWidth } }}
-            variant={isSm ? "permanent" : "temporary"}
-            open={isSm ? true : open}
-            onClose={handleDrawerToggle}
+            drawerWidth={NAV_WIDTH}
+            variant={isDesktop ? "permanent" : "temporary"}
+            open={isDesktop || open}
+            onClose={() => setOpen(false)}
+            onNavigate={handleNavigate}
+            ModalProps={{ keepMounted: true }}
           />
         </Box>
 
-        {/* 右侧主设置面板内容渲染区域 (使用 react-router-dom 的 Outlet 渲染子路由) */}
-        <Box component="main" sx={{ flex: 1, p: 2, width: "100%" }}>
-          {latestVersion && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {i18n("version_warning")
-                .replace("{0}", process.env.REACT_APP_VERSION)
-                .replace("{1}", latestVersion)}
-              <Link
-                href={process.env.REACT_APP_RELEASES_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {i18n("download_update")}
-              </Link>
-            </Alert>
-          )}
-          <Outlet />
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: { xs: "calc(100dvh - 56px)", sm: "calc(100dvh - 64px)" },
+            px: { xs: 2, sm: 3, lg: 4 },
+            py: { xs: 2.5, sm: 3, lg: 4 },
+          }}
+        >
+          <Box sx={{ width: "100%", maxWidth: 1360, mx: "auto" }}>
+            <SettingsPageHeader
+              eyebrow={pageMeta.groupLabel}
+              title={pageMeta.title}
+              description={pageMeta.description}
+            />
+
+            {latestVersion && (
+              <Alert severity="warning" variant="outlined" sx={{ mb: 3 }}>
+                {i18n("version_warning")
+                  .replace("{0}", process.env.REACT_APP_VERSION)
+                  .replace("{1}", latestVersion)}{" "}
+                <Link
+                  href={process.env.REACT_APP_RELEASES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ fontWeight: 700 }}
+                >
+                  {i18n("download_update")}
+                </Link>
+              </Alert>
+            )}
+
+            <Outlet context={outletContext} />
+          </Box>
         </Box>
       </Box>
     </Box>

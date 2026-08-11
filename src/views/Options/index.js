@@ -1,4 +1,4 @@
-import { Routes, Route, HashRouter } from "react-router-dom";
+import { createHashRouter, RouterProvider } from "react-router-dom";
 import About from "./About";
 import Rules from "./Rules";
 import Setting from "./Setting";
@@ -6,7 +6,7 @@ import Layout from "./Layout";
 import SyncSetting from "./SyncSetting";
 import { SettingProvider } from "../../hooks/Setting";
 import ThemeProvider from "../../hooks/Theme";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isGm } from "../../libs/client";
 import { sleep } from "../../libs/utils";
 import { trySyncRules, trySyncSetting, trySyncWords } from "../../libs/sync";
@@ -30,20 +30,40 @@ import Backdrop from "@mui/material/Backdrop";
 import CircularProgress from "@mui/material/CircularProgress";
 import { kissLog } from "../../libs/log";
 import { runDataMigration } from "../../libs/storage";
+import { OPTIONS_THEME_OPTIONS } from "./optionsTheme";
 
 const getOptionsStartupSyncTasks = () => {
-  const hashPath = window.location.hash.replace(/^#/, "") || "/";
+  const hashPath =
+    (window.location.hash.replace(/^#/, "") || "/").split("?")[0] || "/";
   if (hashPath === "/rules" || hashPath.startsWith("/rules/")) {
     return {
-      requiredSync: trySyncRules,
-      backgroundSyncs: [trySyncSetting, trySyncWords],
+      requiredSync: async () => {
+        await trySyncSetting();
+        await trySyncRules();
+      },
+      backgroundSyncs: [trySyncWords],
     };
   }
 
   if (hashPath === "/words" || hashPath.startsWith("/words/")) {
     return {
-      requiredSync: trySyncWords,
-      backgroundSyncs: [trySyncSetting, trySyncRules],
+      requiredSync: async () => {
+        await trySyncSetting();
+        await trySyncWords();
+      },
+      backgroundSyncs: [trySyncRules],
+    };
+  }
+
+  if (hashPath === "/apis" || hashPath.startsWith("/apis/")) {
+    return {
+      requiredSync: async () => {
+        // Both sync paths update the shared sync metadata; run them in sequence
+        // so their read-modify-write cycles cannot overwrite one another.
+        await trySyncSetting();
+        await trySyncRules();
+      },
+      backgroundSyncs: [trySyncWords],
     };
   }
 
@@ -52,6 +72,38 @@ const getOptionsStartupSyncTasks = () => {
     backgroundSyncs: [trySyncRules, trySyncWords],
   };
 };
+
+function OptionsRouter() {
+  const router = useMemo(
+    () =>
+      createHashRouter([
+        {
+          path: "/",
+          element: <Layout />,
+          children: [
+            { index: true, element: <Setting /> },
+            { path: "rules", element: <Rules /> },
+            { path: "styles", element: <StylesSetting /> },
+            { path: "input", element: <InputSetting /> },
+            { path: "tranbox", element: <Tranbox /> },
+            { path: "mousehover", element: <MouseHoverSetting /> },
+            { path: "subtitle", element: <SubtitleSetting /> },
+            { path: "apis", element: <Apis /> },
+            { path: "prompts", element: <Prompts /> },
+            { path: "sync", element: <SyncSetting /> },
+            { path: "words", element: <FavWords /> },
+            { path: "playground", element: <Playgound /> },
+            { path: "about", element: <About /> },
+          ],
+        },
+      ]),
+    []
+  );
+
+  useEffect(() => () => router.dispose(), [router]);
+
+  return <RouterProvider router={router} />;
+}
 
 /**
  * 选项设置中心 (Options) 根入口组件
@@ -123,7 +175,14 @@ export default function Options() {
       // 所有必须数据同步完成后，允许页面其他部分开始访问 storage 接口
       setSyncingRequiredData(false);
 
-      void Promise.all(backgroundSyncs.map((sync) => sync())).catch((err) => {
+      void (async () => {
+        // Every sync updates the same sync metadata object. Keep background
+        // tasks sequential as well so one read-modify-write cannot erase
+        // metadata written by another task.
+        for (const sync of backgroundSyncs) {
+          await sync();
+        }
+      })().catch((err) => {
         kissLog("sync options background", err?.message || err);
       });
     })();
@@ -151,7 +210,7 @@ export default function Options() {
     );
   }
 
-  if (!gmBridgeReady) {
+  if (!gmBridgeReady || syncingRequiredData) {
     return (
       <Backdrop
         data-testid="options-sync-backdrop"
@@ -169,41 +228,12 @@ export default function Options() {
 
   return (
     <SettingProvider context="options">
-      <ThemeProvider>
+      <ThemeProvider options={OPTIONS_THEME_OPTIONS}>
         <AlertProvider>
           <ConfirmProvider>
-            {/* React 页面端路由管理 */}
-            <HashRouter>
-              <Routes>
-                <Route path="/" element={<Layout />}>
-                  {/* 子页面路由注册 */}
-                  <Route index element={<Setting />} />
-                  <Route path="rules" element={<Rules />} />
-                  <Route path="styles" element={<StylesSetting />} />
-                  <Route path="input" element={<InputSetting />} />
-                  <Route path="tranbox" element={<Tranbox />} />
-                  <Route path="mousehover" element={<MouseHoverSetting />} />
-                  <Route path="subtitle" element={<SubtitleSetting />} />
-                  <Route path="apis" element={<Apis />} />
-                  <Route path="prompts" element={<Prompts />} />
-                  <Route path="sync" element={<SyncSetting />} />
-                  <Route path="words" element={<FavWords />} />
-                  <Route path="playground" element={<Playgound />} />
-                  <Route path="about" element={<About />} />
-                </Route>
-              </Routes>
-            </HashRouter>
-            <Backdrop
-              data-testid="options-sync-backdrop"
-              aria-label="syncing required data"
-              open={syncingRequiredData}
-              sx={(theme) => ({
-                color: "#fff",
-                zIndex: theme.zIndex.modal + 1,
-              })}
-            >
-              <CircularProgress color="inherit" size={72} />
-            </Backdrop>
+            {/* Data router keeps hash-based extension URLs while allowing
+                route-level protection for unsaved settings drafts. */}
+            <OptionsRouter />
           </ConfirmProvider>
         </AlertProvider>
       </ThemeProvider>

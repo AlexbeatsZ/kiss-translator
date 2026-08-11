@@ -26,6 +26,13 @@ jest.mock("../../libs/sync", () => ({
 
 jest.mock("../../libs/log", () => ({
   kissLog: jest.fn(),
+  LogLevel: {
+    DEBUG: { value: 0, name: "DEBUG" },
+    INFO: { value: 1, name: "INFO" },
+    WARN: { value: 2, name: "WARN" },
+    ERROR: { value: 3, name: "ERROR" },
+    SILENT: { value: 4, name: "SILENT" },
+  },
 }));
 
 jest.mock("../../libs/gm", () => ({
@@ -45,6 +52,9 @@ jest.mock("../../hooks/Setting", () => ({
     mockSettingProvider(props);
     return props.children;
   },
+  useSetting: () => ({
+    setting: { uiLang: "en" },
+  }),
 }));
 
 jest.mock("../../hooks/Theme", () => {
@@ -164,22 +174,35 @@ describe("Options startup sync", () => {
     delete window.APP_INFO;
   });
 
-  test("renders rules page while waiting for rules sync", async () => {
+  test("waits to mount the rules page until rules sync completes", async () => {
+    const settingSync = createDeferred();
     const rulesSync = createDeferred();
+    trySyncSetting.mockReturnValueOnce(settingSync.promise);
     trySyncRules.mockReturnValueOnce(rulesSync.promise);
 
     const view = renderOptions("#/rules");
     await flushEffects();
 
-    expect(view.container.querySelector("[data-testid='rules-page']")).not.toBe(
+    expect(view.container.querySelector("[data-testid='rules-page']")).toBe(
       null
     );
     expect(
       view.container.querySelector("[data-testid='options-sync-backdrop']")
     ).not.toBe(null);
-    expect(trySyncRules).toHaveBeenCalledTimes(1);
-    expect(trySyncSetting).not.toHaveBeenCalled();
+    expect(trySyncSetting).toHaveBeenCalledTimes(1);
+    expect(trySyncRules).not.toHaveBeenCalled();
     expect(trySyncWords).not.toHaveBeenCalled();
+
+    await act(async () => {
+      settingSync.resolve();
+      await settingSync.promise;
+    });
+    await flushEffects();
+
+    expect(
+      view.container.querySelector("[data-testid='options-sync-backdrop']")
+    ).not.toBe(null);
+    expect(trySyncRules).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       rulesSync.resolve();
@@ -190,28 +213,43 @@ describe("Options startup sync", () => {
     expect(
       view.container.querySelector("[data-testid='options-sync-backdrop']")
     ).toBe(null);
-    expect(trySyncSetting).toHaveBeenCalledTimes(1);
+    expect(view.container.querySelector("[data-testid='rules-page']")).not.toBe(
+      null
+    );
     expect(trySyncWords).toHaveBeenCalledTimes(1);
 
     view.unmount();
   });
 
   test("waits for words sync on favorite words page", async () => {
+    const settingSync = createDeferred();
     const wordsSync = createDeferred();
+    trySyncSetting.mockReturnValueOnce(settingSync.promise);
     trySyncWords.mockReturnValueOnce(wordsSync.promise);
 
     const view = renderOptions("#/words");
     await flushEffects();
 
-    expect(view.container.querySelector("[data-testid='words-page']")).not.toBe(
+    expect(view.container.querySelector("[data-testid='words-page']")).toBe(
       null
     );
     expect(
       view.container.querySelector("[data-testid='options-sync-backdrop']")
     ).not.toBe(null);
-    expect(trySyncWords).toHaveBeenCalledTimes(1);
-    expect(trySyncSetting).not.toHaveBeenCalled();
+    expect(trySyncSetting).toHaveBeenCalledTimes(1);
+    expect(trySyncWords).not.toHaveBeenCalled();
     expect(trySyncRules).not.toHaveBeenCalled();
+
+    await act(async () => {
+      settingSync.resolve();
+      await settingSync.promise;
+    });
+    await flushEffects();
+
+    expect(
+      view.container.querySelector("[data-testid='options-sync-backdrop']")
+    ).not.toBe(null);
+    expect(trySyncWords).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       wordsSync.resolve();
@@ -222,7 +260,9 @@ describe("Options startup sync", () => {
     expect(
       view.container.querySelector("[data-testid='options-sync-backdrop']")
     ).toBe(null);
-    expect(trySyncSetting).toHaveBeenCalledTimes(1);
+    expect(view.container.querySelector("[data-testid='words-page']")).not.toBe(
+      null
+    );
     expect(trySyncRules).toHaveBeenCalledTimes(1);
 
     view.unmount();
@@ -232,10 +272,10 @@ describe("Options startup sync", () => {
     const settingSync = createDeferred();
     trySyncSetting.mockReturnValueOnce(settingSync.promise);
 
-    const view = renderOptions("#/apis");
+    const view = renderOptions("#/");
     await flushEffects();
 
-    expect(view.container.querySelector("[data-testid='apis-page']")).not.toBe(
+    expect(view.container.querySelector("[data-testid='setting-page']")).toBe(
       null
     );
     expect(
@@ -254,7 +294,57 @@ describe("Options startup sync", () => {
     expect(
       view.container.querySelector("[data-testid='options-sync-backdrop']")
     ).toBe(null);
+    expect(
+      view.container.querySelector("[data-testid='setting-page']")
+    ).not.toBe(null);
     expect(trySyncRules).toHaveBeenCalledTimes(1);
+    expect(trySyncWords).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+  });
+
+  test("waits for settings and rules on the services page", async () => {
+    const settingSync = createDeferred();
+    const rulesSync = createDeferred();
+    trySyncSetting.mockReturnValueOnce(settingSync.promise);
+    trySyncRules.mockReturnValueOnce(rulesSync.promise);
+
+    const view = renderOptions("#/apis?service=OpenAI");
+    await flushEffects();
+
+    expect(view.container.querySelector("[data-testid='apis-page']")).toBe(
+      null
+    );
+    expect(
+      view.container.querySelector("[data-testid='options-sync-backdrop']")
+    ).not.toBe(null);
+    expect(trySyncSetting).toHaveBeenCalledTimes(1);
+    expect(trySyncRules).not.toHaveBeenCalled();
+    expect(trySyncWords).not.toHaveBeenCalled();
+
+    await act(async () => {
+      settingSync.resolve();
+      await settingSync.promise;
+    });
+    await flushEffects();
+
+    expect(
+      view.container.querySelector("[data-testid='options-sync-backdrop']")
+    ).not.toBe(null);
+    expect(trySyncRules).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      rulesSync.resolve();
+      await rulesSync.promise;
+    });
+    await flushEffects();
+
+    expect(
+      view.container.querySelector("[data-testid='options-sync-backdrop']")
+    ).toBe(null);
+    expect(view.container.querySelector("[data-testid='apis-page']")).not.toBe(
+      null
+    );
     expect(trySyncWords).toHaveBeenCalledTimes(1);
 
     view.unmount();
@@ -263,7 +353,7 @@ describe("Options startup sync", () => {
   test("background sync failures do not reopen the backdrop", async () => {
     trySyncRules.mockRejectedValueOnce(new Error("rules failed"));
 
-    const view = renderOptions("#/apis");
+    const view = renderOptions("#/");
     await flushEffects();
 
     expect(
@@ -307,13 +397,10 @@ describe("Options startup sync", () => {
       expect(runDataMigration.mock.invocationCallOrder[0]).toBeGreaterThan(
         adaptScript.mock.invocationCallOrder[0]
       );
-      expect(mockSettingProvider).toHaveBeenCalled();
-      expect(mockSettingProvider.mock.invocationCallOrder[0]).toBeGreaterThan(
-        runDataMigration.mock.invocationCallOrder[0]
+      expect(mockSettingProvider).not.toHaveBeenCalled();
+      expect(view.container.querySelector("[data-testid='apis-page']")).toBe(
+        null
       );
-      expect(
-        view.container.querySelector("[data-testid='apis-page']")
-      ).not.toBe(null);
       expect(
         view.container.querySelector("[data-testid='options-sync-backdrop']")
       ).not.toBe(null);
@@ -331,6 +418,13 @@ describe("Options startup sync", () => {
       expect(
         view.container.querySelector("[data-testid='options-sync-backdrop']")
       ).toBe(null);
+      expect(mockSettingProvider).toHaveBeenCalled();
+      expect(mockSettingProvider.mock.invocationCallOrder[0]).toBeGreaterThan(
+        trySyncRules.mock.invocationCallOrder[0]
+      );
+      expect(
+        view.container.querySelector("[data-testid='apis-page']")
+      ).not.toBe(null);
     } finally {
       view?.unmount();
       if (originalName === undefined) {

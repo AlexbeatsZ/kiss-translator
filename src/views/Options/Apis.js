@@ -24,6 +24,8 @@ import PushPinIcon from "@mui/icons-material/PushPin";
 import DeleteIcon from "@mui/icons-material/Delete";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SearchIcon from "@mui/icons-material/Search";
 import Alert from "@mui/material/Alert";
 import Menu from "@mui/material/Menu";
 import List from "@mui/material/List";
@@ -31,14 +33,22 @@ import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import Tooltip from "@mui/material/Tooltip";
 import Grid from "@mui/material/Grid";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import InputAdornment from "@mui/material/InputAdornment";
+import Paper from "@mui/material/Paper";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import ApiIcon from "@mui/icons-material/Api";
 import Link from "@mui/material/Link";
+import { useOutletContext } from "react-router-dom";
 import { useSetting } from "../../hooks/Setting";
 import { useAlert } from "../../hooks/Alert";
 import { useApiList, useApiItem } from "../../hooks/Api";
 import { useConfirm } from "../../hooks/Confirm";
+import { useRules } from "../../hooks/Rules";
 import { resolveApiPromptSettings } from "../../config/prompt";
 import { apiTranslate } from "../../apis";
 import { fetchModelList } from "../../libs/modelList";
@@ -97,6 +107,7 @@ import {
   getNobatchPromptOptions,
   getPromptDisplayName,
   getSubtitlePromptOptions,
+  GLOBAL_KEY,
 } from "../../config";
 import ValidationInput from "../../hooks/ValidationInput";
 import { usePromptList } from "../../hooks/Prompt";
@@ -104,6 +115,15 @@ import { usePromptList } from "../../hooks/Prompt";
 const API_ICON_SIZE = 22;
 const API_LIST_CONTROL_SIZE = 24;
 const API_LIST_CONTROL_GAP = 0.5;
+
+const editorSectionSx = {
+  p: { xs: 2, sm: 2.5 },
+  border: 1,
+  borderColor: "divider",
+  borderRadius: 3,
+  boxShadow: "none",
+  backgroundImage: "none",
+};
 
 const apiListControlSx = {
   width: API_LIST_CONTROL_SIZE,
@@ -301,8 +321,17 @@ function SensitiveTextField({ value = "", onChange, inputProps, ...props }) {
   );
 }
 
-function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
-  const { api, update, reset } = useApiItem(apiSlug);
+function ApiFields({
+  apiSlug,
+  deleteApi,
+  copyApi,
+  onCollapse,
+  onDirtyChange,
+  onCreated,
+  isReferenced,
+  onReferencedMutation,
+}) {
+  const { api, update, resetData } = useApiItem(apiSlug);
   const { prompts } = usePromptList();
   const i18n = useI18n();
   const [formData, setFormData] = useState(() => api || {});
@@ -311,6 +340,7 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
   const [modelListStatus, setModelListStatus] = useState("idle");
   const [modelListError, setModelListError] = useState("");
   const requestedModelListKeyRef = useRef("");
+  const modelListRequestIdRef = useRef(0);
   const confirm = useConfirm();
 
   useLayoutEffect(() => {
@@ -318,6 +348,7 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
   }, [api]);
 
   useLayoutEffect(() => {
+    modelListRequestIdRef.current += 1;
     setShowMore(false);
     setModelOptions([]);
     setModelListStatus("idle");
@@ -337,6 +368,23 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
 
     return JSON.stringify(api) !== JSON.stringify(activeFormData);
   }, [api, apiSlug, activeFormData]);
+
+  useEffect(() => {
+    onDirtyChange?.(isModified);
+  }, [isModified, onDirtyChange]);
+
+  useEffect(() => {
+    if (!isModified) {
+      return;
+    }
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isModified]);
 
   const handleChange = (e) => {
     e?.preventDefault();
@@ -400,28 +448,48 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
   };
 
   const handleSave = () => {
+    if (isReferenced && !api?.isDisabled && activeFormData.isDisabled) {
+      onReferencedMutation?.([apiSlug]);
+      return;
+    }
+
     update(activeFormData);
     if (activeFormData.isDisabled || activeFormData.sortOrder === -1) {
       onCollapse?.();
     }
   };
 
+  const handleDiscard = () => {
+    setFormData(api || {});
+  };
+
   const handleReset = () => {
-    reset();
+    setFormData(resetData || api || {});
   };
 
   const handleCopy = () => {
-    copyApi(activeFormData);
+    const copiedApi = copyApi(activeFormData);
+    if (copiedApi?.apiSlug) {
+      onCreated?.(copiedApi.apiSlug);
+    }
   };
 
   const handleDelete = async () => {
+    if (isReferenced) {
+      onReferencedMutation?.([apiSlug]);
+      return;
+    }
+
     const isConfirmed = await confirm({
       confirmText: i18n("delete"),
       cancelText: i18n("cancel"),
     });
 
     if (isConfirmed) {
-      deleteApi(apiSlug);
+      const wasDeleted = deleteApi(apiSlug);
+      if (wasDeleted !== false) {
+        onDirtyChange?.(false);
+      }
     }
   };
 
@@ -470,11 +538,20 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
     dictPromptSlug = "",
   } = activeFormData;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    modelListRequestIdRef.current += 1;
+    setModelOptions([]);
     setModelListStatus("idle");
     setModelListError("");
     requestedModelListKeyRef.current = "";
-  }, [modelListUrl, key]);
+  }, [apiType, httpTimeout, key, modelListUrl]);
+
+  useEffect(
+    () => () => {
+      modelListRequestIdRef.current += 1;
+    },
+    []
+  );
 
   const thinkingParam = THINKING_PARAM_MAP[apiType];
   const selectedBatchPromptSlug = Object.prototype.hasOwnProperty.call(
@@ -544,51 +621,292 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
     return "";
   }, [i18n, modelListError, modelListStatus]);
 
-  const handleLoadModelList = useCallback(async () => {
-    const requestKey = `${apiSlug}|${modelListUrl}|${key}`;
-    if (
-      !modelListUrl?.trim() ||
-      !key?.trim() ||
-      requestedModelListKeyRef.current === requestKey ||
-      modelListStatus === "loading"
-    ) {
-      return;
-    }
+  const handleLoadModelList = useCallback(
+    async ({ force = false } = {}) => {
+      const requestKey = `${apiSlug}|${modelListUrl}|${key}`;
+      if (
+        !modelListUrl?.trim() ||
+        (!force && requestedModelListKeyRef.current === requestKey)
+      ) {
+        return;
+      }
 
-    requestedModelListKeyRef.current = requestKey;
-    setModelListStatus("loading");
-    setModelListError("");
+      const requestId = modelListRequestIdRef.current + 1;
+      modelListRequestIdRef.current = requestId;
+      requestedModelListKeyRef.current = requestKey;
+      setModelListStatus("loading");
+      setModelListError("");
 
-    try {
-      const nextModelOptions = await fetchModelList({
-        apiType,
-        modelListUrl,
-        key,
-        httpTimeout,
-      });
-      setModelOptions(nextModelOptions);
-      setModelListStatus(nextModelOptions.length > 0 ? "success" : "empty");
-    } catch (err) {
-      setModelListStatus("error");
-      setModelListError(err?.message || String(err));
-    }
-  }, [apiSlug, apiType, httpTimeout, key, modelListStatus, modelListUrl]);
+      try {
+        const nextModelOptions = await fetchModelList({
+          apiType,
+          modelListUrl,
+          key,
+          httpTimeout,
+        });
+        if (requestId !== modelListRequestIdRef.current) {
+          return;
+        }
+        setModelOptions(nextModelOptions);
+        setModelListStatus(nextModelOptions.length > 0 ? "success" : "empty");
+      } catch (err) {
+        if (requestId !== modelListRequestIdRef.current) {
+          return;
+        }
+        setModelListStatus("error");
+        setModelListError(err?.message || String(err));
+      }
+    },
+    [apiSlug, apiType, httpTimeout, key, modelListUrl]
+  );
+
+  const handleRefreshModelList = () => {
+    requestedModelListKeyRef.current = "";
+    void handleLoadModelList({ force: true });
+  };
 
   return (
-    <Stack spacing={3}>
-      <Box>
-        <Grid container spacing={2} columns={12}>
-          <Grid item xs={12} sm={12} md={6} lg={3}>
+    <Stack spacing={2.5}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        alignItems={{ xs: "stretch", sm: "center" }}
+        justifyContent="space-between"
+        gap={1.5}
+        sx={(theme) => ({
+          position: "sticky",
+          top: { xs: 56, sm: 64, lg: 0 },
+          zIndex: 4,
+          py: 1.5,
+          backgroundColor: theme.palette.background.paper,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+        })}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="h6" noWrap>
+              {apiName || apiType}
+            </Typography>
+            <Chip
+              size="small"
+              color={isDisabled ? "default" : "success"}
+              variant="outlined"
+              label={i18n(isDisabled ? "disabled" : "enabled")}
+            />
+          </Stack>
+          <Typography variant="body2" color="text.secondary" noWrap>
+            {API_SPE_TYPES.ai.has(apiType)
+              ? model || i18n("model_not_selected", "No model selected")
+              : i18n("model_not_required", "This service does not use a model")}
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Button
+            size="small"
+            variant="contained"
+            onClick={handleSave}
+            disabled={!isModified}
+          >
+            {i18n("save")}
+          </Button>
+          <Button
+            size="small"
+            variant="text"
+            onClick={handleDiscard}
+            disabled={!isModified}
+          >
+            {i18n("discard_changes", "Discard changes")}
+          </Button>
+          <TestButton api={activeFormData} />
+        </Stack>
+      </Stack>
+
+      <Paper variant="outlined" sx={editorSectionSx}>
+        <Stack spacing={0.5} sx={{ mb: 2 }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {i18n("connection_and_model", "Connection and model")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {i18n(
+              "connection_and_model_description",
+              "Configure the provider connection and the exact model used by this translation service."
+            )}
+          </Typography>
+        </Stack>
+        <Stack spacing={2}>
+          <Box>
+            <Grid container spacing={2} columns={12}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label={i18n("translation_service_name", "Service name")}
+                  name="apiName"
+                  value={apiName}
+                  onChange={handleChange}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
+          {!API_SPE_TYPES.machine.has(apiType) &&
+            apiType !== OPT_TRANS_BUILTINAI && (
+              <>
+                <TextField
+                  size="small"
+                  label={"URL"}
+                  name="url"
+                  value={url}
+                  onChange={handleChange}
+                  multiline={apiType === OPT_TRANS_DEEPLX}
+                  maxRows={10}
+                  helperText={
+                    apiType === OPT_TRANS_DEEPLX ? i18n("mulkeys_help") : ""
+                  }
+                />
+                <SensitiveTextField
+                  size="small"
+                  label={"Key"}
+                  name="key"
+                  value={key}
+                  onChange={handleChange}
+                  multiline={API_SPE_TYPES.mulkeys.has(apiType)}
+                  maxRows={10}
+                  helperText={keyHelper}
+                />
+              </>
+            )}
+
+          {apiType === OPT_TRANS_AZUREAI && (
             <TextField
               size="small"
-              fullWidth
-              label={i18n("api_name")}
-              name="apiName"
-              value={apiName}
+              label={"Region"}
+              name="region"
+              value={region}
               onChange={handleChange}
             />
-          </Grid>
-          <Grid item xs={12} sm={12} md={6} lg={3}>
+          )}
+
+          {API_SPE_TYPES.ai.has(apiType) && (
+            <>
+              <TextField
+                size="small"
+                fullWidth
+                label={i18n("model_list_url")}
+                name="modelListUrl"
+                value={modelListUrl}
+                onChange={handleChange}
+              />
+              <Box>
+                <Grid container spacing={2} columns={12}>
+                  <Grid item xs={12} md={8}>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <ReusableAutocomplete
+                          freeSolo
+                          commitOnInputChange
+                          size="small"
+                          fullWidth
+                          options={allModelOptions}
+                          name="model"
+                          label={i18n("model", "Model")}
+                          value={model}
+                          onChange={handleChange}
+                          onFocus={() => void handleLoadModelList()}
+                          loading={modelListStatus === "loading"}
+                          loadingText={i18n("model_list_loading")}
+                          noOptionsText={i18n("model_list_empty")}
+                          textFieldProps={{
+                            helperText: modelListHelperText,
+                            error: modelListStatus === "error",
+                          }}
+                        />
+                      </Box>
+                      <LoadingButton
+                        size="small"
+                        variant="outlined"
+                        startIcon={<RefreshIcon />}
+                        loading={modelListStatus === "loading"}
+                        disabled={!modelListUrl?.trim()}
+                        onClick={handleRefreshModelList}
+                        sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
+                      >
+                        {i18n("refresh_models", "Refresh models")}
+                      </LoadingButton>
+                    </Stack>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <ReusableAutocomplete
+                      freeSolo
+                      commitOnInputChange
+                      size="small"
+                      fullWidth
+                      options={BUILTIN_STONES}
+                      name="tone"
+                      label={i18n("translation_style")}
+                      value={tone}
+                      onChange={handleChange}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <ValidationInput
+                      size="small"
+                      fullWidth
+                      label={"Temperature (0.0-2.0)"}
+                      type="number"
+                      name="temperature"
+                      value={temperature}
+                      onChange={handleChange}
+                      min={0.0}
+                      max={2.0}
+                      isFloat={true}
+                      inputProps={{
+                        step: 0.1,
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <ValidationInput
+                      size="small"
+                      fullWidth
+                      label={"Max Tokens (0-1000000)"}
+                      type="number"
+                      name="maxTokens"
+                      value={maxTokens}
+                      onChange={handleChange}
+                      min={0}
+                      max={1000000}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+            </>
+          )}
+        </Stack>
+      </Paper>
+
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        alignItems={{ xs: "stretch", sm: "center" }}
+        justifyContent="space-between"
+        gap={1}
+      >
+        <Stack spacing={0.5}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {i18n("translation_behavior", "Translation behavior")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {i18n(
+              "translation_behavior_description",
+              "Tune batching, streaming, prompts, and request performance for this service."
+            )}
+          </Typography>
+        </Stack>
+        <ShowMoreButton showMore={showMore} onChange={setShowMore} />
+      </Stack>
+
+      <Box>
+        <Grid container spacing={2} columns={12}>
+          <Grid item xs={12} md={6}>
             <TextField
               select
               fullWidth
@@ -602,7 +920,7 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
               <MenuItem value={true}>{i18n("mk_pageopen")}</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={12} md={6} lg={3}>
+          <Grid item xs={12} md={6}>
             <ValidationInput
               fullWidth
               size="small"
@@ -617,123 +935,6 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
           </Grid>
         </Grid>
       </Box>
-
-      {!API_SPE_TYPES.machine.has(apiType) &&
-        apiType !== OPT_TRANS_BUILTINAI && (
-          <>
-            <TextField
-              size="small"
-              label={"URL"}
-              name="url"
-              value={url}
-              onChange={handleChange}
-              multiline={apiType === OPT_TRANS_DEEPLX}
-              maxRows={10}
-              helperText={
-                apiType === OPT_TRANS_DEEPLX ? i18n("mulkeys_help") : ""
-              }
-            />
-            <SensitiveTextField
-              size="small"
-              label={"Key"}
-              name="key"
-              value={key}
-              onChange={handleChange}
-              multiline={API_SPE_TYPES.mulkeys.has(apiType)}
-              maxRows={10}
-              helperText={keyHelper}
-            />
-          </>
-        )}
-
-      {apiType === OPT_TRANS_AZUREAI && (
-        <TextField
-          size="small"
-          label={"Region"}
-          name="region"
-          value={region}
-          onChange={handleChange}
-        />
-      )}
-
-      {API_SPE_TYPES.ai.has(apiType) && (
-        <>
-          <TextField
-            size="small"
-            fullWidth
-            label={i18n("model_list_url")}
-            name="modelListUrl"
-            value={modelListUrl}
-            onChange={handleChange}
-          />
-          <Box>
-            <Grid container spacing={2} columns={12}>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <ReusableAutocomplete
-                  freeSolo
-                  size="small"
-                  fullWidth
-                  options={allModelOptions}
-                  name="model"
-                  label={"Model"}
-                  value={model}
-                  onChange={handleChange}
-                  onFocus={handleLoadModelList}
-                  loading={modelListStatus === "loading"}
-                  loadingText={i18n("model_list_loading")}
-                  noOptionsText={i18n("model_list_empty")}
-                  textFieldProps={{
-                    helperText: modelListHelperText,
-                    error: modelListStatus === "error",
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <ReusableAutocomplete
-                  freeSolo
-                  size="small"
-                  fullWidth
-                  options={BUILTIN_STONES}
-                  name="tone"
-                  label={i18n("translation_style")}
-                  value={tone}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <ValidationInput
-                  size="small"
-                  fullWidth
-                  label={"Temperature (0.0-2.0)"}
-                  type="number"
-                  name="temperature"
-                  value={temperature}
-                  onChange={handleChange}
-                  min={0.0}
-                  max={2.0}
-                  isFloat={true}
-                  inputProps={{
-                    step: 0.1,
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <ValidationInput
-                  size="small"
-                  fullWidth
-                  label={"Max Tokens (0-1000000)"}
-                  type="number"
-                  name="maxTokens"
-                  value={maxTokens}
-                  onChange={handleChange}
-                  min={0}
-                  max={1000000}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </>
-      )}
 
       {/* {apiType === OPT_TRANS_OLLAMA && (
         <>
@@ -1242,27 +1443,23 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
         </>
       )}
 
-      <Stack
+      <Paper
+        variant="outlined"
+        component={Stack}
         direction="row"
         alignItems="center"
         spacing={2}
         useFlexGap
         flexWrap="wrap"
+        sx={{ ...editorSectionSx, p: 2 }}
       >
-        <Button
-          size="small"
-          variant="contained"
-          onClick={handleSave}
-          disabled={!isModified}
-        >
-          {i18n("save")}
-        </Button>
-        <TestButton api={activeFormData} />
         <Button size="small" variant="outlined" onClick={handleReset}>
           {i18n("restore_default")}
         </Button>
         <Button size="small" variant="outlined" onClick={handleCopy}>
-          {i18n("copy_api")}
+          {API_SPE_TYPES.ai.has(apiType)
+            ? i18n("duplicate_model_profile", "Duplicate for another model")
+            : i18n("copy_api")}
         </Button>
         <Button
           size="small"
@@ -1301,9 +1498,7 @@ function ApiFields({ apiSlug, deleteApi, copyApi, onCollapse }) {
           }
           label={i18n("is_pinned")}
         />
-
-        <ShowMoreButton showMore={showMore} onChange={setShowMore} />
-      </Stack>
+      </Paper>
 
       {/* {apiType === OPT_TRANS_CUSTOMIZE && <pre>{i18n("custom_api_help")}</pre>} */}
     </Stack>
@@ -1317,6 +1512,7 @@ function ApiListItem({
   checked,
   dragging,
   dragOver,
+  reorderEnabled,
   onSelect,
   onCheck,
   onDragStart,
@@ -1324,6 +1520,7 @@ function ApiListItem({
   onDrop,
   onDragEnd,
 }) {
+  const i18n = useI18n();
   const handleContentClick = (event) => {
     if (bulkMode) {
       onCheck(event, api.apiSlug);
@@ -1336,9 +1533,9 @@ function ApiListItem({
   return (
     <ListItem
       disablePadding
-      onDragOver={onDragOver}
-      onDragEnter={onDragOver}
-      onDrop={onDrop}
+      onDragOver={reorderEnabled ? onDragOver : undefined}
+      onDragEnter={reorderEnabled ? onDragOver : undefined}
+      onDrop={reorderEnabled ? onDrop : undefined}
       sx={(theme) => ({
         display: "grid",
         gridTemplateColumns: bulkMode
@@ -1371,30 +1568,42 @@ function ApiListItem({
         />
       )}
       <ListItemButton
+        data-api-slug={api.apiSlug}
         selected={bulkMode ? checked : selected}
         onClick={handleContentClick}
         sx={{
-          gap: 0.5,
+          gap: 1,
           minWidth: 0,
-          minHeight: 40,
+          minHeight: 56,
           py: 0.75,
-          px: 0.5,
-          borderRadius: 0.5,
+          px: 1,
+          borderRadius: 2,
         }}
       >
-        <Tooltip title="Drag to reorder">
+        <Tooltip
+          title={i18n(
+            reorderEnabled
+              ? "drag_to_reorder"
+              : "save_or_discard_before_reorder",
+            reorderEnabled
+              ? "Drag to reorder"
+              : "Save or discard changes before reordering"
+          )}
+        >
           <Box
-            draggable
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
+            draggable={reorderEnabled}
+            onDragStart={reorderEnabled ? onDragStart : undefined}
+            onDragEnd={reorderEnabled ? onDragEnd : undefined}
             onClick={(e) => e.stopPropagation()}
+            aria-disabled={!reorderEnabled}
             sx={{
               ...apiListControlSx,
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
               color: "text.secondary",
-              cursor: "grab",
+              cursor: reorderEnabled ? "grab" : "not-allowed",
+              opacity: reorderEnabled ? 1 : 0.45,
               "&:active": {
                 cursor: "grabbing",
               },
@@ -1404,16 +1613,32 @@ function ApiListItem({
           </Box>
         </Tooltip>
         <ApiProviderIcon apiType={api.apiType} disabled={api.isDisabled} />
-        <Typography
+        <Box
           sx={{
             minWidth: 0,
             flex: 1,
             opacity: api.isDisabled ? 0.5 : 1,
-            overflowWrap: "anywhere",
           }}
         >
-          {api.apiName || api.apiType}
-        </Typography>
+          <Typography variant="body2" fontWeight={650} noWrap>
+            {api.apiName || api.apiType}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {API_SPE_TYPES.ai.has(api.apiType)
+              ? api.model || i18n("model_not_selected", "No model selected")
+              : api.apiType}
+          </Typography>
+        </Box>
+        <Box
+          aria-label={i18n(api.isDisabled ? "disabled" : "enabled")}
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            flex: "0 0 auto",
+            backgroundColor: api.isDisabled ? "text.disabled" : "success.main",
+          }}
+        />
       </ListItemButton>
     </ListItem>
   );
@@ -1421,6 +1646,8 @@ function ApiListItem({
 
 export default function Apis() {
   const i18n = useI18n();
+  const outletContext = useOutletContext();
+  const { setting = {} } = useSetting();
   const {
     transApis,
     addApi,
@@ -1433,11 +1660,19 @@ export default function Apis() {
     alphaSortApis,
     reorderApis,
   } = useApiList();
+  const rules = useRules();
   const confirm = useConfirm();
+  const alerts = useAlert();
 
   const [alphaSortDir, setAlphaSortDir] = useState("asc");
   const [detailKey, setDetailKey] = useState(0);
-  const [selectedApiSlug, setSelectedApiSlug] = useState("");
+  const [selectedApiSlug, setSelectedApiSlug] = useState(() => {
+    const query = window.location.hash.split("?")[1] || "";
+    return new URLSearchParams(query).get("service") || "";
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [checkedApiSlugs, setCheckedApiSlugs] = useState([]);
   const [draggingApiSlug, setDraggingApiSlug] = useState("");
@@ -1453,10 +1688,103 @@ export default function Apis() {
     []
   );
 
-  const apiItems = useMemo(
+  const globalRule = useMemo(
+    () => rules.list?.find((rule) => rule.pattern === GLOBAL_KEY),
+    [rules.list]
+  );
+  const defaultApiSlug = globalRule?.apiSlug || "";
+  const enabledApis = useMemo(
+    () => transApis.filter((api) => !api.isDisabled),
+    [transApis]
+  );
+  const defaultApi = useMemo(
+    () => transApis.find((api) => api.apiSlug === defaultApiSlug),
+    [defaultApiSlug, transApis]
+  );
+  const defaultApiOptions = useMemo(
+    () =>
+      defaultApi?.isDisabled
+        ? [
+            defaultApi,
+            ...enabledApis.filter((api) => api.apiSlug !== defaultApi.apiSlug),
+          ]
+        : enabledApis,
+    [defaultApi, enabledApis]
+  );
+  const referencedRulesByApi = useMemo(() => {
+    const references = new Map();
+    const addReference = (apiSlug, label) => {
+      if (!apiSlug || apiSlug === GLOBAL_KEY || apiSlug === "-") {
+        return;
+      }
+
+      const labels = references.get(apiSlug) || [];
+      labels.push(label);
+      references.set(apiSlug, labels);
+    };
+
+    (rules.list || []).forEach((rule) => {
+      addReference(
+        rule.apiSlug,
+        rule.pattern === GLOBAL_KEY
+          ? i18n("website_defaults", "Website defaults")
+          : rule.pattern
+      );
+    });
+
+    addReference(
+      setting.inputRule?.apiSlug,
+      i18n("input_translate", "Input translation")
+    );
+    const tranboxApiSlugs = Array.isArray(setting.tranboxSetting?.apiSlugs)
+      ? setting.tranboxSetting.apiSlugs
+      : [];
+    tranboxApiSlugs.forEach((apiSlug) => {
+      addReference(
+        apiSlug,
+        i18n("selection_translate", "Selection translation")
+      );
+    });
+    addReference(
+      setting.tranboxSetting?.aiDictApiSlug,
+      i18n("selection_translate", "Selection translation")
+    );
+    [
+      setting.subtitleSetting?.apiSlug,
+      setting.subtitleSetting?.segSlug,
+      setting.subtitleSetting?.aiContextSlug,
+    ].forEach((apiSlug) => {
+      addReference(apiSlug, i18n("subtitle_translate", "Video subtitles"));
+    });
+
+    return references;
+  }, [i18n, rules.list, setting]);
+
+  const allApiItems = useMemo(
     () => transApis.map((api) => ({ api })),
     [transApis]
   );
+
+  const apiItems = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+    return allApiItems.filter(({ api }) => {
+      if (serviceFilter === "enabled" && api.isDisabled) {
+        return false;
+      }
+      if (serviceFilter === "ai" && !API_SPE_TYPES.ai.has(api.apiType)) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return [api.apiName, api.apiType, api.model, api.url]
+        .filter(Boolean)
+        .some((value) =>
+          String(value).toLocaleLowerCase().includes(normalizedQuery)
+        );
+    });
+  }, [allApiItems, searchQuery, serviceFilter]);
 
   const apiSlugList = useMemo(
     () => apiItems.map(({ api }) => api.apiSlug),
@@ -1471,22 +1799,28 @@ export default function Apis() {
   const checkedApiCount = checkedApiSlugs.length;
   const hasCheckedApis = checkedApiCount > 0;
   const allApisChecked =
-    apiItems.length > 0 && checkedApiCount === apiItems.length;
+    apiItems.length > 0 &&
+    apiSlugList.every((apiSlug) => checkedApiSlugSet.has(apiSlug));
 
   useEffect(() => {
-    if (apiItems.length === 0) {
+    if (allApiItems.length === 0) {
       setSelectedApiSlug("");
       return;
     }
 
-    const selectedApiExists = apiItems.some(
+    const selectedApiExists = allApiItems.some(
       ({ api }) => api.apiSlug === selectedApiSlug
     );
 
     if (!selectedApiExists) {
-      setSelectedApiSlug(apiItems[0].api.apiSlug);
+      const defaultApiExists = allApiItems.some(
+        ({ api }) => api.apiSlug === defaultApiSlug
+      );
+      setSelectedApiSlug(
+        defaultApiExists ? defaultApiSlug : allApiItems[0].api.apiSlug
+      );
     }
-  }, [apiItems, selectedApiSlug]);
+  }, [allApiItems, defaultApiSlug, selectedApiSlug]);
 
   useEffect(() => {
     setCheckedApiSlugs((prev) => {
@@ -1502,8 +1836,8 @@ export default function Apis() {
   }, [apiSlugList]);
 
   const selectedApiItem = useMemo(
-    () => apiItems.find(({ api }) => api.apiSlug === selectedApiSlug),
-    [apiItems, selectedApiSlug]
+    () => allApiItems.find(({ api }) => api.apiSlug === selectedApiSlug),
+    [allApiItems, selectedApiSlug]
   );
 
   useLayoutEffect(() => {
@@ -1521,9 +1855,112 @@ export default function Apis() {
     setAnchorEl(null);
   };
 
-  const handleMenuItemClick = (apiType) => {
-    addApi(apiType);
+  const confirmDiscardChanges = useCallback(async () => {
+    if (!hasUnsavedChanges) {
+      return true;
+    }
+
+    return confirm({
+      message: i18n(
+        "unsaved_service_changes",
+        "This service has unsaved changes. Discard them and continue?"
+      ),
+      confirmText: i18n("discard_changes", "Discard changes"),
+      cancelText: i18n("keep_editing", "Keep editing"),
+    });
+  }, [confirm, hasUnsavedChanges, i18n]);
+
+  const warnIfServicesReferenced = useCallback(
+    (apiSlugs) => {
+      const labels = Array.from(
+        new Set(
+          apiSlugs.flatMap((apiSlug) => referencedRulesByApi.get(apiSlug) || [])
+        )
+      );
+      if (labels.length === 0) {
+        return false;
+      }
+
+      const visibleLabels = labels.slice(0, 5).join(", ");
+      alerts?.warning(
+        i18n(
+          "service_referenced_block",
+          "This service is still used by: {rules}. Change those references first."
+        ).replace(
+          "{rules}",
+          labels.length > 5 ? `${visibleLabels}, …` : visibleLabels
+        )
+      );
+      return true;
+    },
+    [alerts, i18n, referencedRulesByApi]
+  );
+
+  const handleDeleteApi = useCallback(
+    (apiSlug) => {
+      if (warnIfServicesReferenced([apiSlug])) {
+        return false;
+      }
+
+      deleteApi(apiSlug);
+      return true;
+    },
+    [deleteApi, warnIfServicesReferenced]
+  );
+
+  useEffect(() => {
+    const registerNavigationGuard = outletContext?.registerNavigationGuard;
+    if (!registerNavigationGuard) {
+      return undefined;
+    }
+
+    registerNavigationGuard(hasUnsavedChanges ? confirmDiscardChanges : null);
+    return () => registerNavigationGuard(null);
+  }, [confirmDiscardChanges, hasUnsavedChanges, outletContext]);
+
+  const handleSelectApi = useCallback(
+    async (apiSlug) => {
+      if (apiSlug === selectedApiSlug) {
+        return;
+      }
+      if (!(await confirmDiscardChanges())) {
+        return;
+      }
+
+      setHasUnsavedChanges(false);
+      setSelectedApiSlug(apiSlug);
+    },
+    [confirmDiscardChanges, selectedApiSlug]
+  );
+
+  const handleApiCreated = useCallback((apiSlug) => {
+    setHasUnsavedChanges(false);
+    setSelectedApiSlug(apiSlug);
+    setServiceFilter("all");
+    setSearchQuery("");
+  }, []);
+
+  const handleMenuItemClick = async (apiType) => {
+    if (!(await confirmDiscardChanges())) {
+      return;
+    }
+
+    const newApi = addApi(apiType);
+    if (newApi?.apiSlug) {
+      handleApiCreated(newApi.apiSlug);
+    }
     handleClose();
+  };
+
+  const handleDefaultApiChange = async (event) => {
+    const apiSlug = event.target.value;
+    if (!(await confirmDiscardChanges())) {
+      return;
+    }
+
+    rules.put(GLOBAL_KEY, { apiSlug });
+    setHasUnsavedChanges(false);
+    setSelectedApiSlug(apiSlug);
   };
 
   const handleCheckApi = useCallback((event, apiSlug) => {
@@ -1536,11 +1973,18 @@ export default function Apis() {
   }, []);
 
   const handleToggleAllApis = useCallback(() => {
-    setCheckedApiSlugs((prev) =>
-      apiSlugList.length > 0 && prev.length === apiSlugList.length
-        ? []
-        : apiSlugList
-    );
+    setCheckedApiSlugs((prev) => {
+      const previous = new Set(prev);
+      const everyVisibleChecked =
+        apiSlugList.length > 0 &&
+        apiSlugList.every((apiSlug) => previous.has(apiSlug));
+
+      if (everyVisibleChecked) {
+        return prev.filter((apiSlug) => !apiSlugList.includes(apiSlug));
+      }
+
+      return Array.from(new Set([...prev, ...apiSlugList]));
+    });
   }, [apiSlugList]);
 
   const handleToggleBulkMode = useCallback(() => {
@@ -1564,11 +2008,19 @@ export default function Apis() {
   }, [checkedApiSlugs, enableApis]);
 
   const handleDisableCheckedApis = useCallback(() => {
+    if (warnIfServicesReferenced(checkedApiSlugs)) {
+      return;
+    }
+
     disableApis(checkedApiSlugs);
     setDetailKey((key) => key + 1);
-  }, [checkedApiSlugs, disableApis]);
+  }, [checkedApiSlugs, disableApis, warnIfServicesReferenced]);
 
   const handleDeleteCheckedApis = useCallback(async () => {
+    if (warnIfServicesReferenced(checkedApiSlugs)) {
+      return;
+    }
+
     const isConfirmed = await confirm({
       message: i18n(
         "delete_selected_apis_confirm",
@@ -1583,7 +2035,14 @@ export default function Apis() {
       setCheckedApiSlugs([]);
       setDetailKey((key) => key + 1);
     }
-  }, [checkedApiCount, checkedApiSlugs, confirm, deleteApis, i18n]);
+  }, [
+    checkedApiCount,
+    checkedApiSlugs,
+    confirm,
+    deleteApis,
+    i18n,
+    warnIfServicesReferenced,
+  ]);
 
   const handleDragStart = useCallback((event, apiSlug) => {
     event.dataTransfer.effectAllowed = "move";
@@ -1625,110 +2084,228 @@ export default function Apis() {
   return (
     <Box>
       <Stack spacing={3}>
-        <Alert severity="info">
-          {i18n("about_api")}
-          <br />
-          {i18n("about_api_2")}
-          <br />
-          {i18n("about_api_3")}
+        <Paper variant="outlined" sx={editorSectionSx}>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            alignItems={{ xs: "stretch", md: "center" }}
+            justifyContent="space-between"
+            gap={2}
+          >
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                {i18n("default_translation_service", "Default page service")}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {i18n(
+                  "default_translation_service_helper",
+                  "Used for page translation unless a website rule explicitly chooses another service."
+                )}
+              </Typography>
+            </Box>
+            <TextField
+              select
+              size="small"
+              name="defaultApiSlug"
+              label={i18n(
+                "default_translation_service",
+                "Default page service"
+              )}
+              value={defaultApi ? defaultApiSlug : ""}
+              onChange={(event) => void handleDefaultApiChange(event)}
+              helperText={
+                defaultApiSlug && !defaultApi
+                  ? i18n(
+                      "default_service_missing",
+                      "The referenced service is missing. Choose a new default."
+                    )
+                  : defaultApi && API_SPE_TYPES.ai.has(defaultApi.apiType)
+                    ? `${i18n("model", "Model")}: ${
+                        defaultApi.model ||
+                        i18n("model_not_selected", "No model selected")
+                      }`
+                    : " "
+              }
+              sx={{ width: { xs: "100%", md: 360 }, flex: "0 0 auto" }}
+            >
+              <MenuItem value="" disabled>
+                {i18n("select_service", "Select a service")}
+              </MenuItem>
+              {defaultApiOptions.map((api) => (
+                <MenuItem
+                  key={api.apiSlug}
+                  value={api.apiSlug}
+                  disabled={api.isDisabled}
+                >
+                  {api.apiName || api.apiType}
+                  {API_SPE_TYPES.ai.has(api.apiType) && api.model
+                    ? ` · ${api.model}`
+                    : ""}
+                  {api.isDisabled ? ` (${i18n("disabled")})` : ""}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </Paper>
+
+        <Alert severity="info" variant="outlined">
+          {i18n(
+            "translation_profile_explanation",
+            "Each AI service combines one provider connection with one model. Duplicate a service to use another model from the same provider."
+          )}{" "}
           <Link
             href="https://github.com/fishjar/kiss-translator/blob/master/custom-api_v2.md"
             target="_blank"
+            rel="noopener noreferrer"
           >
             {i18n("goto_custom_api_example")}
           </Link>
         </Alert>
 
-        <Box>
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={2}
-            useFlexGap
-            flexWrap="wrap"
-          >
-            <Button
-              size="small"
-              id="add-api-button"
-              variant="contained"
-              onClick={handleClick}
-              aria-controls={open ? "add-api-menu" : undefined}
-              aria-haspopup="true"
-              aria-expanded={open ? "true" : undefined}
-              endIcon={<KeyboardArrowDownIcon />}
-              startIcon={<AddIcon />}
+        <Paper variant="outlined" sx={{ ...editorSectionSx, p: 2 }}>
+          <Stack spacing={1.5}>
+            <Stack
+              direction={{ xs: "column", lg: "row" }}
+              alignItems={{ xs: "stretch", lg: "center" }}
+              spacing={1.5}
             >
-              {i18n("add")}
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => {
-                const newDir = alphaSortDir === "asc" ? "desc" : "asc";
-                setAlphaSortDir(newDir);
-                setDetailKey((k) => k + 1);
-                alphaSortApis(newDir);
-              }}
-              startIcon={<SwapVertIcon />}
+              <TextField
+                size="small"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={i18n(
+                  "search_translation_services",
+                  "Search services, providers, or models"
+                )}
+                inputProps={{
+                  "aria-label": i18n(
+                    "search_translation_services",
+                    "Search services, providers, or models"
+                  ),
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ flex: 1, minWidth: { lg: 280 } }}
+              />
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={serviceFilter}
+                onChange={(_event, value) => value && setServiceFilter(value)}
+                aria-label={i18n("filter_services", "Filter services")}
+                sx={{ alignSelf: { xs: "stretch", lg: "center" } }}
+              >
+                <ToggleButton value="all" sx={{ flex: { xs: 1, lg: "none" } }}>
+                  {i18n("all", "All")}
+                </ToggleButton>
+                <ToggleButton
+                  value="enabled"
+                  sx={{ flex: { xs: 1, lg: "none" } }}
+                >
+                  {i18n("enabled", "Enabled")}
+                </ToggleButton>
+                <ToggleButton value="ai" sx={{ flex: { xs: 1, lg: "none" } }}>
+                  {i18n("ai_services", "AI models")}
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+
+            <Divider />
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
             >
-              {i18n("sort_alphabetically")}
-            </Button>
-            <Button
-              size="small"
-              variant={bulkMode ? "contained" : "outlined"}
-              onClick={handleToggleBulkMode}
-            >
-              {i18n("bulk_actions")}
-            </Button>
-            {bulkMode && (
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={apiItems.length === 0}
-                  onClick={handleToggleAllApis}
-                >
-                  {allApisChecked ? i18n("deselect_all") : i18n("select_all")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={!hasCheckedApis}
-                  onClick={handlePinCheckedApis}
-                  startIcon={<PushPinIcon />}
-                >
-                  {i18n("pin_to_top")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={!hasCheckedApis}
-                  onClick={handleEnableCheckedApis}
-                  startIcon={<CheckCircleOutlineIcon />}
-                >
-                  {i18n("enable")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={!hasCheckedApis}
-                  onClick={handleDisableCheckedApis}
-                  startIcon={<BlockIcon />}
-                >
-                  {i18n("disable")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  disabled={!hasCheckedApis}
-                  onClick={handleDeleteCheckedApis}
-                  startIcon={<DeleteIcon />}
-                >
-                  {i18n("delete")}
-                </Button>
-              </Stack>
-            )}
+              <Button
+                size="small"
+                id="add-api-button"
+                variant="contained"
+                onClick={handleClick}
+                aria-controls={open ? "add-api-menu" : undefined}
+                aria-haspopup="true"
+                aria-expanded={open ? "true" : undefined}
+                endIcon={<KeyboardArrowDownIcon />}
+                startIcon={<AddIcon />}
+              >
+                {i18n("add")}
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={hasUnsavedChanges}
+                onClick={() => {
+                  const newDir = alphaSortDir === "asc" ? "desc" : "asc";
+                  setAlphaSortDir(newDir);
+                  setDetailKey((k) => k + 1);
+                  alphaSortApis(newDir);
+                }}
+                startIcon={<SwapVertIcon />}
+              >
+                {i18n("sort_alphabetically")}
+              </Button>
+              <Button
+                size="small"
+                variant={bulkMode ? "contained" : "outlined"}
+                onClick={handleToggleBulkMode}
+              >
+                {i18n("bulk_actions")}
+              </Button>
+              {bulkMode && (
+                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={apiItems.length === 0}
+                    onClick={handleToggleAllApis}
+                  >
+                    {allApisChecked ? i18n("deselect_all") : i18n("select_all")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={!hasCheckedApis || hasUnsavedChanges}
+                    onClick={handlePinCheckedApis}
+                    startIcon={<PushPinIcon />}
+                  >
+                    {i18n("pin_to_top")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={!hasCheckedApis || hasUnsavedChanges}
+                    onClick={handleEnableCheckedApis}
+                    startIcon={<CheckCircleOutlineIcon />}
+                  >
+                    {i18n("enable")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={!hasCheckedApis || hasUnsavedChanges}
+                    onClick={handleDisableCheckedApis}
+                    startIcon={<BlockIcon />}
+                  >
+                    {i18n("disable")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    disabled={!hasCheckedApis || hasUnsavedChanges}
+                    onClick={handleDeleteCheckedApis}
+                    startIcon={<DeleteIcon />}
+                  >
+                    {i18n("delete")}
+                  </Button>
+                </Stack>
+              )}
+            </Stack>
           </Stack>
           <Menu
             id="add-api-menu"
@@ -1755,33 +2332,37 @@ export default function Apis() {
               </MenuItem>
             ))}
           </Menu>
-        </Box>
+        </Paper>
 
         <Box
           sx={{
             display: "flex",
-            flexDirection: { xs: "column", md: "row" },
+            flexDirection: { xs: "column", lg: "row" },
             border: 1,
             borderColor: "divider",
-            borderRadius: 1,
-            overflow: "hidden",
-            height: { md: "calc(100vh - 250px)" },
+            borderRadius: 3,
+            overflow: { xs: "visible", lg: "hidden" },
+            minHeight: { lg: 560 },
+            height: { lg: "calc(100vh - 360px)" },
+            backgroundColor: "background.paper",
           }}
         >
           <Box
             sx={(theme) => ({
-              width: { xs: "100%", md: 280 },
-              flex: { xs: "0 0 auto", md: "0 0 280px" },
-              height: { md: "100%" },
+              width: { xs: "100%", lg: 320 },
+              flex: { xs: "0 0 auto", lg: "0 0 320px" },
+              height: { lg: "100%" },
+              maxHeight: { xs: 320, lg: "none" },
               overflowY: "auto",
               borderRight: {
                 xs: 0,
-                md: `1px solid ${theme.palette.divider}`,
+                lg: `1px solid ${theme.palette.divider}`,
               },
               borderBottom: {
                 xs: `1px solid ${theme.palette.divider}`,
-                md: 0,
+                lg: 0,
               },
+              p: 1,
             })}
           >
             <List disablePadding>
@@ -1794,7 +2375,8 @@ export default function Apis() {
                   checked={checkedApiSlugSet.has(api.apiSlug)}
                   dragging={api.apiSlug === draggingApiSlug}
                   dragOver={api.apiSlug === dragOverApiSlug}
-                  onSelect={() => setSelectedApiSlug(api.apiSlug)}
+                  reorderEnabled={!hasUnsavedChanges}
+                  onSelect={() => void handleSelectApi(api.apiSlug)}
                   onCheck={handleCheckApi}
                   onDragStart={(event) => handleDragStart(event, api.apiSlug)}
                   onDragOver={(event) => handleDragOver(event, api.apiSlug)}
@@ -1802,6 +2384,13 @@ export default function Apis() {
                   onDragEnd={handleDragEnd}
                 />
               ))}
+              {apiItems.length === 0 && (
+                <Box sx={{ px: 2, py: 5, textAlign: "center" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {i18n("no_services_found", "No matching services")}
+                  </Typography>
+                </Box>
+              )}
             </List>
           </Box>
           <Box
@@ -1811,18 +2400,28 @@ export default function Apis() {
               minWidth: 0,
               p: 2,
               boxSizing: "border-box",
-              height: { md: "100%" },
-              overflowY: { md: "auto" },
-              scrollbarGutter: { md: "stable" },
+              height: { lg: "100%" },
+              overflowY: { lg: "auto" },
+              scrollbarGutter: { lg: "stable" },
               overscrollBehavior: "contain",
+              "& .MuiGrid-grid-lg-3": {
+                flexBasis: { lg: "50%" },
+                maxWidth: { lg: "50%" },
+              },
             }}
           >
             {selectedApiItem && (
               <ApiFields
                 key={detailKey}
                 apiSlug={selectedApiItem.api.apiSlug}
-                deleteApi={deleteApi}
+                deleteApi={handleDeleteApi}
                 copyApi={copyApi}
+                onDirtyChange={setHasUnsavedChanges}
+                onCreated={handleApiCreated}
+                isReferenced={referencedRulesByApi.has(
+                  selectedApiItem.api.apiSlug
+                )}
+                onReferencedMutation={warnIfServicesReferenced}
               />
             )}
           </Box>

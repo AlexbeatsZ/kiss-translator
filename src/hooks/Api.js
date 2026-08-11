@@ -136,6 +136,7 @@ export function useApiList() {
         ...prev,
         transApis: [...(prev?.transApis || []), newApi],
       }));
+      return newApi;
     },
     [updateSetting]
   );
@@ -155,6 +156,7 @@ export function useApiList() {
         ...prev,
         transApis: [...(prev?.transApis || []), newApi],
       }));
+      return newApi;
     },
     [updateSetting]
   );
@@ -376,6 +378,21 @@ export function useApiItem(apiSlug) {
     () => transApis.find((a) => a.apiSlug === apiSlug),
     [transApis, apiSlug]
   );
+  const resetData = useMemo(() => {
+    if (!api) {
+      return {};
+    }
+
+    const defaultApiOpt =
+      DEFAULT_API_LIST.find((item) => item.apiType === api.apiType) || {};
+    return {
+      ...defaultApiOpt,
+      apiSlug: api.apiSlug,
+      apiName: api.apiName,
+      apiType: api.apiType,
+      key: api.key,
+    };
+  }, [api]);
 
   // 更新当前 API 项的某些属性数据，并防止 Slug 被意外更改
   const update = useCallback(
@@ -411,5 +428,5 @@ export function useApiItem(apiSlug) {
     }));
   }, [apiSlug, updateSetting]);
 
-  return { api, update, reset };
+  return { api, update, reset, resetData };
 }

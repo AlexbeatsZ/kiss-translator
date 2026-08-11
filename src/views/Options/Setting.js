@@ -1,20 +1,16 @@
 import { useEffect, useState } from "react";
-import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Link from "@mui/material/Link";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import { useSetting } from "../../hooks/Setting";
 import { useI18n } from "../../hooks/I18n";
 import { useAlert } from "../../hooks/Alert";
 import { isExt } from "../../libs/client";
 import { browser } from "../../libs/browser";
-import Grid from "@mui/material/Grid";
-
 import {
   UI_LANGS,
   TRANS_NEWLINE_LENGTH,
@@ -41,10 +37,13 @@ import { kissLog, LogLevel } from "../../libs/log";
 import UploadButton from "./UploadButton";
 import DownloadButton from "./DownloadButton";
 import ValidationInput from "../../hooks/ValidationInput";
+import {
+  SettingsAccordionSection,
+  SettingsGrid,
+  SettingsSection,
+  SettingsToggle,
+} from "./SettingsSurface";
 
-/**
- * 包装单个快捷键录入表单项组件
- */
 function ShortcutItem({ action, label }) {
   const { shortcut, setShortcut } = useShortcut(action);
   return (
@@ -52,19 +51,17 @@ function ShortcutItem({ action, label }) {
   );
 }
 
-/**
- * 展示扩展版快捷键的组件 (仅 Extension 模式)
- */
 function ExtCommands() {
+  const i18n = useI18n();
   const [commands, setCommands] = useState([]);
 
   useEffect(() => {
     if (browser?.commands?.getAll) {
       browser.commands
         .getAll()
-        .then((cmds) => {
-          if (cmds) {
-            setCommands(cmds.filter((c) => c.description));
+        .then((items) => {
+          if (items) {
+            setCommands(items.filter((item) => item.description));
           }
         })
         .catch((err) => {
@@ -81,7 +78,7 @@ function ExtCommands() {
     if (ua.includes("Edg/")) {
       url = "edge://extensions/shortcuts";
     } else if (ua.includes("Firefox/")) {
-      url = "about:addons"; // Firefox 目前没有直接进入扩展快捷键的 URI
+      url = "about:addons";
     } else if (ua.includes("OPR/")) {
       url = "opera://extensions/shortcuts";
     } else if (ua.includes("Brave/")) {
@@ -96,46 +93,38 @@ function ExtCommands() {
   };
 
   return (
-    <Box>
-      <Grid container spacing={2} columns={12}>
-        {commands.map((cmd) => (
-          <Grid item xs={12} sm={12} md={6} lg={3} key={cmd.name}>
-            <Stack direction="row" alignItems="flex-start">
-              <TextField
-                size="small"
-                label={cmd.description}
-                value={cmd.shortcut || ""}
-                fullWidth
-                disabled
-              />
-              <IconButton onClick={handleEdit}>
-                <EditIcon />
-              </IconButton>
-            </Stack>
-          </Grid>
-        ))}
-      </Grid>
-    </Box>
+    <SettingsGrid>
+      {commands.map((command) => (
+        <Stack direction="row" alignItems="flex-start" key={command.name}>
+          <TextField
+            size="small"
+            label={command.description}
+            value={command.shortcut || ""}
+            fullWidth
+            disabled
+          />
+          <IconButton
+            onClick={handleEdit}
+            aria-label={i18n("edit_shortcut", "Edit shortcut")}
+          >
+            <EditIcon />
+          </IconButton>
+        </Stack>
+      ))}
+    </SettingsGrid>
   );
 }
 
-/**
- * 基本查词/运行设置中心页面 (Settings)
- */
 export default function Settings() {
   const i18n = useI18n();
-  // 设置 Hook
   const { setting, updateSetting } = useSetting();
   const alert = useAlert();
-  // 悬浮查词 FAB 浮球设置 Hook
   const { fab, updateFab } = useFab();
 
-  // 基础表单输入状态更改回调
-  const handleChange = (e) => {
-    e.preventDefault();
-    let { name, value } = e.target;
+  const handleChange = (event) => {
+    event.preventDefault();
+    const { name, value } = event.target;
 
-    // 特定联动：若是浏览器扩展模式，且修改了 CSP 规则列表，立即向后台 content script / background 发送同步消息
     switch (name) {
       case "csplist":
         isExt && sendBgMsg(MSG_UPDATE_CSP, { csplist: value });
@@ -145,6 +134,7 @@ export default function Settings() {
         break;
       default:
     }
+
     updateSetting({
       [name]: value,
     });
@@ -162,7 +152,6 @@ export default function Settings() {
     });
   };
 
-  // 清除本地网络请求翻译缓存
   const handleClearCache = () => {
     try {
       caches.delete(CACHE_NAME);
@@ -172,7 +161,6 @@ export default function Settings() {
     }
   };
 
-  // 导入备份 JSON 配置文件
   const handleImport = async (data) => {
     try {
       updateSetting(JSON.parse(data));
@@ -181,7 +169,6 @@ export default function Settings() {
     }
   };
 
-  // 解构当前基础查词偏好设置
   const {
     uiLang,
     minLength,
@@ -201,7 +188,6 @@ export default function Settings() {
     preInit = true,
     skipLangs = [],
   } = setting;
-  // 解构 FAB 悬浮球的显隐状态及点击后的默认交互行为
   const { isHide = false, fabClickAction = 0 } = fab || {};
   const isFabHidden = isHide === true || isHide === "true";
   const normalizedContextMenuType = Number(contextMenuType);
@@ -213,291 +199,267 @@ export default function Settings() {
     : 1;
 
   return (
-    <Box>
-      <Stack spacing={3}>
-        {/* 数据导入导出控制条 */}
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={2}
-          useFlexGap
-          flexWrap="wrap"
-        >
-          <UploadButton text={i18n("import")} handleImport={handleImport} />
-          <DownloadButton
-            handleData={() => JSON.stringify(setting, null, 2)}
-            text={i18n("export")}
-            fileName={`kiss-setting_v2_${Date.now()}.json`}
+    <Stack spacing={3}>
+      <SettingsSection
+        title={i18n("settings_interface_section", "Interface & startup")}
+        description={i18n(
+          "settings_interface_section_description",
+          "Choose how the settings interface opens and how page controls appear. Changes are saved automatically."
+        )}
+      >
+        <SettingsGrid>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            name="uiLang"
+            value={uiLang}
+            label={i18n("ui_lang")}
+            onChange={handleChange}
+          >
+            {UI_LANGS.map(([lang, name]) => (
+              <MenuItem key={lang} value={lang}>
+                {name}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            select
+            fullWidth
+            size="small"
+            name="preInit"
+            value={preInit}
+            label={i18n("if_pre_init")}
+            onChange={handleChange}
+          >
+            <MenuItem value={true}>{i18n("enable")}</MenuItem>
+            <MenuItem value={false}>{i18n("disable")}</MenuItem>
+          </TextField>
+
+          <SettingsToggle
+            label={i18n("show_fab_button")}
+            description={i18n(
+              "show_fab_button_description",
+              "Show the page control used to start translation or open its menu."
+            )}
+            control={
+              <Switch
+                name="isHide"
+                checked={!isFabHidden}
+                onChange={(event) => {
+                  updateFab({ isHide: !event.target.checked });
+                }}
+              />
+            }
+          />
+
+          <TextField
+            select
+            fullWidth
+            size="small"
+            name="fabClickAction"
+            value={fabClickAction}
+            label={i18n("fab_click_action")}
+            onChange={(event) =>
+              updateFab({ fabClickAction: event.target.value })
+            }
+            disabled={isFabHidden}
+          >
+            <MenuItem value={0}>{i18n("fab_click_menu")}</MenuItem>
+            <MenuItem value={1}>{i18n("fab_click_translate")}</MenuItem>
+          </TextField>
+        </SettingsGrid>
+      </SettingsSection>
+
+      <SettingsSection
+        title={i18n(
+          "settings_page_translation_section",
+          "Page translation behavior"
+        )}
+        description={i18n(
+          "settings_page_translation_section_description",
+          "Control which text is translated and which languages or sites should be skipped."
+        )}
+      >
+        <Stack spacing={2.5}>
+          <SettingsGrid>
+            <ValidationInput
+              fullWidth
+              size="small"
+              label={i18n("min_translate_length")}
+              type="number"
+              name="minLength"
+              value={minLength}
+              onChange={handleChange}
+              min={1}
+              max={100}
+            />
+            <ValidationInput
+              fullWidth
+              size="small"
+              label={i18n("max_translate_length")}
+              type="number"
+              name="maxLength"
+              value={maxLength}
+              onChange={handleChange}
+              min={100}
+              max={100000}
+            />
+            <ValidationInput
+              fullWidth
+              size="small"
+              label={i18n("num_of_newline_characters")}
+              type="number"
+              name="newlineLength"
+              value={newlineLength}
+              onChange={handleChange}
+              min={1}
+              max={1000}
+            />
+            <TextField
+              select
+              fullWidth
+              size="small"
+              name="langDetector"
+              value={langDetector}
+              label={i18n("detected_lang")}
+              onChange={handleChange}
+            >
+              <MenuItem value="-">{i18n("disable")}</MenuItem>
+              {OPT_LANGDETECTOR_ALL.map((item) => (
+                <MenuItem value={item} key={item}>
+                  {item}
+                </MenuItem>
+              ))}
+            </TextField>
+          </SettingsGrid>
+
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label={i18n("skip_langs")}
+            helperText={i18n("skip_langs_helper")}
+            name="skipLangs"
+            value={skipLangs}
+            onChange={handleChange}
+            SelectProps={{ multiple: true }}
+          >
+            {OPT_LANGS_TO.map(([langKey, langName]) => (
+              <MenuItem key={langKey} value={langKey}>
+                {langName}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            fullWidth
+            size="small"
+            label={i18n("translate_blacklist")}
+            helperText={i18n("pattern_helper")}
+            name="blacklist"
+            value={blacklist}
+            onChange={handleChange}
+            minRows={3}
+            maxRows={10}
+            multiline
           />
         </Stack>
+      </SettingsSection>
 
-        {/* 基础参数网格配置区 */}
-        <Box>
-          <Grid container spacing={2} columns={12}>
-            {/* 设置面板用户界面语言 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="uiLang"
-                value={uiLang}
-                label={i18n("ui_lang")}
-                onChange={handleChange}
-              >
-                {UI_LANGS.map(([lang, name]) => (
-                  <MenuItem key={lang} value={lang}>
-                    {name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            {/* 页面打开时是否预先初始化运行环境 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="preInit"
-                value={preInit}
-                label={i18n("if_pre_init")}
-                onChange={handleChange}
-              >
-                <MenuItem value={true}>{i18n("enable")}</MenuItem>
-                <MenuItem value={false}>{i18n("disable")}</MenuItem>
-              </TextField>
-            </Grid>
-            {/* 是否全局隐藏内容页面右侧的悬浮查词小图标 FAB */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    name="isHide"
-                    checked={!isFabHidden}
-                    onChange={(e) => {
-                      updateFab({ isHide: !e.target.checked });
-                    }}
-                  />
+      <SettingsSection
+        title={i18n("settings_interaction_section", "Browser interactions")}
+        description={i18n(
+          "settings_interaction_section_description",
+          "Configure touch gestures and the browser context menu."
+        )}
+      >
+        <SettingsGrid>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            name="touchModes"
+            value={touchModes}
+            label={i18n("touch_translate_shortcut")}
+            onChange={handleChange}
+            SelectProps={{ multiple: true }}
+          >
+            {[0, 2, 3, 4, 5, 6, 7].map((item) => (
+              <MenuItem key={item} value={item}>
+                {i18n(`touch_tap_${item}`)}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <SettingsToggle
+            label={i18n("context_menus")}
+            description={i18n(
+              "context_menus_description",
+              "Add translation actions to the browser right-click menu."
+            )}
+            control={
+              <Switch
+                name="contextMenuEnabled"
+                checked={isContextMenuEnabled}
+                onChange={(event) =>
+                  updateContextMenus({ enabled: event.target.checked })
                 }
-                label={i18n("show_fab_button")}
               />
-            </Grid>
-            {/* 点击悬浮球时触发的行为 (直接展示菜单或立即启动全文双语翻译) */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="fabClickAction"
-                value={fabClickAction}
-                label={i18n("fab_click_action")}
-                onChange={(e) => updateFab({ fabClickAction: e.target.value })}
-                disabled={isFabHidden}
-              >
-                <MenuItem value={0}>{i18n("fab_click_menu")}</MenuItem>
-                <MenuItem value={1}>{i18n("fab_click_translate")}</MenuItem>
-              </TextField>
-            </Grid>
-            {/* 单个 DOM 文本块触发网页翻译的最小有效文本长度 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                fullWidth
-                size="small"
-                label={i18n("min_translate_length")}
-                type="number"
-                name="minLength"
-                value={minLength}
-                onChange={handleChange}
-                min={1}
-                max={100}
-              />
-            </Grid>
-            {/* 允许发起单次网页段落翻译的最长文本限制 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                fullWidth
-                size="small"
-                label={i18n("max_translate_length")}
-                type="number"
-                name="maxLength"
-                value={maxLength}
-                onChange={handleChange}
-                min={100}
-                max={100000}
-              />
-            </Grid>
-            {/* 网页中单个纯文本换行符被当作真换行截断句子的数量 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                fullWidth
-                size="small"
-                label={i18n("num_of_newline_characters")}
-                type="number"
-                name="newlineLength"
-                value={newlineLength}
-                onChange={handleChange}
-                min={1}
-                max={1000}
-              />
-            </Grid>
-            {/* DOM 段落网页翻译扫描定时查询轮询间隔时间 (ms) */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                fullWidth
-                size="small"
-                label={i18n("translate_interval")}
-                type="number"
-                name="transInterval"
-                value={transInterval}
-                onChange={handleChange}
-                min={1}
-                max={2000}
-              />
-            </Grid>
-            {/* 全局接口 HTTP 网络请求超时阈值 (s) */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                fullWidth
-                size="small"
-                label={i18n("http_timeout")}
-                type="number"
-                name="httpTimeout"
-                value={httpTimeout}
-                onChange={handleChange}
-                min={1}
-                max={600}
-              />
-            </Grid>
-            {/* 移动端/触屏端特定的触摸手势快捷翻译触发方式 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="touchModes"
-                value={touchModes}
-                label={i18n("touch_translate_shortcut")}
-                onChange={handleChange}
-                SelectProps={{
-                  multiple: true,
-                }}
-              >
-                {[0, 2, 3, 4, 5, 6, 7].map((item) => (
-                  <MenuItem key={item} value={item}>
-                    {i18n(`touch_tap_${item}`)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            {/* 浏览器右键上下文菜单启用开关 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    name="contextMenuEnabled"
-                    checked={isContextMenuEnabled}
-                    onChange={(e) =>
-                      updateContextMenus({ enabled: e.target.checked })
-                    }
-                  />
-                }
-                label={i18n("context_menus")}
-              />
-            </Grid>
-            {/* 浏览器右键上下文菜单的展示层级 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="contextMenuType"
-                value={contextMenuDisplayType}
-                label={i18n("context_menu_type")}
-                onChange={(e) =>
-                  updateContextMenus({ enabled: true, type: e.target.value })
-                }
-                disabled={!isContextMenuEnabled}
-              >
-                <MenuItem value={1}>{i18n("simple_context_menus")}</MenuItem>
-                <MenuItem value={2}>{i18n("secondary_context_menus")}</MenuItem>
-              </TextField>
-            </Grid>
-            {/* 网页首选的语言自动检测服务组件 (如 Chrome Builtin, FastText 或 API) */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="langDetector"
-                value={langDetector}
-                label={i18n("detected_lang")}
-                onChange={handleChange}
-              >
-                <MenuItem value={"-"}>{i18n("disable")}</MenuItem>
-                {OPT_LANGDETECTOR_ALL.map((item) => (
-                  <MenuItem value={item} key={item}>
-                    {item}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            {/* 日志记录详细层级 (Error/Info/Debug 等) */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="logLevel"
-                value={logLevel}
-                label={i18n("log_level")}
-                onChange={handleChange}
-              >
-                {Object.values(LogLevel).map(({ value, name }) => (
-                  <MenuItem value={value} key={value}>
-                    {name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-        </Box>
+            }
+          />
 
-        {/* 翻译跳过语言：遇到选中的目标语言时跳过自动网页翻译 */}
-        <TextField
-          select
-          size="small"
-          label={i18n("skip_langs")}
-          helperText={i18n("skip_langs_helper")}
-          name="skipLangs"
-          value={skipLangs}
-          onChange={handleChange}
-          SelectProps={{
-            multiple: true,
-          }}
-        >
-          {OPT_LANGS_TO.map(([langKey, langName]) => (
-            <MenuItem key={langKey} value={langKey}>
-              {langName}
-            </MenuItem>
-          ))}
-        </TextField>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            name="contextMenuType"
+            value={contextMenuDisplayType}
+            label={i18n("context_menu_type")}
+            onChange={(event) =>
+              updateContextMenus({ enabled: true, type: event.target.value })
+            }
+            disabled={!isContextMenuEnabled}
+          >
+            <MenuItem value={1}>{i18n("simple_context_menus")}</MenuItem>
+            <MenuItem value={2}>{i18n("secondary_context_menus")}</MenuItem>
+          </TextField>
+        </SettingsGrid>
+      </SettingsSection>
 
-        {/* 网页翻译的黑名单域名正则排除列表 (一行一条) */}
-        <TextField
-          size="small"
-          label={i18n("translate_blacklist")}
-          helperText={i18n("pattern_helper")}
-          name="blacklist"
-          value={blacklist}
-          onChange={handleChange}
-          maxRows={10}
-          multiline
-        />
+      <SettingsSection
+        title={i18n("settings_network_section", "Network & performance")}
+        description={i18n(
+          "settings_network_section_description",
+          "Tune request timing and local translation cache behavior."
+        )}
+      >
+        <SettingsGrid>
+          <ValidationInput
+            fullWidth
+            size="small"
+            label={i18n("translate_interval")}
+            type="number"
+            name="transInterval"
+            value={transInterval}
+            onChange={handleChange}
+            min={1}
+            max={2000}
+          />
+          <ValidationInput
+            fullWidth
+            size="small"
+            label={i18n("http_timeout")}
+            type="number"
+            name="httpTimeout"
+            value={httpTimeout}
+            onChange={handleChange}
+            min={1}
+            max={600}
+          />
 
-        {/* 扩展专属的高级网络设置 (只在 Extension 模式下展示) */}
-        {isExt ? (
-          <>
-            {/* 是否在浏览器关闭/重启时自动清空网页翻译的已缓存译文 */}
+          {isExt && (
             <TextField
               select
               fullWidth
@@ -515,71 +477,134 @@ export default function Settings() {
               <MenuItem value={false}>{i18n("clear_cache_never")}</MenuItem>
               <MenuItem value={true}>{i18n("clear_cache_restart")}</MenuItem>
             </TextField>
+          )}
+        </SettingsGrid>
+      </SettingsSection>
 
-            {/* 跨域安全 CSP 旁路加载白名单与 Ori 白名单 */}
-            <TextField
-              size="small"
-              label={i18n("disabled_orilist")}
-              helperText={i18n("pattern_helper")}
-              name="orilist"
-              value={orilist}
-              onChange={handleChange}
-              multiline
-            />
-            <TextField
-              size="small"
-              label={i18n("disabled_csplist")}
-              helperText={
-                i18n("pattern_helper") + " " + i18n("disabled_csplist_helper")
-              }
-              name="csplist"
-              value={csplist}
-              onChange={handleChange}
-              multiline
-            />
-
-            <ExtCommands />
-          </>
+      <SettingsSection
+        title={i18n("settings_shortcuts_section", "Keyboard shortcuts")}
+        description={
+          isExt
+            ? i18n(
+                "settings_shortcuts_extension_description",
+                "Browser extension shortcuts are managed by your browser."
+              )
+            : i18n(
+                "settings_shortcuts_userscript_description",
+                "Choose the key combinations used by the userscript."
+              )
+        }
+      >
+        {isExt ? (
+          <ExtCommands />
         ) : (
-          // 油猴脚本环境运行：渲染脚本侧注册的全局热键录入面板
-          <>
-            <Box>
-              <Grid container spacing={2} columns={12}>
-                <Grid item xs={12} sm={12} md={6} lg={3}>
-                  <ShortcutItem
-                    action={OPT_SHORTCUT_TRANSLATE}
-                    label={i18n("toggle_translate_shortcut")}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={12} md={6} lg={3}>
-                  <ShortcutItem
-                    action={OPT_SHORTCUT_TRANSONLY}
-                    label={i18n("toggle_transonly_shortcut")}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={12} md={6} lg={3}>
-                  <ShortcutItem
-                    action={OPT_SHORTCUT_STYLE}
-                    label={i18n("toggle_style_shortcut")}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={12} md={6} lg={3}>
-                  <ShortcutItem
-                    action={OPT_SHORTCUT_POPUP}
-                    label={i18n("toggle_popup_shortcut")}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={12} md={6} lg={3}>
-                  <ShortcutItem
-                    action={OPT_SHORTCUT_SETTING}
-                    label={i18n("open_setting_shortcut")}
-                  />
-                </Grid>
-              </Grid>
-            </Box>
-          </>
+          <SettingsGrid>
+            <ShortcutItem
+              action={OPT_SHORTCUT_TRANSLATE}
+              label={i18n("toggle_translate_shortcut")}
+            />
+            <ShortcutItem
+              action={OPT_SHORTCUT_TRANSONLY}
+              label={i18n("toggle_transonly_shortcut")}
+            />
+            <ShortcutItem
+              action={OPT_SHORTCUT_STYLE}
+              label={i18n("toggle_style_shortcut")}
+            />
+            <ShortcutItem
+              action={OPT_SHORTCUT_POPUP}
+              label={i18n("toggle_popup_shortcut")}
+            />
+            <ShortcutItem
+              action={OPT_SHORTCUT_SETTING}
+              label={i18n("open_setting_shortcut")}
+            />
+          </SettingsGrid>
         )}
-      </Stack>
-    </Box>
+      </SettingsSection>
+
+      <SettingsAccordionSection
+        title={i18n(
+          "settings_advanced_section",
+          "Advanced browser integration"
+        )}
+        description={i18n(
+          "settings_advanced_section_description",
+          "Diagnostics and compatibility controls for advanced users."
+        )}
+      >
+        <Stack spacing={2.5}>
+          <SettingsGrid>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              name="logLevel"
+              value={logLevel}
+              label={i18n("log_level")}
+              onChange={handleChange}
+            >
+              {Object.values(LogLevel).map(({ value, name }) => (
+                <MenuItem value={value} key={value}>
+                  {name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </SettingsGrid>
+
+          {isExt && (
+            <>
+              <TextField
+                fullWidth
+                size="small"
+                label={i18n("disabled_orilist")}
+                helperText={i18n("pattern_helper")}
+                name="orilist"
+                value={orilist}
+                onChange={handleChange}
+                minRows={2}
+                multiline
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label={i18n("disabled_csplist")}
+                helperText={`${i18n("pattern_helper")} ${i18n(
+                  "disabled_csplist_helper"
+                )}`}
+                name="csplist"
+                value={csplist}
+                onChange={handleChange}
+                minRows={2}
+                multiline
+              />
+            </>
+          )}
+        </Stack>
+      </SettingsAccordionSection>
+
+      <SettingsSection
+        title={i18n("settings_backup_section", "Settings backup")}
+        description={i18n(
+          "settings_backup_section_description",
+          "Export a local copy of your settings or restore a compatible backup."
+        )}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1.5}
+          flexWrap="wrap"
+          useFlexGap
+        >
+          <UploadButton text={i18n("import")} handleImport={handleImport} />
+          <DownloadButton
+            handleData={() => JSON.stringify(setting, null, 2)}
+            text={i18n("export")}
+            fileName={`kiss-setting_v2_${Date.now()}.json`}
+          />
+        </Stack>
+      </SettingsSection>
+    </Stack>
   );
 }
