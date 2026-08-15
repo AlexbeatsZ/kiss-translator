@@ -13,6 +13,25 @@ jest.mock("../../hooks/I18n", () => ({
   useI18n: () => (key, fallback) => fallback || key,
 }));
 
+jest.mock("../../hooks/Setting", () => ({
+  useSetting: () => ({
+    setting: { transApis: [{ apiSlug: "Microsoft", apiName: "Microsoft" }] },
+  }),
+}));
+
+jest.mock("../../hooks/Rules", () => ({
+  useRules: () => ({
+    list: [
+      {
+        pattern: "*",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        apiSlug: "Microsoft",
+      },
+    ],
+  }),
+}));
+
 jest.mock("./Header", () => {
   return function MockHeader() {
     return <div data-testid="header" />;

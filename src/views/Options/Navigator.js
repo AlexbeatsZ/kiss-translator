@@ -6,14 +6,13 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
-import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import { NavLink, useMatch } from "react-router-dom";
 import { useI18n } from "../../hooks/I18n";
 import { getSettingsNavigation } from "./settingsNavigation";
 
-function LinkItem({ item, onNavigate }) {
+function LinkItem({ item, onNavigate, compact = false }) {
   const match = useMatch({ path: item.url, end: item.url === "/" });
   const Icon = item.icon;
   const handleClick = (event) => {
@@ -40,17 +39,28 @@ function LinkItem({ item, onNavigate }) {
       selected={!!match}
       onClick={handleClick}
       sx={(theme) => ({
-        mx: 1.25,
-        mb: 0.4,
-        minHeight: 42,
-        borderRadius: 2,
+        position: "relative",
+        mx: compact ? 0 : 1.25,
+        mb: compact ? 0 : 0.35,
+        minWidth: compact ? "max-content" : 0,
+        minHeight: compact ? 46 : 44,
+        borderRadius: compact ? 0 : 1,
         color: "text.secondary",
+        borderLeft: compact ? 0 : "3px solid transparent",
+        borderBottom: compact ? "3px solid transparent" : 0,
         "& .MuiListItemIcon-root": {
           color: "text.secondary",
         },
         "&.Mui-selected": {
           color: "primary.main",
-          backgroundColor: alpha(theme.palette.primary.main, 0.11),
+          backgroundColor: alpha(
+            theme.palette.primary.main,
+            compact ? 0.06 : 0.075
+          ),
+          borderLeftColor: compact ? "transparent" : theme.palette.primary.main,
+          borderBottomColor: compact
+            ? theme.palette.primary.main
+            : "transparent",
           "& .MuiListItemIcon-root": {
             color: "primary.main",
           },
@@ -60,7 +70,7 @@ function LinkItem({ item, onNavigate }) {
         },
       })}
     >
-      <ListItemIcon sx={{ minWidth: 36 }}>
+      <ListItemIcon sx={{ minWidth: compact ? 30 : 36 }}>
         <Icon fontSize="small" />
       </ListItemIcon>
       <ListItemText
@@ -84,6 +94,37 @@ export default function Navigator({
   const i18n = useI18n();
   const groups = getSettingsNavigation(i18n);
 
+  if (props.variant === "mobile-strip") {
+    return (
+      <Box
+        component="nav"
+        aria-label={i18n("settings_navigation", "Settings navigation")}
+        sx={(theme) => ({
+          position: "sticky",
+          top: 56,
+          zIndex: theme.zIndex.appBar - 1,
+          display: "flex",
+          overflowX: "auto",
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          backgroundColor: alpha(theme.palette.background.paper, 0.96),
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
+        })}
+      >
+        {groups.flatMap((group) =>
+          group.items.map((item) => (
+            <LinkItem
+              key={item.id}
+              item={item}
+              onNavigate={onNavigate}
+              compact
+            />
+          ))
+        )}
+      </Box>
+    );
+  }
+
   return (
     <Drawer
       {...props}
@@ -92,20 +133,18 @@ export default function Navigator({
         sx: (theme) => ({
           width: drawerWidth,
           boxSizing: "border-box",
-          borderRightColor: alpha(theme.palette.divider, 0.82),
-          backgroundColor:
-            theme.palette.mode === "dark"
-              ? alpha(theme.palette.background.paper, 0.96)
-              : "#fbfcfe",
+          top: { xs: 56, sm: 64 },
+          height: { xs: "calc(100% - 56px)", sm: "calc(100% - 64px)" },
+          borderRightColor: alpha(theme.palette.divider, 0.92),
+          backgroundColor: alpha(theme.palette.background.paper, 0.93),
           backgroundImage: "none",
         }),
       }}
     >
-      <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
       <Box
         component="nav"
         aria-label={i18n("settings_navigation", "Settings navigation")}
-        sx={{ flex: 1, minHeight: 0, overflowY: "auto", py: 1 }}
+        sx={{ flex: 1, minHeight: 0, overflowY: "auto", py: 2 }}
       >
         {groups.map((group, index) => (
           <List
@@ -116,13 +155,13 @@ export default function Navigator({
                 component="div"
                 disableSticky
                 sx={{
-                  px: 2.5,
+                  px: 2.75,
                   pt: index === 0 ? 0.5 : 1.25,
                   pb: 0.65,
-                  color: "text.disabled",
+                  color: "primary.main",
                   bgcolor: "transparent",
                   fontSize: "0.69rem",
-                  fontWeight: 760,
+                  fontWeight: 650,
                   lineHeight: 1.5,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
@@ -141,7 +180,7 @@ export default function Navigator({
       <Divider />
       <Box sx={{ px: 2.5, py: 1.5 }}>
         <Typography variant="caption" color="text.disabled">
-          {`KISS Translator v${process.env.REACT_APP_VERSION}`}
+          {`PROOF DESK · v${process.env.REACT_APP_VERSION}`}
         </Typography>
       </Box>
     </Drawer>

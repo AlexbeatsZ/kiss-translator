@@ -566,14 +566,117 @@ const translations = {
   },
 };
 
+const focusedContent = {
+  en: {
+    eyebrow: "Focused bilingual translation",
+    title: "Read the web in two languages, without the study-tool clutter.",
+    subtitle:
+      "KISS Translator now concentrates on webpage translation, website rules, and synchronized YouTube subtitles—with hosted models or local Agy and Codex CLIs.",
+    status: [
+      "Extension",
+      "Userscript",
+      "Page translation",
+      "Subtitles",
+      "Local CLIs",
+    ],
+    featureTitle: "A focused translation proof desk",
+    featureSubtitle:
+      "One clear path from source to translation, plus the controls needed to make it reliable on real websites and videos.",
+    ecosystemTitle: "Choose where translation runs",
+    ecosystemSubtitle:
+      "Use traditional providers, AI APIs, Ollama, or the loopback-only bridge for your authenticated local Agy and Codex CLIs.",
+    features: [
+      {
+        title: "Webpage bilingual translation",
+        body: "Keep source paragraphs readable beside a natural translation without replacing the page's voice or structure.",
+      },
+      {
+        title: "Predictable website rules",
+        body: "Set global language and engine defaults, then add explicit per-site scope and service overrides only where needed.",
+      },
+      {
+        title: "YouTube subtitles",
+        body: "Read synchronized bilingual subtitles with sentence breaking, optional AI segmentation, context, and a clean timeline.",
+      },
+      {
+        title: "Translation engines",
+        body: "Treat every service as one provider connection plus one model, with clear enable, duplicate, test, and delete paths.",
+      },
+      {
+        title: "Local Agy and Codex",
+        body: "Connect the browser to local CLIs through a token-protected bridge bound only to 127.0.0.1.",
+      },
+      {
+        title: "Streaming and context",
+        body: "Use streaming, batching, and short context memory where a selected translation model supports them.",
+      },
+    ],
+    providers: [
+      "LocalAgy",
+      "LocalCodex",
+      "OpenAI",
+      "Gemini",
+      "Claude",
+      "Ollama",
+      "DeepSeek",
+      "OpenRouter",
+      "DeepL",
+      "Google",
+      "Microsoft",
+      "BuiltinAI",
+    ],
+  },
+  zh_CN: {
+    eyebrow: "专注双语翻译",
+    title: "专注网页与字幕，不再堆叠学习工具。",
+    subtitle:
+      "KISS Translator 现在聚焦网页翻译、网站规则与同步 YouTube 字幕，并可使用在线模型或本机 Agy、Codex CLI。",
+    status: ["浏览器扩展", "油猴脚本", "网页翻译", "双语字幕", "本地 CLI"],
+    featureTitle: "清晰的翻译校对台",
+    featureSubtitle:
+      "围绕原文到译文的一条主线，只保留真实网页和视频翻译所需的可靠控制。",
+    ecosystemTitle: "自由选择翻译运行位置",
+    ecosystemSubtitle:
+      "可使用传统服务、AI API、Ollama，或通过仅监听 127.0.0.1 的受保护桥接器连接本机 Agy 与 Codex CLI。",
+    features: [
+      {
+        title: "网页双语翻译",
+        body: "在尽量保留网页语气与结构的前提下，让原文段落与自然译文清晰并读。",
+      },
+      {
+        title: "可预测的网站规则",
+        body: "先设定全局语言与引擎，再只为需要的网站添加明确的范围和服务覆盖。",
+      },
+      {
+        title: "YouTube 双语字幕",
+        body: "提供同步字幕、断句、可选 AI 分段、上下文和简洁的双语时间线。",
+      },
+      {
+        title: "翻译引擎管理",
+        body: "每项服务由一个提供方连接和一个模型组成，启用、复制、测试与删除路径清楚。",
+      },
+      {
+        title: "本机 Agy 与 Codex",
+        body: "通过令牌保护、仅绑定 127.0.0.1 的桥接器，让浏览器安全调用本机 CLI。",
+      },
+      {
+        title: "流式与上下文",
+        body: "在所选模型支持时启用流式输出、批处理与短上下文记忆。",
+      },
+    ],
+  },
+};
+
 export const homepageContent = Object.fromEntries(
   languageOptions.map(({ value }) => [
     value,
     {
       ...baseContent.en,
       ...translations[value],
+      ...(focusedContent[value] || focusedContent.en),
       installs: translations[value]?.installs ?? baseContent.en.installs,
-      providers: translations[value]?.providers ?? baseContent.en.providers,
+      providers:
+        focusedContent[value]?.providers ?? focusedContent.en.providers,
     },
   ])
 );

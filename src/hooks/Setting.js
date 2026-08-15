@@ -9,14 +9,12 @@ import Alert from "@mui/material/Alert";
 import {
   STOKEY_SETTING,
   DEFAULT_SETTING,
-  KV_SETTING_KEY,
   MSG_SET_LOGLEVEL,
   SETTINGS_VERSION_V2,
   getSettingVersion,
   migrateSettingPromptsToV2,
 } from "../config";
 import { useStorage } from "./Storage";
-import { debounceSyncMeta } from "../libs/storage";
 import Loading from "./Loading";
 import { logger } from "../libs/log";
 import { sendBgMsg } from "../libs/msg";
@@ -30,7 +28,7 @@ const SettingContext = createContext({
 });
 
 /**
- * 全局设置 Provider 组件，负责统筹配置的读取、升级、同步与副作用执行（深色模式、日志级别等）
+ * 全局设置 Provider 组件，负责统筹本地配置的读取、升级与副作用执行。
  */
 export function SettingProvider({ children, context }) {
   // 判断当前运行上下文是否为扩展的配置后台选项页 (options)
@@ -42,12 +40,12 @@ export function SettingProvider({ children, context }) {
     isLoading,
     update,
     reload,
-  } = useStorage(STOKEY_SETTING, DEFAULT_SETTING, KV_SETTING_KEY);
+  } = useStorage(STOKEY_SETTING, DEFAULT_SETTING);
   const hasSetting = !!setting;
   const settingVersion = getSettingVersion(setting);
   const logLevel = setting?.logLevel;
 
-  // 兼容直接从 Storage 或云同步回填进来的旧版设置，确保进入界面的配置已经升级到 V2。
+  // 兼容 Storage 中的旧版设置，确保进入界面的配置已经升级到 V2。
   useEffect(() => {
     if (!hasSetting || settingVersion >= SETTINGS_VERSION_V2) {
       return;
@@ -92,20 +90,15 @@ export function SettingProvider({ children, context }) {
     })();
   }, [isOptionsPage, logLevel]);
 
-  // 包装后的更新设置项函数，更新状态的同时异步触发防抖的云端同步机制 (KV 同步)
-  const updateSetting = useCallback(
-    (objOrFn) => {
-      update(objOrFn);
-      debounceSyncMeta(KV_SETTING_KEY);
-    },
-    [update]
-  );
+  // Settings are local-first. Legacy sync metadata is preserved in storage but
+  // changing a setting no longer starts any remote sync workflow.
+  const updateSetting = useCallback((objOrFn) => update(objOrFn), [update]);
 
   // 快捷更新特定子对象键的方法（如仅更新 customStyles 或是 shortcuts 字段）
   // REVIEW: 此处 `async (obj)` 声明为了异步函数，但其内部并无任何使用 `await` 的异步处理。
   // 这种多余的 async 声明是不必要的，应当去除以保证代码精简纯净（为维持原业务逻辑一致性，此处只做 review 标识，不做代码精细修改）。
   const updateChild = useCallback(
-    (key) => async (obj) => {
+    (key) => (obj) => {
       updateSetting((prev) => ({
         ...prev,
         [key]: { ...(prev?.[key] || {}), ...obj },

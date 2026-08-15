@@ -1,15 +1,12 @@
 import { createHashRouter, RouterProvider } from "react-router-dom";
-import About from "./About";
 import Rules from "./Rules";
 import Setting from "./Setting";
 import Layout from "./Layout";
-import SyncSetting from "./SyncSetting";
 import { SettingProvider } from "../../hooks/Setting";
 import ThemeProvider from "../../hooks/Theme";
 import { useEffect, useMemo, useState } from "react";
 import { isGm } from "../../libs/client";
 import { sleep } from "../../libs/utils";
-import { trySyncRules, trySyncSetting, trySyncWords } from "../../libs/sync";
 import { AlertProvider } from "../../hooks/Alert";
 import { ConfirmProvider } from "../../hooks/Confirm";
 import Link from "@mui/material/Link";
@@ -18,60 +15,11 @@ import Stack from "@mui/material/Stack";
 import { adaptScript } from "../../libs/gm";
 import Alert from "@mui/material/Alert";
 import Apis from "./Apis";
-import Prompts from "./Prompts";
-import InputSetting from "./InputSetting";
-import Tranbox from "./Tranbox";
-import FavWords from "./FavWords";
-import Playgound from "./Playground";
-import MouseHoverSetting from "./MouseHover";
 import SubtitleSetting from "./Subtitle";
-import StylesSetting from "./StylesSetting";
 import Backdrop from "@mui/material/Backdrop";
 import CircularProgress from "@mui/material/CircularProgress";
-import { kissLog } from "../../libs/log";
 import { runDataMigration } from "../../libs/storage";
 import { OPTIONS_THEME_OPTIONS } from "./optionsTheme";
-
-const getOptionsStartupSyncTasks = () => {
-  const hashPath =
-    (window.location.hash.replace(/^#/, "") || "/").split("?")[0] || "/";
-  if (hashPath === "/rules" || hashPath.startsWith("/rules/")) {
-    return {
-      requiredSync: async () => {
-        await trySyncSetting();
-        await trySyncRules();
-      },
-      backgroundSyncs: [trySyncWords],
-    };
-  }
-
-  if (hashPath === "/words" || hashPath.startsWith("/words/")) {
-    return {
-      requiredSync: async () => {
-        await trySyncSetting();
-        await trySyncWords();
-      },
-      backgroundSyncs: [trySyncRules],
-    };
-  }
-
-  if (hashPath === "/apis" || hashPath.startsWith("/apis/")) {
-    return {
-      requiredSync: async () => {
-        // Both sync paths update the shared sync metadata; run them in sequence
-        // so their read-modify-write cycles cannot overwrite one another.
-        await trySyncSetting();
-        await trySyncRules();
-      },
-      backgroundSyncs: [trySyncWords],
-    };
-  }
-
-  return {
-    requiredSync: trySyncSetting,
-    backgroundSyncs: [trySyncRules, trySyncWords],
-  };
-};
 
 function OptionsRouter() {
   const router = useMemo(
@@ -83,17 +31,8 @@ function OptionsRouter() {
           children: [
             { index: true, element: <Setting /> },
             { path: "rules", element: <Rules /> },
-            { path: "styles", element: <StylesSetting /> },
-            { path: "input", element: <InputSetting /> },
-            { path: "tranbox", element: <Tranbox /> },
-            { path: "mousehover", element: <MouseHoverSetting /> },
             { path: "subtitle", element: <SubtitleSetting /> },
             { path: "apis", element: <Apis /> },
-            { path: "prompts", element: <Prompts /> },
-            { path: "sync", element: <SyncSetting /> },
-            { path: "words", element: <FavWords /> },
-            { path: "playground", element: <Playgound /> },
-            { path: "about", element: <About /> },
           ],
         },
       ]),
@@ -111,7 +50,7 @@ function OptionsRouter() {
 export default function Options() {
   const [error, setError] = useState("");
   const [gmBridgeReady, setGmBridgeReady] = useState(!isGm); // 是否已建立油猴 GM 桥接，若是则允许页面其他部分访问 GM 接口
-  const [syncingRequiredData, setSyncingRequiredData] = useState(true); // 是否正在同步当前页面必须的数据 (setting/rules/words)，若是则阻塞页面其他部分访问 storage 接口
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     // 检查油猴脚本版本与内置扩展打包版本的前两位主次版本号是否匹配
@@ -147,9 +86,6 @@ export default function Options() {
               adaptScript(eventName);
             }
 
-            // 连接成功，继续执行后续数据迁移与同步准备工作
-            await runDataMigration();
-
             // GM 桥接准备就绪，允许页面其他部分开始正常访问 GM 接口
             setGmBridgeReady(true);
 
@@ -168,23 +104,8 @@ export default function Options() {
         }
       }
 
-      // 只等待当前入口页必须的数据，其他同步任务放到后台继续执行。
-      const { requiredSync, backgroundSyncs } = getOptionsStartupSyncTasks();
-      await requiredSync();
-
-      // 所有必须数据同步完成后，允许页面其他部分开始访问 storage 接口
-      setSyncingRequiredData(false);
-
-      void (async () => {
-        // Every sync updates the same sync metadata object. Keep background
-        // tasks sequential as well so one read-modify-write cannot erase
-        // metadata written by another task.
-        for (const sync of backgroundSyncs) {
-          await sync();
-        }
-      })().catch((err) => {
-        kissLog("sync options background", err?.message || err);
-      });
+      await runDataMigration();
+      setInitializing(false);
     })();
   }, []);
 
@@ -210,11 +131,11 @@ export default function Options() {
     );
   }
 
-  if (!gmBridgeReady || syncingRequiredData) {
+  if (!gmBridgeReady || initializing) {
     return (
       <Backdrop
         data-testid="options-sync-backdrop"
-        aria-label="syncing required data"
+        aria-label="preparing settings"
         open
         sx={(theme) => ({
           color: "#fff",

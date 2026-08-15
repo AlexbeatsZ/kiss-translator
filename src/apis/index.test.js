@@ -16,10 +16,6 @@ jest.mock("../libs/cache", () => ({
   putHttpCachePolyfill: jest.fn(),
 }));
 
-jest.mock("../libs/docInfo", () => ({
-  getDocInfo: () => ({ title: "Doc", description: "Desc", summary: "Summary" }),
-}));
-
 jest.mock("../libs/batchQueue", () => ({
   getBatchQueue: jest.fn(),
 }));
@@ -53,14 +49,13 @@ jest.mock("../libs/cacheDigest", () => ({
 
 jest.mock("./trans", () => ({
   handleTranslate: jest.fn(),
-  handleDict: jest.fn(),
   handleSubtitle: jest.fn(),
   handleSummarize: jest.fn(),
   handleMicrosoftLangdetect: jest.fn(),
 }));
 
-import { apiDict, apiTranslate } from "./index";
-import { handleDict, handleTranslate } from "./trans";
+import { apiTranslate } from "./index";
+import { handleTranslate } from "./trans";
 import { fnPolyfill } from "../libs/fetch";
 import { withTimeout } from "../libs/utils";
 import { getBatchQueue } from "../libs/batchQueue";
@@ -148,118 +143,6 @@ describe("apiTranslate BuiltinAI timeout", () => {
       })
     ).rejects.toThrow(
       "apiBuiltinAITranslate got error: Automatic detection of source language failed: low confidence"
-    );
-  });
-});
-
-describe("apiDict", () => {
-  beforeEach(() => {
-    mockGetCacheDigest.mockImplementation(async (text) =>
-      text.includes("dictionary prompt B") ||
-      text.includes("dictionary user prompt B")
-        ? "b".repeat(64)
-        : "a".repeat(64)
-    );
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  test("delegates to dictionary handler with prompt and context", async () => {
-    handleDict.mockResolvedValueOnce("## dictionary");
-
-    const apiSetting = {
-      ...getOpenAiApiSetting("batch prompt"),
-      dictPrompt: "dictionary prompt {{context}} {{text}}",
-    };
-    const result = await apiDict({
-      text: "library",
-      fromLang: "en",
-      toLang: "zh-CN",
-      apiSetting,
-      context: "The library is open.",
-    });
-
-    expect(result).toBe("## dictionary");
-    expect(handleDict).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: "library",
-        fromLang: "en",
-        toLang: "zh-CN",
-        apiSetting,
-        context: "The library is open.",
-      })
-    );
-    expect(mockGetCacheDigest).toHaveBeenCalledWith(
-      expect.stringContaining("The library is open."),
-      "prompt-cache"
-    );
-    expect(getBatchQueue).not.toHaveBeenCalled();
-  });
-
-  test("returns cached dictionary markdown without calling handler", async () => {
-    getHttpCachePolyfill.mockResolvedValueOnce({ markdown: "cached markdown" });
-
-    const result = await apiDict({
-      text: "library",
-      fromLang: "en",
-      toLang: "zh-CN",
-      apiSetting: {
-        ...getOpenAiApiSetting("batch prompt"),
-        dictPrompt: "dictionary prompt A",
-      },
-      context: "The library is open.",
-    });
-
-    expect(result).toBe("cached markdown");
-    expect(handleDict).not.toHaveBeenCalled();
-    expect(putHttpCachePolyfill).not.toHaveBeenCalled();
-  });
-
-  test("writes dictionary markdown cache using dictionary prompt signature", async () => {
-    getHttpCachePolyfill.mockResolvedValue(null);
-    handleDict.mockResolvedValueOnce("fresh markdown");
-
-    await apiDict({
-      text: "library",
-      fromLang: "en",
-      toLang: "zh-CN",
-      apiSetting: {
-        ...getOpenAiApiSetting("batch prompt"),
-        dictPrompt: "dictionary prompt B",
-        dictUserPrompt: "dictionary user prompt A",
-      },
-      context: "The library is open.",
-    });
-
-    expect(putHttpCachePolyfill).toHaveBeenCalledWith(
-      expect.stringContaining("promptSig=bbbbbbbbbbbbbbbb"),
-      null,
-      { markdown: "fresh markdown" }
-    );
-  });
-
-  test("dictionary prompt signature includes dictionary user prompt", async () => {
-    getHttpCachePolyfill.mockResolvedValue(null);
-    handleDict.mockResolvedValueOnce("fresh markdown");
-
-    await apiDict({
-      text: "library",
-      fromLang: "en",
-      toLang: "zh-CN",
-      apiSetting: {
-        ...getOpenAiApiSetting("batch prompt"),
-        dictPrompt: "dictionary prompt A",
-        dictUserPrompt: "dictionary user prompt B",
-      },
-      context: "The library is open.",
-    });
-
-    expect(putHttpCachePolyfill).toHaveBeenCalledWith(
-      expect.stringContaining("promptSig=bbbbbbbbbbbbbbbb"),
-      null,
-      { markdown: "fresh markdown" }
     );
   });
 });

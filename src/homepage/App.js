@@ -526,13 +526,14 @@ function Ecosystem({ content, tokens }) {
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
         {[
-          "kiss-worker",
           "kiss-rules",
-          "WebDAV",
+          "LocalAgy",
+          "LocalCodex",
+          "127.0.0.1 bridge",
           "Hooks",
           "Streaming",
           "Context memory",
-          "Custom terminology",
+          "Website rules",
         ].map((item) => (
           <Chip
             key={item}

@@ -13,12 +13,9 @@ import {
   OPT_LANGS_FROM_REVERSED as OPT_LANGS_FROM,
   OPT_LANGS_TO_REVERSED as OPT_LANGS_TO,
   URL_KISS_RULES_NEW_ISSUE,
-  OPT_SYNCTYPE_WORKER,
   DEFAULT_TRANS_TAG,
   OPT_SPLIT_PARAGRAPH_DISABLE,
-  OPT_HIGHLIGHT_WORDS_DISABLE,
   OPT_SPLIT_PARAGRAPH_ALL,
-  OPT_HIGHLIGHT_WORDS_ALL,
   API_SPE_TYPES,
 } from "../../config";
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -41,17 +38,13 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import DeleteIcon from "@mui/icons-material/Delete";
 import IconButton from "@mui/material/IconButton";
-import ShareIcon from "@mui/icons-material/Share";
 import SyncIcon from "@mui/icons-material/Sync";
 import { useSubRules } from "../../hooks/SubRules";
 import { syncSubRules } from "../../libs/subRules";
-import { loadOrFetchSubRules } from "../../libs/subRules";
 import { useAlert } from "../../hooks/Alert";
-import { syncShareRules } from "../../libs/sync";
 import { debounce } from "../../libs/utils";
 import {
   delSubRules,
-  getSyncWithDefault,
   getDisabledSubRules,
   setDisabledSubRules,
   removeDisabledSubRules,
@@ -152,10 +145,6 @@ function RuleFields({
     blockSelector = "", // 自定义块级元素 CSS 选择器
     rootsSelector = "", // 翻译的根容器 CSS 选择器
     ignoreSelector = "", // 忽略不翻译的 CSS 选择器
-    terms, // 专有名词对照表（普通）
-    aiTerms, // AI 专有名词对照表
-    termsStyle = "", // 专有名词样式
-    highlightStyle = "color: red;", // 高亮单词样式
     textExtStyle = "", // 译文额外 CSS 样式
     selectStyle = "", // 针对特定选择器的样式
     parentStyle = "", // 针对选择器父元素的样式
@@ -188,7 +177,6 @@ function RuleFields({
     // transRemoveHook = "",
     splitParagraph = OPT_SPLIT_PARAGRAPH_DISABLE, // 段落切分策略
     splitLength = 0, // 段落切分最大长度
-    highlightWords = OPT_HIGHLIGHT_WORDS_DISABLE, // 单词高亮策略
     transOrder, // 文本顺序：由 DEFAULT_RULE / GLOBLA_RULE 提供初始值
   } = formValues;
 
@@ -916,27 +904,6 @@ function RuleFields({
                 max={1000}
               />
             </Grid>
-            {/* 单词高亮标记设置 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                size="small"
-                fullWidth
-                name="highlightWords"
-                value={highlightWords}
-                label={i18n("highlight_words")}
-                disabled={disabled}
-                onChange={handleChange}
-              >
-                {GlobalItem}
-                {OPT_HIGHLIGHT_WORDS_ALL.map((item) => (
-                  <MenuItem key={item} value={item}>
-                    {i18n(item)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-
             {/* 是否翻译网页 title 标签配置 */}
             <Grid item xs={12} sm={12} md={6} lg={3}>
               <TextField
@@ -1001,55 +968,10 @@ function RuleFields({
             title={i18n("advanced_rule_controls", "Advanced controls")}
             description={i18n(
               "advanced_rule_controls_description",
-              "Technical overrides for terminology, custom styling, hooks, and injected page code."
+              "Technical overrides for page structure, custom styling, hooks, and injected page code."
             )}
           >
             <Stack spacing={2}>
-              {/* 专有名词对照翻译设置 */}
-              <TextField
-                size="small"
-                label={i18n("terms")}
-                helperText={i18n("terms_helper")}
-                name="terms"
-                value={terms}
-                disabled={disabled}
-                onChange={handleChange}
-                multiline
-                maxRows={10}
-              />
-              {/* AI 翻译专有名词对照翻译设置 */}
-              <TextField
-                size="small"
-                label={i18n("ai_terms")}
-                helperText={i18n("ai_terms_helper")}
-                name="aiTerms"
-                value={aiTerms}
-                disabled={disabled}
-                onChange={handleChange}
-                multiline
-                maxRows={10}
-              />
-
-              {/* 术语高亮 CSS 样式定义 */}
-              <CodeField
-                size="small"
-                label={i18n("terms_style")}
-                name="termsStyle"
-                value={termsStyle}
-                disabled={disabled}
-                onChange={handleChange}
-                maxRows={10}
-              />
-              {/* 重点词高亮 CSS 样式定义 */}
-              <CodeField
-                size="small"
-                label={i18n("highlight_style")}
-                name="highlightStyle"
-                value={highlightStyle}
-                disabled={disabled}
-                onChange={handleChange}
-                maxRows={10}
-              />
               {/* 译文额外 CSS 样式定义 */}
               <CodeField
                 size="small"
@@ -1312,56 +1234,6 @@ function RuleAccordion({
   );
 }
 
-// 规则分享按钮组件，允许将用户规则同步上传至 WebDAV 或云服务并生成分享链接
-function ShareButton({ rules, injectRules, selectedUrl }) {
-  const alert = useAlert();
-  const i18n = useI18n();
-
-  // 处理分享点击逻辑
-  const handleClick = async () => {
-    try {
-      // 获取同步配置
-      const { syncType, syncUrl, syncKey } = await getSyncWithDefault();
-      // 只有启用了 WebDAV 等云同步方式时，才支持生成分享
-      if (syncType !== OPT_SYNCTYPE_WORKER || !syncUrl || !syncKey) {
-        alert.warning(i18n("error_sync_setting"));
-        return;
-      }
-
-      const shareRules = [...rules.list];
-      // 如果启用了订阅规则注入，则一并合并当前选中的订阅规则以分享整个规则集
-      if (injectRules) {
-        const subRules = await loadOrFetchSubRules(selectedUrl);
-        shareRules.splice(-1, 0, ...subRules);
-      }
-
-      // 将规则同步并生成唯一的云存储分享 URL
-      const url = await syncShareRules({
-        rules: shareRules,
-        syncUrl,
-        syncKey,
-      });
-
-      // 在新标签页中打开规则分享页面
-      window.open(url, "_blank");
-    } catch (err) {
-      alert.warning(i18n("error_got_some_wrong"));
-      kissLog("share rules", err);
-    }
-  };
-
-  return (
-    <Button
-      size="small"
-      variant="outlined"
-      onClick={handleClick}
-      startIcon={<ShareIcon />}
-    >
-      {i18n("share")}
-    </Button>
-  );
-}
-
 // 个人自定义规则面板组件
 function UserRules({
   subRules,
@@ -1463,12 +1335,6 @@ function UserRules({
           handleData={() => JSON.stringify([...rules.list], null, 2)}
           text={i18n("export")}
           fileName={`kiss-rules_v2_${Date.now()}.json`}
-        />
-
-        <ShareButton
-          rules={rules}
-          injectRules={injectRules}
-          selectedUrl={selectedUrl}
         />
 
         <Button
@@ -1780,7 +1646,7 @@ function SubRules({ subRules }) {
     loading, // 是否正在同步/加载
   } = subRules;
 
-  // 引入同步缓存 Hook，用于管理 WebDAV 或本地订阅源的最后同步时间戳
+  // Track when a downloadable rule source was last cached locally.
   const { dataCaches, updateDataCache, deleteDataCache } = useSyncCaches();
 
   // 切换选中的订阅规则源

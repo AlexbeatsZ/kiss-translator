@@ -346,7 +346,6 @@ export default function SubtitleSetting() {
     displayOrder = "original-first",
     blurTranslation = false,
     enhanceMode,
-    hoverLookupMode,
     showList = OPT_ENHANCE_MOBILE_OFF,
     skipAd = false,
     aiContextSlug = "-",
@@ -359,11 +358,7 @@ export default function SubtitleSetting() {
     hideSubtitleButton = false,
   } = subtitleSetting;
 
-  // 整理悬浮查词模式和字幕列表模式的回退逻辑
-  const hoverLookupModeValue = normalizeSubtitleMode(
-    hoverLookupMode,
-    enhanceMode || OPT_ENHANCE_MOBILE_OFF
-  );
+  // 整理字幕列表模式的旧配置回退逻辑
   const showListValue = normalizeSubtitleMode(
     showList,
     enhanceMode || OPT_ENHANCE_MOBILE_OFF
@@ -889,24 +884,6 @@ export default function SubtitleSetting() {
               >
                 <MenuItem value={true}>{i18n("enable")}</MenuItem>
                 <MenuItem value={false}>{i18n("disable")}</MenuItem>
-              </TextField>
-            </Grid>
-            {/* 鼠标悬停在视频窗口字幕单字词上时是否允许悬浮框划词查词解释 */}
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                fullWidth
-                select
-                size="small"
-                name="hoverLookupMode"
-                value={hoverLookupModeValue}
-                label={i18n("subtitle_hover_lookup")}
-                onChange={handleChange}
-              >
-                <MenuItem value={OPT_ENHANCE_ON}>{i18n("enable")}</MenuItem>
-                <MenuItem value={OPT_ENHANCE_OFF}>{i18n("disable")}</MenuItem>
-                <MenuItem value={OPT_ENHANCE_MOBILE_OFF}>
-                  {i18n("disable_on_mobile")}
-                </MenuItem>
               </TextField>
             </Grid>
             {/* 视频侧边/下方的独立字幕全文滚动列表显示模式 */}

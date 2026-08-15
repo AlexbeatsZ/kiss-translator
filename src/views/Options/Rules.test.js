@@ -83,10 +83,6 @@ jest.mock("../../libs/subRules", () => ({
   loadOrFetchSubRules: jest.fn(),
 }));
 
-jest.mock("../../libs/sync", () => ({
-  syncShareRules: jest.fn(),
-}));
-
 jest.mock("../../libs/storage", () => ({
   delSubRules: jest.fn(() => Promise.resolve()),
   getSyncWithDefault: jest.fn(() => Promise.resolve({})),

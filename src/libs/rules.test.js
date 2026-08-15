@@ -12,10 +12,6 @@ jest.mock("./subRules", () => ({
   loadOrFetchSubRules: jest.fn(),
 }));
 
-jest.mock("./sync", () => ({
-  trySyncRules: jest.fn(),
-}));
-
 jest.mock("./log", () => ({
   kissLog: jest.fn(),
   LogLevel: {

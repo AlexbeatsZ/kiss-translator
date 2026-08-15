@@ -3,9 +3,6 @@ import { fetchData } from "../libs/fetch";
 import {
   URL_CACHE_TRAN,
   URL_CACHE_DELANG,
-  URL_CACHE_BINGDICT,
-  URL_CACHE_DICT,
-  KV_SALT_SYNC,
   OPT_LANGS_TO_SPEC,
   OPT_LANGS_SPEC_DEFAULT,
   API_SPE_TYPES,
@@ -18,13 +15,11 @@ import {
   URL_CACHE_CONTEXT,
   OPT_LANGS_TO_CODE,
   defaultNobatchUserPrompt,
-  defaultDictUserPrompt,
 } from "../config";
-import { sha256, withTimeout } from "../libs/utils";
+import { withTimeout } from "../libs/utils";
 import { getCacheDigest } from "../libs/cacheDigest";
 import {
   handleTranslate,
-  handleDict,
   handleSubtitle,
   handleSummarize,
   handleMicrosoftLangdetect,
@@ -36,14 +31,11 @@ import { chromeDetect, chromeTranslate } from "../libs/builtinAI";
 import { fnPolyfill } from "../libs/fetch";
 import { normalizeHttpTimeout } from "../libs/request";
 import { getFetchPool } from "../libs/pool";
-import { trustedTypesHelper } from "../libs/trustedTypes";
-import { getDocInfo } from "../libs/docInfo";
 
 const PROMPT_CACHE_SALT = "prompt-cache";
 const PROMPT_CACHE_SCOPE_BATCH = "batch";
 const PROMPT_CACHE_SCOPE_NOBATCH = "nobatch";
 const PROMPT_CACHE_SCOPE_SUBTITLE = "subtitle";
-const PROMPT_CACHE_SCOPE_DICT = "dict";
 const PROMPT_CACHE_SCOPE_PLAIN = "plain";
 
 function getTranslatePromptCacheScope(apiSetting = {}) {
@@ -72,13 +64,6 @@ function getPromptCacheFields(apiSetting = {}, promptScope) {
     return [apiSetting.subtitlePrompt || ""];
   }
 
-  if (promptScope === PROMPT_CACHE_SCOPE_DICT) {
-    return [
-      apiSetting.dictPrompt || "",
-      apiSetting.dictUserPrompt ?? defaultDictUserPrompt,
-    ];
-  }
-
   return [];
 }
 
@@ -90,78 +75,6 @@ async function getPromptCacheSig(apiSetting = {}, promptScope) {
 
   return (await getCacheDigest(promptText, PROMPT_CACHE_SALT)).slice(0, 16);
 }
-
-/**
- * 同步数据
- * @param {*} url
- * @param {*} key
- * @param {*} data
- * @return/**
- * 跨端/多终端规则与设置数据同步接口。
- * @param {string} url 同步接口的服务器 URL
- * @param {string} key 同步密钥
- * @param {Object} data 待同步的最新设置与规则数据
- * @returns {Promise<Object>} 接口返回的同步判定结果
- */
-export const apiSyncData = async (url, key, data) =>
-  fetchData(url, {
-    headers: {
-      "Content-type": "application/json",
-      // 对密钥进行 sha256 签名，保障同步的鉴权安全
-      Authorization: `Bearer ${await sha256(key, KV_SALT_SYNC)}`,
-    },
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-
-const GITHUB_GIST_API = "https://api.github.com/gists";
-
-const getGistHeaders = (token) => ({
-  Accept: "application/vnd.github+json",
-  Authorization: `Bearer ${token}`,
-  "Content-type": "application/json",
-  "X-GitHub-Api-Version": "2022-11-28",
-});
-
-export const apiListGists = async (token) =>
-  fetchData(`${GITHUB_GIST_API}?per_page=100`, {
-    method: "GET",
-    headers: getGistHeaders(token),
-  });
-
-export const apiCreateGist = async (token, file, description) =>
-  fetchData(GITHUB_GIST_API, {
-    method: "POST",
-    headers: getGistHeaders(token),
-    body: JSON.stringify({
-      description,
-      public: false,
-      files: {
-        [file.key]: {
-          content: file.content,
-        },
-      },
-    }),
-  });
-
-export const apiGetGist = async (gistId, token) =>
-  fetchData(`${GITHUB_GIST_API}/${gistId}`, {
-    method: "GET",
-    headers: getGistHeaders(token),
-  });
-
-export const apiUpdateGistFile = async (gistId, token, key, content) =>
-  fetchData(`${GITHUB_GIST_API}/${gistId}`, {
-    method: "PATCH",
-    headers: getGistHeaders(token),
-    body: JSON.stringify({
-      files: {
-        [key]: {
-          content,
-        },
-      },
-    }),
-  });
 
 /**
  * 通用轻量数据拉取函数。
@@ -245,135 +158,6 @@ export const apiMicrosoftLangdetect = async (text) => {
 };
 
 /**
- * 微软 Edge 在线词典检索（Bing 词典 HTML 爬取解析）。
- * 支持对划词选中的单词进行拼音、音标（英/美）、词意、时态及双语例句等多维度的解析。
- * @param {string} text 待检索查询的单词
- * @returns {Promise<Object|null>} 结构化后的 Bing 词典卡片数据
- */
-export const apiMicrosoftDict = async (text) => {
-  const cacheOpts = { text };
-  const cacheInput = `${URL_CACHE_BINGDICT}?${queryString.stringify(cacheOpts)}`;
-
-  // 1. 读取词典缓存，避免高频划词重复爬取 Bing 网站
-  const cache = await getHttpCachePolyfill(cacheInput);
-  if (cache) {
-    return cache;
-  }
-
-  const host = "https://www.bing.com";
-  const url = `${host}/dict/search?q=${text}&FORM=BDVSP6&cc=cn`;
-  const str = await fetchData(
-    url,
-    { credentials: "include" }, // 携带 credentials 以免遭到网站人机拦截限制
-    { useCache: false }
-  );
-  if (!str) {
-    return null;
-  }
-
-  // 2. 利用客户端 DOMParser 提取 HTML 中高度复杂的页面数据
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(
-    trustedTypesHelper.createHTML(str),
-    "text/html"
-  );
-
-  const word = doc.querySelector("#headword > h1")?.textContent.trim();
-  if (!word) {
-    return null;
-  }
-
-  // 3. 提取基本释义列表 (trs)
-  const trs = [];
-  doc.querySelectorAll("div.qdef > ul > li").forEach(($li) => {
-    const pos = $li.querySelector(".pos")?.textContent?.trim();
-    const def = $li.querySelector(".def")?.textContent?.trim();
-    trs.push({ pos, def });
-  });
-
-  // 4. 提取单词的时态变形 (presents)
-  const presents = [];
-  doc.querySelectorAll("div.hd_div1>.hd_if>.p1-5").forEach(($li) => {
-    const present = $li.textContent?.trim();
-    presents.push(present);
-  });
-
-  // 5. 提取英汉双解详细释义 (ecs)
-  const ecs = [];
-  doc.querySelectorAll(".each_seg>.li_pos").forEach(($li) => {
-    const pos = $li.querySelector(".pos_lin>.pos")?.textContent?.trim();
-    const lis = [];
-    $li.querySelectorAll(".de_seg>.se_lis").forEach(($l) => {
-      lis.push($l.querySelector(".de_co")?.textContent?.trim());
-    });
-    ecs.push({ pos, lis });
-  });
-
-  // 6. 提取双语例句信息 (sentences)
-  const sentences = [];
-  doc.querySelectorAll("#sentenceSeg .se_li").forEach(($li) => {
-    const eng = $li.querySelector(".sen_en")?.textContent?.trim();
-    const chs = $li.querySelector(".sen_cn")?.textContent?.trim();
-    if (eng && chs) {
-      sentences.push({ eng, chs });
-    }
-  });
-
-  // 7. 提取英汉真人发音音频和国际音标 (aus)
-  const aus = [];
-  const $audioUK = doc.querySelector("#bigaud_uk");
-  const $audioUS = doc.querySelector("#bigaud_us");
-
-  // 提取英国音标与发音 mp3 路径
-  if ($audioUK) {
-    const audioUK = host + $audioUK?.dataset?.mp3link;
-    const $phoneticUK = $audioUK.parentElement?.previousElementSibling;
-    const phoneticUK = $phoneticUK?.textContent
-      ?.trim()
-      ?.match(/\[(.*?)\]/)?.[1];
-    aus.push({ key: "英", audio: audioUK, phonetic: phoneticUK });
-  }
-
-  // 提取美国音标与发音 mp3 路径
-  if ($audioUS) {
-    const audioUS = host + $audioUS?.dataset?.mp3link;
-    const $phoneticUS = $audioUS.parentElement?.previousElementSibling;
-    const phoneticUS = $phoneticUS?.textContent
-      ?.trim()
-      ?.match(/\[(.*?)\]/)?.[1];
-    aus.push({ key: "美", audio: audioUS, phonetic: phoneticUS });
-  }
-
-  // 若上述选择器失效，尝试用备选选择器提取纯文本音标
-  if (aus.length === 0) {
-    const $pronInfo = doc.querySelector(".hd_pr");
-    const $pronInfoUS = doc.querySelector(".hd_prUS");
-
-    if ($pronInfo) {
-      const phoneticText = $pronInfo.textContent?.trim();
-      const phoneticMatch = phoneticText?.match(/\[([^\]]+)\]/);
-      if (phoneticMatch) {
-        aus.push({ key: "英", phonetic: phoneticMatch[1] });
-      }
-    }
-
-    if ($pronInfoUS) {
-      const phoneticText = $pronInfoUS.textContent?.trim();
-      const phoneticMatch = phoneticText?.match(/\[([^\]]+)\]/);
-      if (phoneticMatch) {
-        aus.push({ key: "美", phonetic: phoneticMatch[1] });
-      }
-    }
-  }
-
-  const res = { word, trs, aus, ecs, sentences, presents };
-  // 存入词典本地缓存
-  putHttpCachePolyfill(cacheInput, null, res);
-
-  return res;
-};
-
-/**
  * 百度语言识别 API。
  * @param {string} text 待识别的原文文本
  * @returns {Promise<string>} 语言简写代码
@@ -397,114 +181,6 @@ export const apiBaiduLangdetect = async (text) => {
   }
 
   return "";
-};
-
-/**
- * 百度输入建议 API (用于输入翻译功能)。
- * @param {string} text 输入的关键词
- * @returns {Promise<Array<Object>>} 建议列表
- */
-export const apiBaiduSuggest = async (text) => {
-  const input = "https://fanyi.baidu.com/sug";
-  const init = {
-    headers: {
-      "Content-type": "application/json",
-    },
-    method: "POST",
-    body: JSON.stringify({
-      kw: text,
-    }),
-  };
-  const res = await fetchData(input, init, { useCache: true });
-
-  if (res?.errno === 0) {
-    await putHttpCachePolyfill(input, init, res);
-    return res.data;
-  }
-
-  return [];
-};
-
-/**
- * 有道输入建议 API。
- * @param {string} text 关键词
- * @returns {Promise<Array<Object>>} 有道联想建议数据
- */
-export const apiYoudaoSuggest = async (text) => {
-  const params = {
-    num: 5,
-    ver: 3.0,
-    doctype: "json",
-    cache: false,
-    le: "en",
-    q: text,
-  };
-  const input = `https://dict.youdao.com/suggest?${queryString.stringify(params)}`;
-  const init = {
-    headers: {
-      accept: "application/json, text/plain, */*",
-      "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7,ja;q=0.6",
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    method: "GET",
-  };
-  const res = await fetchData(input, init, { useCache: true });
-
-  if (res?.result?.code === 200) {
-    await putHttpCachePolyfill(input, init, res);
-    return res.data.entries;
-  }
-
-  return [];
-};
-
-/**
- * 有道词典 API。
- * @param {string} text 查询单词
- * @returns {Promise<Object|null>} 有道词典的 JSON 响应数据
- */
-export const apiYoudaoDict = async (text) => {
-  const params = {
-    doctype: "json",
-    jsonversion: 4,
-  };
-  const input = `https://dict.youdao.com/jsonapi_s?${queryString.stringify(params)}`;
-  const body = queryString.stringify({
-    q: text,
-    le: "en",
-    t: 3,
-    client: "web",
-    keyfrom: "webdict",
-  });
-  const init = {
-    headers: {
-      accept: "application/json, text/plain, */*",
-      "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7,ja;q=0.6",
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    method: "POST",
-    body,
-  };
-  const res = await fetchData(input, init, { useCache: true });
-
-  if (res) {
-    await putHttpCachePolyfill(input, init, res);
-    return res;
-  }
-
-  return null;
-};
-
-/**
- * 百度文本转语音 (TTS) API，可用于单词发音朗读。
- * @param {string} text 朗读文本
- * @param {string} lan 语言代号，默认 "uk" (英音)
- * @param {number} spd 语速 (1-9)，默认 3
- * @returns {Promise<ArrayBuffer>} TTS 音频字节流
- */
-export const apiBaiduTTS = (text, lan = "uk", spd = 3) => {
-  const input = `https://fanyi.baidu.com/gettts?${queryString.stringify({ lan, text, spd })}`;
-  return fetchData(input);
 };
 
 /**
@@ -783,108 +459,6 @@ export const apiTranslate = async ({
   }
 
   return { trText, srLang, srCode, isSame };
-};
-
-/**
- * AI 词典查询入口。
- *
- * 该函数负责完成参数校验、语言名映射、缓存 Key 构造与上下文签名计算，
- * 真正的模型请求由 `handleDict` 处理，避免 UI 层直接接触不同 AI 接口差异。
- *
- * @param {Object} params 查询参数
- * @param {string} params.text 待解析的单词、短语或长文本
- * @param {string} [params.fromLang="auto"] 源语言代码
- * @param {string} params.toLang 目标语言代码
- * @param {Object} [params.apiSetting] 已解析出提示词的 API 配置
- * @param {Object} [params.docInfo] 外部传入的页面上下文信息
- * @param {string} [params.context] 当前选区所在段落上下文
- * @param {Function} [params.onStreamChunk] 流式增量 Markdown 回调
- * @param {boolean} [params.useCache=true] 是否读写本地缓存
- * @param {AbortSignal} [params.signal] 取消信号
- * @returns {Promise<string>} AI 词典返回的 Markdown 文本
- */
-export const apiDict = async ({
-  text,
-  fromLang = "auto",
-  toLang,
-  apiSetting = DEFAULT_API_SETTING,
-  docInfo,
-  context = "",
-  onStreamChunk,
-  useCache = true,
-  signal,
-}) => {
-  if (!text) {
-    throw new Error("The text cannot be empty.");
-  }
-  if (signal?.aborted) {
-    throw new DOMException("The operation was aborted.", "AbortError");
-  }
-
-  const { apiType } = apiSetting;
-  if (!API_SPE_TYPES.ai.has(apiType)) {
-    throw new Error("AI dictionary only supports AI APIs.");
-  }
-
-  // 复用翻译接口的语言规格映射，确保词典提示词中 {{from}}/{{to}} 与该模型兼容。
-  const langMap = OPT_LANGS_TO_SPEC[apiType] || OPT_LANGS_SPEC_DEFAULT;
-  const from = langMap.get(fromLang);
-  const to = langMap.get(toLang);
-  if (!to) {
-    throw new Error(`The target lang: ${toLang} not support`);
-  }
-
-  const [v1, v2] = process.env.REACT_APP_VERSION.split(".");
-  const effectiveDocInfo = docInfo || getDocInfo();
-  // 缓存需要区分页面信息和选区段落，否则同一个词在不同语境下会错误复用释义。
-  const contextSig = await getCacheDigest(
-    [
-      effectiveDocInfo?.title || "",
-      effectiveDocInfo?.description || "",
-      effectiveDocInfo?.summary || "",
-      context || "",
-    ].join("\n"),
-    PROMPT_CACHE_SALT
-  );
-  const cacheOpts = {
-    apiSlug: apiSetting.apiSlug,
-    text,
-    fromLang,
-    toLang,
-    version: [v1, v2].join("."),
-    promptSig: await getPromptCacheSig(apiSetting, PROMPT_CACHE_SCOPE_DICT),
-    contextSig: contextSig.slice(0, 16),
-  };
-  const cacheInput = `${URL_CACHE_DICT}?${queryString.stringify(cacheOpts)}`;
-
-  if (useCache) {
-    const cache = await getHttpCachePolyfill(cacheInput);
-    if (cache?.markdown) {
-      return cache.markdown;
-    }
-  }
-  if (signal?.aborted) {
-    throw new DOMException("The operation was aborted.", "AbortError");
-  }
-
-  const markdown = await handleDict({
-    text,
-    from,
-    to,
-    fromLang,
-    toLang,
-    apiSetting,
-    docInfo: effectiveDocInfo,
-    context,
-    onStreamChunk,
-    signal,
-  });
-
-  if (useCache) {
-    putHttpCachePolyfill(cacheInput, null, { markdown });
-  }
-
-  return markdown;
 };
 
 /**

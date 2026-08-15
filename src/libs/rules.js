@@ -15,7 +15,6 @@ import {
 } from "../config";
 import { loadOrFetchSubRules } from "./subRules";
 import { getRulesWithDefault, setRules, getDisabledSubRules } from "./storage";
-import { trySyncRules } from "./sync";
 import { kissLog } from "./log";
 
 /**
@@ -425,7 +424,4 @@ export const saveRule = async (curRule) => {
   // 将新规则插入到列表的最前端并保存
   rules.unshift(newRule);
   await setRules(rules);
-
-  // 触发跨端/多终端规则同步
-  trySyncRules();
 };

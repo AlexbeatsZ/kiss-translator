@@ -568,14 +568,9 @@ describe("Apis model list", () => {
     view.unmount();
   });
 
-  test("blocks deleting a service referenced outside website rules", async () => {
+  test("blocks deleting a service referenced by subtitle roles", async () => {
     mockSetting = {
       ...mockSetting,
-      inputRule: { apiSlug: "OpenAI" },
-      tranboxSetting: {
-        apiSlugs: ["OpenAI"],
-        aiDictApiSlug: "OpenAI",
-      },
       subtitleSetting: {
         apiSlug: "OpenAI",
         segSlug: "OpenAI",
@@ -592,14 +587,10 @@ describe("Apis model list", () => {
     });
 
     expect(mockWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Input translation")
-    );
-    expect(mockWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Selection translation")
-    );
-    expect(mockWarning).toHaveBeenCalledWith(
       expect.stringContaining("Video subtitles")
     );
+    expect(mockWarning.mock.calls[0][0]).not.toContain("Input translation");
+    expect(mockWarning.mock.calls[0][0]).not.toContain("Selection translation");
     expect(view.deleteApi).not.toHaveBeenCalled();
 
     view.unmount();

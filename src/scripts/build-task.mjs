@@ -5,7 +5,7 @@ import { argv, quote, $ } from "zx";
 if (process.platform === "win32") {
   $.shell = "cmd.exe";
   $.prefix = "";
-  $.quote = quote
+  $.quote = quote;
 }
 
 // 用法: zx src/scripts/build-task.mjs --target=chrome
@@ -56,7 +56,7 @@ try {
       .join(" ");
 
     console.log(chalk.gray(`Running react-app-rewired build...`));
-    await $`react-app-rewired build`;
+    await $`node node_modules/react-app-rewired/scripts/build.js`;
   }
 
   // 3. 【后处理】 文件清理与移动

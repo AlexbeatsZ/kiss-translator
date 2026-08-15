@@ -54,20 +54,8 @@
       },
       "description": "__MSG_toggle_translate__"
     },
-    "toggleTranbox": {
-      "description": "__MSG_toggle_tranbox__"
-    },
     "toggleTranslateOnly": {
       "description": "__MSG_toggle_translate_only__"
-    },
-    "openTranbox": {
-      "suggested_key": {
-        "default": "Alt+S"
-      },
-      "description": "__MSG_open_tranbox__"
-    },
-    "openSeparateWindow": {
-      "description": "__MSG_open_separate_window__"
     },
     "toggleStyle": {
       "suggested_key": {
@@ -81,7 +69,6 @@
   },
   "permissions": [
     "storage",
-    "tts",
     "contextMenus",
     "scripting",
     "declarativeNetRequest",

@@ -1,238 +1,134 @@
 import { YouTubeSubtitleList } from "./YouTubeSubtitleList";
-import { apiMicrosoftDict } from "../apis/index.js";
+import { downloadBlobFile } from "../libs/utils";
+import { buildBilingualVtt } from "./vtt.js";
 
-jest.mock("../libs/storage.js", () => ({
-  getSettingWithDefault: jest.fn(() => Promise.resolve({ darkMode: "light" })),
+jest.mock("../libs/utils", () => ({ downloadBlobFile: jest.fn() }));
+jest.mock("./vtt.js", () => ({ buildBilingualVtt: jest.fn(() => "WEBVTT") }));
+jest.mock("../libs/log.js", () => ({
+  logger: { error: jest.fn() },
 }));
 
-jest.mock("../apis/index.js", () => ({
-  apiMicrosoftDict: jest.fn(),
-}));
+const subtitles = [
+  { start: 0, end: 1999, text: "Hello world", translation: "你好，世界" },
+  { start: 2000, end: 3999, text: "Next line", translation: "下一行" },
+];
 
-function createVideoElement({ playerHeight = 360 } = {}) {
-  document.body.innerHTML = '<div id="secondary-inner"></div>';
-  let currentPlayerHeight = playerHeight;
-  const player = document.createElement("div");
-  player.className = "html5-video-player";
-  player.getBoundingClientRect = () => ({ height: currentPlayerHeight });
-  const video = document.createElement("video");
-
-  Object.defineProperty(video, "paused", {
-    value: true,
-    configurable: true,
-  });
+function createHost(height = 540) {
+  document.body.innerHTML = `
+    <div class="html5-video-player"><video></video></div>
+    <aside id="secondary-inner"></aside>
+  `;
+  const player = document.querySelector(".html5-video-player");
+  player.getBoundingClientRect = () => ({ height });
+  const video = document.querySelector("video");
   Object.defineProperty(video, "currentTime", {
-    value: 0,
+    configurable: true,
     writable: true,
-    configurable: true,
+    value: 0,
   });
-  Object.defineProperty(video, "play", {
-    value: jest.fn(() => Promise.resolve()),
-    configurable: true,
-  });
-  Object.defineProperty(video, "__setPlayerHeight", {
-    value: (height) => {
-      currentPlayerHeight = height;
-    },
-  });
-
-  player.appendChild(video);
-  document.body.appendChild(player);
   return video;
 }
 
-const subtitle = {
-  start: 0,
-  end: 1000,
-  text: "hello world",
-  translation: "你好世界",
-};
-
-function renderVisibleSubtitleItems(manager) {
-  manager.subtitleListEl.getClientRects = () => [{ width: 320, height: 300 }];
-  Object.defineProperty(manager.subtitleScrollContainer, "clientHeight", {
-    value: 300,
-    configurable: true,
-  });
-  manager._renderVirtualSubtitles(true);
-}
-
-describe("YouTubeSubtitleList", () => {
+describe("YouTubeSubtitleList focused timeline", () => {
   beforeEach(() => {
-    apiMicrosoftDict.mockReset();
+    jest.clearAllMocks();
+    buildBilingualVtt.mockReturnValue("WEBVTT");
+    global.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    };
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    delete global.ResizeObserver;
+    document.body.innerHTML = "";
   });
 
-  test("renders panel controls with i18n text", async () => {
-    const videoEl = createVideoElement();
-    const i18n = jest.fn(
-      (key) =>
-        ({
-          bilingual_subtitles: "Bilingual subtitles",
-          vocabulary_book: "Vocabulary",
-          download_subtitles_vtt: "Download subtitles (VTT)",
-          download_raw_subtitle_events_json: "Download source data (JSON)",
-          close: "Close panel",
-        })[key] || ""
+  test("renders bilingual rows and only the two relevant download actions", () => {
+    const manager = new YouTubeSubtitleList(createHost(), (key) => key);
+    manager.initialize(subtitles, [{ event: 1 }], 75);
+
+    expect(document.querySelector("strong").textContent).toBe(
+      "bilingual_subtitles [75%]"
     );
-    const manager = new YouTubeSubtitleList(videoEl, i18n);
-
-    manager.initialize([subtitle], [], 75);
-
-    const buttons = Array.from(document.querySelectorAll("button"));
-    expect(buttons.map((button) => button.textContent)).toEqual(
-      expect.arrayContaining([
-        "Bilingual subtitles [75%]",
-        "Vocabulary",
-        "Download subtitles (VTT)",
-        "Download source data (JSON)",
-      ])
+    expect(document.querySelectorAll(".kiss-youtube-item")).toHaveLength(2);
+    expect(document.querySelector(".kiss-youtube-original").textContent).toBe(
+      "Hello world"
     );
-    expect(buttons.find((button) => button.textContent === "×").title).toBe(
-      "Close panel"
-    );
-
-    await Promise.resolve();
-    await Promise.resolve();
-    manager.destroy();
-  });
-
-  test("matches the subtitle panel height to the YouTube player", async () => {
-    const videoEl = createVideoElement({ playerHeight: 420 });
-    const manager = new YouTubeSubtitleList(videoEl);
-
-    manager.initialize([subtitle], [], 100);
-
-    const container = document.getElementById(
-      "kiss-youtube-subtitle-list-container"
-    );
-    expect(container.style.height).toBe("420px");
-    expect(container.style.maxHeight).toBe("420px");
-
-    videoEl.__setPlayerHeight(360);
-    window.dispatchEvent(new Event("resize"));
-
-    expect(container.style.height).toBe("360px");
-    expect(container.style.maxHeight).toBe("360px");
-
-    await Promise.resolve();
-    await Promise.resolve();
-    manager.destroy();
-  });
-
-  test("adds hover lookup spans to original text when enabled", async () => {
-    const videoEl = createVideoElement();
-    const manager = new YouTubeSubtitleList(videoEl, () => "", {
-      enableHoverLookup: true,
-    });
-
-    manager.initialize([subtitle], [], 100);
-    renderVisibleSubtitleItems(manager);
-
     expect(
-      Array.from(
-        document.querySelectorAll(".kiss-youtube-original .kiss-subtitle-word")
-      ).map((node) => node.textContent)
-    ).toEqual(["hello", "world"]);
-
-    await Promise.resolve();
-    await Promise.resolve();
+      document.querySelector(".kiss-youtube-translation").textContent
+    ).toBe("你好，世界");
+    expect(
+      Array.from(document.querySelectorAll("button")).map(
+        (button) => button.textContent
+      )
+    ).toEqual([
+      "×",
+      "download_subtitles_vtt",
+      "download_raw_subtitle_events_json",
+      "0:00",
+      "0:02",
+    ]);
+    expect(document.querySelector(".kiss-subtitle-word")).toBeNull();
     manager.destroy();
   });
 
-  test("looks up hovered list words and records the subtitle start timestamp", async () => {
-    jest.useFakeTimers();
-    apiMicrosoftDict.mockResolvedValue({
-      aus: [{ key: "美", phonetic: "/redi/" }],
-      trs: [{ pos: "adj.", def: "准备好的" }],
-      sentences: [{ eng: "ready to go", chs: "准备出发" }],
-    });
-    const videoEl = createVideoElement();
-    const manager = new YouTubeSubtitleList(videoEl, () => "", {
-      enableHoverLookup: true,
-    });
-    const addWordHandler = jest.fn();
-    document.addEventListener("kiss-add-word", addWordHandler);
+  test("matches the panel height to the player", () => {
+    const manager = new YouTubeSubtitleList(createHost(612));
+    manager.initialize(subtitles);
 
-    manager.initialize(
-      [{ ...subtitle, start: 33000, text: "ready to go" }],
-      [],
-      100
+    expect(manager.container.style.height).toBe("612px");
+    expect(manager.container.style.maxHeight).toBe("612px");
+    manager.destroy();
+  });
+
+  test("jumps from the time button and tracks the active row", () => {
+    const video = createHost();
+    const manager = new YouTubeSubtitleList(video);
+    manager.initialize(subtitles);
+
+    document.querySelectorAll(".kiss-youtube-item button")[1].click();
+    expect(video.currentTime).toBe(2);
+    expect(
+      document
+        .querySelectorAll(".kiss-youtube-item")[1]
+        .getAttribute("aria-current")
+    ).toBe("true");
+    manager.destroy();
+  });
+
+  test("updates one streamed translation without rebuilding the panel", () => {
+    const manager = new YouTubeSubtitleList(createHost());
+    manager.initialize(subtitles);
+    const panel = manager.container;
+
+    manager.updateSingleSubtitle({ start: 2000, translation: "更新后的译文" });
+
+    expect(manager.container).toBe(panel);
+    expect(
+      document.querySelectorAll(".kiss-youtube-translation")[1].textContent
+    ).toBe("更新后的译文");
+    manager.destroy();
+  });
+
+  test("downloads translated VTT and raw source JSON", () => {
+    const manager = new YouTubeSubtitleList(createHost());
+    manager.initialize(subtitles, [{ id: 1 }]);
+
+    const buttons = document.querySelectorAll("button");
+    buttons[1].click();
+    buttons[2].click();
+
+    expect(downloadBlobFile).toHaveBeenNthCalledWith(
+      1,
+      "WEBVTT",
+      expect.stringMatching(/^kiss-subtitles-/)
     );
-    renderVisibleSubtitleItems(manager);
-    document
-      .querySelector(".kiss-subtitle-word")
-      .dispatchEvent(new Event("pointerenter"));
-    jest.advanceTimersByTime(300);
-    await apiMicrosoftDict.mock.results[0].value;
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(apiMicrosoftDict).toHaveBeenCalledWith("ready");
-    expect(addWordHandler).toHaveBeenCalledWith(
-      expect.objectContaining({
-        detail: expect.objectContaining({
-          word: "ready",
-          timestamp: 33000,
-          definition: "adj. 准备好的",
-        }),
-      })
+    expect(downloadBlobFile).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('"id": 1'),
+      expect.stringMatching(/^kiss-subtitles-raw-/)
     );
-
-    document.removeEventListener("kiss-add-word", addWordHandler);
-    manager.destroy();
-    jest.useRealTimers();
-  });
-
-  test("clears word tooltip when the subtitle list scrolls away from the hovered word", async () => {
-    jest.useFakeTimers();
-    apiMicrosoftDict.mockResolvedValue({
-      trs: [{ pos: "adj.", def: "准备好的" }],
-    });
-    const videoEl = createVideoElement();
-    const manager = new YouTubeSubtitleList(videoEl, () => "", {
-      enableHoverLookup: true,
-    });
-
-    manager.initialize([{ ...subtitle, text: "ready to go" }], [], 100);
-    renderVisibleSubtitleItems(manager);
-    const word = document.querySelector(".kiss-subtitle-word");
-
-    word.dispatchEvent(new Event("pointerenter"));
-    jest.advanceTimersByTime(300);
-    await apiMicrosoftDict.mock.results[0].value;
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(document.querySelector(".kiss-word-tooltip")).not.toBeNull();
-    expect(word.classList.contains("kiss-word-hover")).toBe(true);
-
-    manager.subtitleScrollContainer.dispatchEvent(new Event("scroll"));
-
-    expect(document.querySelector(".kiss-word-tooltip")).toBeNull();
-    expect(word.classList.contains("kiss-word-hover")).toBe(false);
-
-    manager.destroy();
-  });
-
-  test("jumps only when clicking the time label", async () => {
-    const videoEl = createVideoElement();
-    const manager = new YouTubeSubtitleList(videoEl);
-
-    manager.initialize([{ ...subtitle, start: 33000 }], [], 100);
-    renderVisibleSubtitleItems(manager);
-
-    document.querySelector(".kiss-youtube-original").click();
-    expect(videoEl.currentTime).toBe(0);
-
-    document.querySelector(".kiss-youtube-item span").click();
-    expect(videoEl.currentTime).toBe(33);
-
-    await Promise.resolve();
-    await Promise.resolve();
     manager.destroy();
   });
 });

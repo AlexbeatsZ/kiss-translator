@@ -4,7 +4,7 @@ import ThemeProvider from "../../hooks/Theme";
 import Draggable from "./Draggable";
 import { useState, useMemo, useCallback } from "react";
 import { SettingProvider } from "../../hooks/Setting";
-import { MSG_TRANS_TOGGLE, MSG_POPUP_TOGGLE } from "../../config";
+import { MSG_TRANS_TOGGLE } from "../../config";
 import useWindowSize from "../../hooks/WindowSize";
 
 /**
@@ -12,7 +12,7 @@ import useWindowSize from "../../hooks/WindowSize";
  * 支持拖拽、贴边吸附隐藏以及点击事件
  */
 export default function ContentFab({
-  fabConfig: { x: fabX, y: fabY, fabClickAction = 0 } = {},
+  fabConfig: { x: fabX, y: fabY } = {},
   processActions,
 }) {
   const fabWidth = 40; // 悬浮球的固定宽度 40px
@@ -32,15 +32,9 @@ export default function ContentFab({
   // 处理点击事件。如果拖拽移动过，则忽略该次点击，防止误触
   const handleClick = useCallback(() => {
     if (!moved) {
-      if (fabClickAction === 1) {
-        // 直接触发全文翻译切换
-        processActions({ action: MSG_TRANS_TOGGLE });
-      } else {
-        // 弹出悬浮 Popup 控制面板
-        processActions({ action: MSG_POPUP_TOGGLE });
-      }
+      processActions({ action: MSG_TRANS_TOGGLE });
     }
-  }, [moved, fabClickAction, processActions]);
+  }, [moved, processActions]);
 
   // 计算悬浮球的位置参数，如果是初次加载则放置在视口垂直居中、贴在边缘的位置
   const fabProps = useMemo(
@@ -64,7 +58,12 @@ export default function ContentFab({
           onStart={handleStart}
           onMove={handleMove}
           handler={
-            <Fab size="small" color="primary" onClick={handleClick}>
+            <Fab
+              size="small"
+              color="primary"
+              onClick={handleClick}
+              aria-label="Toggle page translation"
+            >
               <TranslateIcon
                 sx={{
                   width: 24,

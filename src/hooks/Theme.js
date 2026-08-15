@@ -44,14 +44,25 @@ export default function Theme({ children, options = {}, styles = {} }) {
     const isDarkMode =
       darkMode === "dark" || (darkMode === "auto" && systemMode === THEME_DARK);
 
+    const mode = isDarkMode ? THEME_DARK : THEME_LIGHT;
+    const resolvedOptions =
+      typeof options === "function" ? options({ mode }) : options;
+    const {
+      palette: optionPalette = {},
+      typography: optionTypography = {},
+      ...themeOptions
+    } = resolvedOptions || {};
+
     return createTheme({
+      ...themeOptions,
       palette: {
-        mode: isDarkMode ? THEME_DARK : THEME_LIGHT,
+        mode,
+        ...optionPalette,
       },
       typography: {
         htmlFontSize,
+        ...optionTypography,
       },
-      ...options,
     });
   }, [darkMode, options, systemMode]);
 

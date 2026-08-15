@@ -5,22 +5,36 @@ import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Link from "@mui/material/Link";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { alpha, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import { useI18n } from "../../hooks/I18n";
+import { useSetting } from "../../hooks/Setting";
+import { useRules } from "../../hooks/Rules";
+import {
+  GLOBAL_KEY,
+  GLOBLA_RULE,
+  OPT_LANGS_FROM_REVERSED,
+  OPT_LANGS_TO_REVERSED,
+} from "../../config";
 import Header from "./Header";
 import Navigator from "./Navigator";
 import { SettingsPageHeader } from "./SettingsSurface";
 import { getSettingsPageMeta } from "./settingsNavigation";
 
-const NAV_WIDTH = 272;
+const NAV_WIDTH = 236;
+
+function languageName(code, languages) {
+  const match = languages.find(([value]) => value === code);
+  return match ? match[1].split(" - ")[0] : code || "—";
+}
 
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const i18n = useI18n();
+  const { setting } = useSetting();
+  const rules = useRules();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
-  const [open, setOpen] = useState(false);
   const [latestVersion, setLatestVersion] = useState("");
   const navigationGuardRef = useRef(null);
   const pendingNavigationDecisionRef = useRef(null);
@@ -58,6 +72,20 @@ export default function Layout() {
   const blockerRef = useRef(blocker);
   blockerRef.current = blocker;
   const pageMeta = getSettingsPageMeta(location.pathname, i18n);
+  const globalRule =
+    rules.list.find((rule) => rule.pattern === GLOBAL_KEY) || GLOBLA_RULE;
+  const activeProfile = setting.transApis?.find(
+    (profile) => profile.apiSlug === globalRule.apiSlug
+  );
+  const readingContext = {
+    source: languageName(globalRule.fromLang, OPT_LANGS_FROM_REVERSED),
+    target: languageName(globalRule.toLang, OPT_LANGS_TO_REVERSED),
+    engine:
+      activeProfile?.apiName ||
+      activeProfile?.model ||
+      activeProfile?.apiType ||
+      globalRule.apiSlug,
+  };
   const registerNavigationGuard = useCallback((guard) => {
     navigationGuardRef.current =
       typeof guard === "function" ? { confirm: guard } : null;
@@ -148,10 +176,6 @@ export default function Layout() {
     };
   }, []);
 
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
-
   return (
     <Box
       sx={(currentTheme) => ({
@@ -159,45 +183,51 @@ export default function Layout() {
         "@supports (height: 100dvh)": {
           minHeight: "100dvh",
         },
-        backgroundColor:
-          currentTheme.palette.mode === "dark"
-            ? "#0b1016"
-            : alpha(currentTheme.palette.primary.main, 0.025),
+        backgroundColor: "background.default",
       })}
     >
       <CssBaseline />
-      <Header onDrawerToggle={() => setOpen((value) => !value)} />
+      <Header />
+
+      {!isDesktop && (
+        <Navigator
+          variant="mobile-strip"
+          onNavigate={handleNavigate}
+          activePath={location.pathname}
+        />
+      )}
 
       <Box sx={{ display: "flex" }}>
-        <Box
-          component="nav"
-          sx={{ width: { md: NAV_WIDTH }, flexShrink: { md: 0 } }}
-        >
-          <Navigator
-            drawerWidth={NAV_WIDTH}
-            variant={isDesktop ? "permanent" : "temporary"}
-            open={isDesktop || open}
-            onClose={() => setOpen(false)}
-            onNavigate={handleNavigate}
-            ModalProps={{ keepMounted: true }}
-          />
-        </Box>
+        {isDesktop && (
+          <Box component="nav" sx={{ width: NAV_WIDTH, flexShrink: 0 }}>
+            <Navigator
+              drawerWidth={NAV_WIDTH}
+              variant="permanent"
+              onNavigate={handleNavigate}
+              activePath={location.pathname}
+            />
+          </Box>
+        )}
 
         <Box
           component="main"
           sx={{
             flex: 1,
             minWidth: 0,
-            minHeight: { xs: "calc(100dvh - 56px)", sm: "calc(100dvh - 64px)" },
-            px: { xs: 2, sm: 3, lg: 4 },
-            py: { xs: 2.5, sm: 3, lg: 4 },
+            minHeight: {
+              xs: "calc(100dvh - 112px)",
+              md: "calc(100dvh - 64px)",
+            },
+            px: { xs: 1.5, sm: 3, lg: 4.5 },
+            py: { xs: 2.25, sm: 3, lg: 4.5 },
           }}
         >
-          <Box sx={{ width: "100%", maxWidth: 1360, mx: "auto" }}>
+          <Box sx={{ width: "100%", maxWidth: 1180, mx: "auto" }}>
             <SettingsPageHeader
               eyebrow={pageMeta.groupLabel}
               title={pageMeta.title}
               description={pageMeta.description}
+              readingContext={readingContext}
             />
 
             {latestVersion && (

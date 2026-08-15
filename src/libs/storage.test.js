@@ -5,6 +5,8 @@ import {
 } from "../config";
 import { getSettingWithDefault, runDataMigration } from "./storage";
 
+jest.mock("./fetch", () => ({ fetchGM: jest.fn() }));
+
 const readStoredJson = (key) => JSON.parse(window.localStorage.getItem(key));
 
 function loadGmStorageModule() {
@@ -89,7 +91,7 @@ describe("settings storage migration", () => {
     const { storage } = loadGmStorageModule();
 
     await expect(storage.get("missing-gm")).rejects.toThrow(
-      "GM storage API is not available"
+      "GM API is not available: getValue"
     );
   });
 

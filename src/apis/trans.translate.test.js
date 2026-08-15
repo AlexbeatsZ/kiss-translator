@@ -16,7 +16,12 @@ jest.mock("../libs/docInfo", () => ({
 }));
 
 import { handleTranslate } from "./trans";
-import { DEFAULT_API_LIST, OPT_TRANS_OPENAI } from "../config";
+import {
+  DEFAULT_API_LIST,
+  OPT_TRANS_LOCAL_AGY,
+  OPT_TRANS_LOCAL_CODEX,
+  OPT_TRANS_OPENAI,
+} from "../config";
 import { fetchData, fetchStream } from "../libs/fetch";
 import { trustedTypesHelper } from "../libs/trustedTypes";
 
@@ -370,4 +375,47 @@ describe("handleTranslate", () => {
       "Title: Doc title\nContext: Doc context"
     );
   });
+
+  test.each([
+    [OPT_TRANS_LOCAL_AGY, "/v1/agy/chat/completions"],
+    [OPT_TRANS_LOCAL_CODEX, "/v1/codex/chat/completions"],
+  ])(
+    "uses the OpenAI request and response contract for %s",
+    async (apiType, expectedPath) => {
+      fetchData.mockResolvedValueOnce({
+        choices: [{ message: { role: "assistant", content: "你好" } }],
+      });
+      const apiSetting = {
+        ...getApiSetting(apiType),
+        key: "bridge-token",
+        useStream: false,
+        useBatchFetch: false,
+        nobatchPrompt: "Translate {{text}}.",
+        nobatchUserPrompt: "",
+      };
+
+      const result = await collectAsyncGenerator(
+        handleTranslate(["hello"], {
+          from: "en",
+          to: "zh-CN",
+          fromLang: "English",
+          toLang: "Chinese",
+          langMap: () => "",
+          glossary: "",
+          apiSetting,
+          usePool: false,
+        })
+      );
+
+      expect(fetchData.mock.calls[0][0]).toContain(expectedPath);
+      expect(fetchData.mock.calls[0][1].headers.Authorization).toBe(
+        "Bearer bridge-token"
+      );
+      expect(JSON.parse(fetchData.mock.calls[0][1].body)).toMatchObject({
+        model: apiSetting.model,
+        stream: false,
+      });
+      expect(result).toEqual([{ id: 0, result: ["你好"] }]);
+    }
+  );
 });

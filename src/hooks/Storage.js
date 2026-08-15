@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { storage } from "../libs/storage";
 import { kissLog } from "../libs/log";
-import { syncData } from "../libs/sync";
-import { useDebouncedCallback } from "./DebouncedCallback";
-import { isOptions } from "../libs/browser";
 
 function isSameStorageValue(a, b) {
   if (Object.is(a, b)) return true;
@@ -26,7 +23,7 @@ function isSameStorageValue(a, b) {
 }
 
 /**
- * 自定义 Storage 同步 Hook，用于在 React 组件生命周期中存取本地 Storage 状态
+ * React hook for locally persisted state.
  *
  * // REVIEW: 1. 多实例数据非同步隐患。
  * //    `useStorage` 在内部通过 React 的 `useState` 管理局部状态，并在副作用中调用 `storage.setObj` 写入存储。
@@ -37,7 +34,6 @@ function isSameStorageValue(a, b) {
  *
  * @param {string} key 用于在 Storage 中存取值的键
  * @param {*} defaultVal 默认值。建议在组件外定义为常量。
- * @param {string} [syncKey=""] 用于远端同步的可选键名
  * @returns {{
  * data: *,
  * save: (valueOrFn: any | ((prevData: any) => any)) => void,
@@ -47,10 +43,9 @@ function isSameStorageValue(a, b) {
  * isLoading: boolean
  * }}
  */
-export function useStorage(key, defaultVal = null, syncKey = "") {
+export function useStorage(key, defaultVal = null) {
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState(defaultVal);
-  const skipRemoteSyncValueRef = useRef();
 
   // 首次挂载时从本地存储异步加载初始数据
   useEffect(() => {
@@ -81,22 +76,7 @@ export function useStorage(key, defaultVal = null, syncKey = "") {
     };
   }, [key, defaultVal]);
 
-  // 远端同步处理器
-  const runSync = useCallback(async (keyToSync, valueToSync) => {
-    try {
-      const res = await syncData(keyToSync, valueToSync);
-      if (res?.isNew) {
-        setData(res.value);
-      }
-    } catch (error) {
-      kissLog("Sync failed", keyToSync);
-    }
-  }, []);
-
-  // 对远端同步逻辑进行防抖，防止高频触发写盘和网络请求
-  const debouncedSync = useDebouncedCallback(runSync, 3000);
-
-  // 数据发生改变时触发本地写盘及远端同步
+  // 数据发生改变时仅触发本地写盘。
   useEffect(() => {
     if (isLoading) {
       return;
@@ -109,20 +89,7 @@ export function useStorage(key, defaultVal = null, syncKey = "") {
     storage.setObj(key, data).catch((err) => {
       kissLog(`storage save error for key: ${key}`, err);
     });
-
-    if (
-      skipRemoteSyncValueRef.current &&
-      Object.is(skipRemoteSyncValueRef.current.value, data)
-    ) {
-      skipRemoteSyncValueRef.current = undefined;
-      return;
-    }
-
-    // 仅在配置后台页面中触发远端同步
-    if (syncKey && isOptions()) {
-      debouncedSync(syncKey, data);
-    }
-  }, [key, syncKey, isLoading, data, debouncedSync]);
+  }, [key, isLoading, data]);
 
   /**
    * 全量替换状态值并自动触发写盘副作用
@@ -172,9 +139,6 @@ export function useStorage(key, defaultVal = null, syncKey = "") {
       const nextData = storedVal ?? defaultVal;
       if (isSameStorageValue(data, nextData)) {
         return;
-      }
-      if (!Object.is(data, nextData)) {
-        skipRemoteSyncValueRef.current = { value: nextData };
       }
       setData(nextData);
     } catch (err) {

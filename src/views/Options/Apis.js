@@ -83,6 +83,8 @@ import {
   OPT_TRANS_CLOUDFLAREAI,
   OPT_TRANS_OLLAMA,
   OPT_TRANS_OPENROUTER,
+  OPT_TRANS_LOCAL_AGY,
+  OPT_TRANS_LOCAL_CODEX,
   DEFAULT_FETCH_LIMIT,
   DEFAULT_FETCH_INTERVAL,
   DEFAULT_HTTP_TIMEOUT,
@@ -101,9 +103,7 @@ import {
   DEFAULT_NOBATCH_PROMPT_SLUG,
   DEFAULT_BATCH_PROMPT_SLUG,
   DEFAULT_SUBTITLE_PROMPT_SLUG,
-  DEFAULT_DICTIONARY_PROMPT_SLUG,
   getBatchPromptOptions,
-  getDictionaryPromptOptions,
   getNobatchPromptOptions,
   getPromptDisplayName,
   getSubtitlePromptOptions,
@@ -438,11 +438,6 @@ function ApiFields({
         newData.subtitlePrompt = prompt.systemPrompt;
       }
 
-      if (name === "dictPromptSlug" && prompt) {
-        newData.dictPrompt = prompt.systemPrompt;
-        newData.dictUserPrompt = prompt.userPrompt;
-      }
-
       return newData;
     });
   };
@@ -529,13 +524,11 @@ function ApiFields({
     placetagFormat = "compact",
     region = "",
     sortOrder = 0,
-    aiTerms = "",
     thinkingMode = "auto",
     thinkingEffort = "_default",
     batchPromptSlug = "",
     nobatchPromptSlug = "",
     subtitlePromptSlug = "",
-    dictPromptSlug = "",
   } = activeFormData;
 
   useLayoutEffect(() => {
@@ -572,12 +565,6 @@ function ApiFields({
   )
     ? subtitlePromptSlug
     : DEFAULT_SUBTITLE_PROMPT_SLUG;
-  const selectedDictPromptSlug = Object.prototype.hasOwnProperty.call(
-    activeFormData,
-    "dictPromptSlug"
-  )
-    ? dictPromptSlug
-    : DEFAULT_DICTIONARY_PROMPT_SLUG;
   const nobatchPromptOptions = useMemo(
     () => getNobatchPromptOptions(prompts),
     [prompts]
@@ -590,15 +577,17 @@ function ApiFields({
     () => getSubtitlePromptOptions(prompts),
     [prompts]
   );
-  const dictionaryPromptOptions = useMemo(
-    () => getDictionaryPromptOptions(prompts),
-    [prompts]
-  );
-
-  const keyHelper = useMemo(
-    () => (API_SPE_TYPES.mulkeys.has(apiType) ? i18n("mulkeys_help") : ""),
-    [apiType, i18n]
-  );
+  const isLocalBridge =
+    apiType === OPT_TRANS_LOCAL_AGY || apiType === OPT_TRANS_LOCAL_CODEX;
+  const keyHelper = useMemo(() => {
+    if (isLocalBridge) {
+      return i18n(
+        "local_bridge_token_help",
+        "Use the one-time token printed when the local bridge starts."
+      );
+    }
+    return API_SPE_TYPES.mulkeys.has(apiType) ? i18n("mulkeys_help") : "";
+  }, [apiType, i18n, isLocalBridge]);
 
   const allModelOptions = useMemo(() => {
     const baseOptions = apiType === OPT_TRANS_EPHONEAI ? EPHONEAI_MODELS : [];
@@ -732,6 +721,19 @@ function ApiFields({
             )}
           </Typography>
         </Stack>
+        {isLocalBridge && (
+          <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight={700}>
+              {i18n("local_bridge_required", "Local bridge required")}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              {i18n(
+                "local_bridge_start_help",
+                "Start tools/local-bridge/kiss_cli_bridge.py on this computer, then paste its token below. The bridge listens only on 127.0.0.1 and never uses a shell."
+              )}
+            </Typography>
+          </Alert>
+        )}
         <Stack spacing={2}>
           <Box>
             <Grid container spacing={2} columns={12}>
@@ -765,11 +767,15 @@ function ApiFields({
                 />
                 <SensitiveTextField
                   size="small"
-                  label={"Key"}
+                  label={
+                    isLocalBridge ? i18n("bridge_token", "Bridge token") : "Key"
+                  }
                   name="key"
                   value={key}
                   onChange={handleChange}
-                  multiline={API_SPE_TYPES.mulkeys.has(apiType)}
+                  multiline={
+                    API_SPE_TYPES.mulkeys.has(apiType) && !isLocalBridge
+                  }
                   maxRows={10}
                   helperText={keyHelper}
                 />
@@ -1199,7 +1205,6 @@ function ApiFields({
               </TextField>
             </Grid>
             <Grid item xs={12} sm={12} md={6} lg={3}>
-              {/* AI 词典使用独立提示词，避免复用普通翻译提示词时输出格式不可控。 */}
               <TextField
                 select
                 fullWidth
@@ -1227,23 +1232,6 @@ function ApiFields({
                 onChange={handlePromptChange}
               >
                 {subtitlePromptOptions.map((prompt) => (
-                  <MenuItem key={prompt.slug} value={prompt.slug}>
-                    {getPromptDisplayName(prompt, i18n)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="dictPromptSlug"
-                value={selectedDictPromptSlug}
-                label={i18n("ai_dict_prompt", "AI词典提示词")}
-                onChange={handlePromptChange}
-              >
-                {dictionaryPromptOptions.map((prompt) => (
                   <MenuItem key={prompt.slug} value={prompt.slug}>
                     {getPromptDisplayName(prompt, i18n)}
                   </MenuItem>
@@ -1365,19 +1353,6 @@ function ApiFields({
               </Grid>
             </Grid>
           </Box>
-
-          {API_SPE_TYPES.ai.has(apiType) && (
-            <TextField
-              size="small"
-              label={i18n("ai_terms")}
-              helperText={i18n("ai_terms_helper")}
-              name="aiTerms"
-              value={aiTerms}
-              onChange={handleChange}
-              multiline
-              maxRows={10}
-            />
-          )}
 
           {apiType !== OPT_TRANS_BUILTINAI && (
             <>
@@ -1732,23 +1707,6 @@ export default function Apis() {
       );
     });
 
-    addReference(
-      setting.inputRule?.apiSlug,
-      i18n("input_translate", "Input translation")
-    );
-    const tranboxApiSlugs = Array.isArray(setting.tranboxSetting?.apiSlugs)
-      ? setting.tranboxSetting.apiSlugs
-      : [];
-    tranboxApiSlugs.forEach((apiSlug) => {
-      addReference(
-        apiSlug,
-        i18n("selection_translate", "Selection translation")
-      );
-    });
-    addReference(
-      setting.tranboxSetting?.aiDictApiSlug,
-      i18n("selection_translate", "Selection translation")
-    );
     [
       setting.subtitleSetting?.apiSlug,
       setting.subtitleSetting?.segSlug,

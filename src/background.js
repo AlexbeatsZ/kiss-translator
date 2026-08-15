@@ -8,8 +8,6 @@ import {
   MSG_OPEN_OPTIONS,
   MSG_SAVE_RULE,
   MSG_TRANS_TOGGLE_STYLE,
-  MSG_OPEN_TRANBOX,
-  MSG_TRANSBOX_TOGGLE,
   MSG_CONTEXT_MENUS,
   MSG_COMMAND_SHORTCUTS,
   MSG_INJECT_JS,
@@ -21,14 +19,9 @@ import {
   CMD_TOGGLE_TRANSLATE_ONLY,
   CMD_TOGGLE_STYLE,
   CMD_OPEN_OPTIONS,
-  CMD_OPEN_TRANBOX,
-  CMD_TOGGLE_TRANBOX,
-  CMD_OPEN_SEPARATE_WINDOW,
   CLIENT_THUNDERBIRD,
   MSG_SET_LOGLEVEL,
   MSG_CLEAR_CACHES,
-  MSG_OPEN_SEPARATE_WINDOW,
-  STOKEY_SEPARATE_WINDOW,
   PORT_STREAM_FETCH,
   MSG_UPDATE_ICON,
   MSG_SHA256,
@@ -38,7 +31,6 @@ import {
   tryInitDefaultData,
   runDataMigration,
 } from "./libs/storage";
-import { trySyncSettingAndRules } from "./libs/sync";
 import { fetchHandle, fetchStreamNative } from "./libs/fetch";
 import { tryClearCaches, getHttpCache, putHttpCache } from "./libs/cache";
 import { sendTabMsg } from "./libs/msg";
@@ -110,145 +102,6 @@ const CSP_REMOVE_HEADERS = [
   `x-content-security-policy`,
 ];
 
-// 独立窗口 (TranBox 独立窗口模式) 的全局状态变量
-let separateWindowId = null; // 当前已打开窗口的 ID
-let lastKnownBounds = null; // 缓存窗口最后一次有效的屏幕位置坐标与大小
-
-const DEFAULT_SEPARATE_WINDOW_BOUNDS = {
-  left: 100,
-  top: 100,
-  width: 400,
-  height: 400,
-};
-
-/**
- * 将独立窗口的位置及宽高数据持久化保存到 storage.local 中。
- * @param {Object} bounds 坐标大小数据
- */
-async function persistSeparateWindowBounds(bounds) {
-  if (!bounds) return;
-  try {
-    await browser.storage.local.set({ [STOKEY_SEPARATE_WINDOW]: bounds });
-    kissLog("Final separate window bounds saved to storage", bounds);
-  } catch (err) {
-    kissLog("Save separate window bounds error", err);
-  }
-}
-
-/**
- * 读取上次保存的窗口位置与大小，启动/聚焦翻译独立窗口。
- */
-async function openSeparateWindowWithSavedBounds() {
-  try {
-    // REVIEW: 窗口单例机制。若窗口已存在且被创建过，则通过查询所有窗口状态直接聚焦，避免重复创建
-    if (separateWindowId !== null) {
-      const allWindows = await browser.windows.getAll();
-      const existingWin = allWindows.find((w) => w.id === separateWindowId);
-      if (existingWin) {
-        await browser.windows.update(separateWindowId, { focused: true });
-        kissLog("Separate window is ready");
-        return existingWin;
-      }
-    }
-
-    const stored = await browser.storage.local.get(STOKEY_SEPARATE_WINDOW);
-    const saved = stored && stored[STOKEY_SEPARATE_WINDOW];
-    const bounds = Object.assign(
-      {},
-      DEFAULT_SEPARATE_WINDOW_BOUNDS,
-      saved || {}
-    );
-
-    const win = await browser.windows.create({
-      url: "popup.html#tranbox",
-      type: "popup", // 以弹出窗口（无地址栏、无工具栏）形式创建
-      left: Math.round(bounds.left),
-      top: Math.round(bounds.top),
-      width: Math.round(bounds.width),
-      height: Math.round(bounds.height),
-      focused: true,
-    });
-
-    separateWindowId = win.id;
-    lastKnownBounds = {
-      left: win.left,
-      top: win.top,
-      width: win.width,
-      height: win.height,
-    };
-
-    return win;
-  } catch (err) {
-    kissLog("open separate window error", err);
-  }
-}
-
-/**
- * 从实际的窗口实例中同步并更新内存缓存的坐标尺寸。
- * @param {number} windowId 窗口 ID
- */
-async function updateCacheFromActual(windowId) {
-  try {
-    const win = await browser.windows.get(windowId);
-    // 只有在窗口处于正常状态时才更新，最小化或最大化时不保存其 bounds
-    if (win && win.state === "normal") {
-      lastKnownBounds = {
-        left: Math.round(win.left),
-        top: Math.round(win.top),
-        width: Math.round(win.width),
-        height: Math.round(win.height),
-      };
-      kissLog("Bounds cached via fallback:", lastKnownBounds);
-      // REVIEW: 针对“获取到的 left 和 top 均为 0”以及“重启后窗口越来越大”的问题：
-      // 在一些 Linux 窗口管理器、macOS 或 Firefox 兼容层中，如果窗口刚创建就立即触发或在焦点切换时，
-      // OS 返回的 window.left/top 经常会存在暂时的 0 值。应该在 left/top 均不为 0 时才允许覆盖 lastKnownBounds。
-    }
-  } catch (e) {
-    // 忽略窗口已被关闭时的查询异常
-  }
-}
-
-/**
- * 监听窗口焦点切换事件 (用于兼容不支持 boundsChanged 的 Firefox)
- */
-browser.windows?.onFocusChanged?.addListener?.(async (windowId) => {
-  if (separateWindowId !== null) {
-    await updateCacheFromActual(separateWindowId);
-  }
-});
-
-/**
- * 监听窗口大小及位置移动变化。
- * 此时只实时更新内存中的 lastKnownBounds 缓存，不频繁写入 Storage，防止 Storage API 限频报错。
- */
-browser.windows?.onBoundsChanged?.addListener?.((win) => {
-  if (separateWindowId !== null && win.id === separateWindowId) {
-    // REVIEW: 同样需要警惕在拖拽过程中 win.left / top 偶尔返回 0 的异常，此处可判定 if (win.left !== 0 && win.top !== 0) 再予更新
-    lastKnownBounds = {
-      left: win.left ?? lastKnownBounds.left,
-      top: win.top ?? lastKnownBounds.top,
-      width: win.width ?? lastKnownBounds.width,
-      height: win.height ?? lastKnownBounds.height,
-    };
-  }
-});
-
-/**
- * 监听窗口关闭事件。
- * 在独立窗口彻底销毁后，才将最终的 lastKnownBounds 写入磁盘（Storage.local）中持久化，
- * 并释放全局引用。该时机设计得非常好，能极大节约 IO 开销。
- */
-browser.windows?.onRemoved?.addListener?.(async (windowId) => {
-  if (windowId === separateWindowId) {
-    if (lastKnownBounds) {
-      await persistSeparateWindowBounds(lastKnownBounds);
-    }
-
-    separateWindowId = null;
-    lastKnownBounds = null;
-  }
-});
-
 /**
  * 动态增删及配置右键快捷菜单。
  * @param {number} contextMenuType 菜单类型标识 (1: 简易模式, 2: 完整模式)
@@ -263,16 +116,11 @@ async function addContextMenus(contextMenuType = 1) {
 
   switch (contextMenuType) {
     case 1:
-      // 简易模式：仅提供“双语对照翻译”与“翻译所选文本”
+      // 简易模式：只切换当前页面的双语翻译。
       browser.contextMenus.create({
         id: CMD_TOGGLE_TRANSLATE,
         title: browser.i18n.getMessage("toggle_translate"),
         contexts: ["page"],
-      });
-      browser.contextMenus.create({
-        id: CMD_OPEN_TRANBOX,
-        title: browser.i18n.getMessage("translate_selection"),
-        contexts: ["selection"],
       });
       break;
     case 2:
@@ -280,32 +128,27 @@ async function addContextMenus(contextMenuType = 1) {
       browser.contextMenus.create({
         id: CMD_TOGGLE_TRANSLATE,
         title: browser.i18n.getMessage("toggle_translate"),
-        contexts: ["page", "selection"],
+        contexts: ["page"],
       });
       browser.contextMenus.create({
         id: CMD_TOGGLE_TRANSLATE_ONLY,
         title: browser.i18n.getMessage("toggle_translate_only"),
-        contexts: ["page", "selection"],
+        contexts: ["page"],
       });
       browser.contextMenus.create({
         id: CMD_TOGGLE_STYLE,
         title: browser.i18n.getMessage("toggle_style"),
-        contexts: ["page", "selection"],
-      });
-      browser.contextMenus.create({
-        id: CMD_OPEN_TRANBOX,
-        title: browser.i18n.getMessage("open_tranbox"),
-        contexts: ["page", "selection"],
+        contexts: ["page"],
       });
       browser.contextMenus.create({
         id: "options_separator",
         type: "separator",
-        contexts: ["page", "selection"],
+        contexts: ["page"],
       });
       browser.contextMenus.create({
         id: CMD_OPEN_OPTIONS,
         title: browser.i18n.getMessage("open_options"),
-        contexts: ["page", "selection"],
+        contexts: ["page"],
       });
       break;
     default:
@@ -527,7 +370,6 @@ browser.runtime.onStartup.addListener(async () => {
   );
 
   updateCspRules({ csplist, orilist });
-  trySyncSettingAndRules();
   trySyncAllSubRules({ subrulesList });
 });
 
@@ -563,7 +405,6 @@ const messageHandlers = {
   [MSG_BUILTINAI_TRANSLATE]: (args) => chromeTranslate(args), // 触发 Chrome 内置 AI 翻译接口
   [MSG_SET_LOGLEVEL]: (args) => logger.setLevel(args), // 修改运行时的日志记录等级
   [MSG_CLEAR_CACHES]: () => tryClearCaches(), // 清空翻译缓存
-  [MSG_OPEN_SEPARATE_WINDOW]: () => openSeparateWindowWithSavedBounds(), // 打开独立翻译小窗口
   [MSG_UPDATE_ICON]: (args, sender) => updateIcon(args, sender?.tab?.id), // 变更页面的插件高亮图标
 };
 
@@ -592,22 +433,11 @@ browser.commands?.onCommand?.addListener?.((command) => {
     case CMD_TOGGLE_TRANSLATE_ONLY:
       sendTabMsg(MSG_TRANS_TOGGLE_ONLY);
       break;
-    case CMD_OPEN_TRANBOX:
-      sendTabMsg(MSG_OPEN_TRANBOX);
-      break;
-    case CMD_TOGGLE_TRANBOX:
-      sendTabMsg(MSG_TRANSBOX_TOGGLE);
-      break;
     case CMD_TOGGLE_STYLE:
       sendTabMsg(MSG_TRANS_TOGGLE_STYLE);
       break;
     case CMD_OPEN_OPTIONS:
       browser.runtime.openOptionsPage();
-      break;
-    case CMD_OPEN_SEPARATE_WINDOW:
-      if (messageHandlers[MSG_OPEN_SEPARATE_WINDOW]) {
-        messageHandlers[MSG_OPEN_SEPARATE_WINDOW]();
-      }
       break;
     default:
   }
@@ -617,31 +447,23 @@ browser.commands?.onCommand?.addListener?.((command) => {
  * 监听全局右键菜单的点击项。
  * 触发时，通过 Chrome 消息管道将对应指令转发给用户所点击页面的前台 Content Script。
  */
-browser?.contextMenus?.onClicked?.addListener?.(
-  ({ menuItemId, selectionText }) => {
-    switch (menuItemId) {
-      case CMD_TOGGLE_TRANSLATE:
-        sendTabMsg(MSG_TRANS_TOGGLE);
-        break;
-      case CMD_TOGGLE_TRANSLATE_ONLY:
-        sendTabMsg(MSG_TRANS_TOGGLE_ONLY);
-        break;
-      case CMD_TOGGLE_STYLE:
-        sendTabMsg(MSG_TRANS_TOGGLE_STYLE);
-        break;
-      case CMD_OPEN_TRANBOX:
-        sendTabMsg(MSG_OPEN_TRANBOX, { text: selectionText });
-        break;
-      case CMD_TOGGLE_TRANBOX:
-        sendTabMsg(MSG_TRANSBOX_TOGGLE);
-        break;
-      case CMD_OPEN_OPTIONS:
-        browser.runtime.openOptionsPage();
-        break;
-      default:
-    }
+browser?.contextMenus?.onClicked?.addListener?.(({ menuItemId }) => {
+  switch (menuItemId) {
+    case CMD_TOGGLE_TRANSLATE:
+      sendTabMsg(MSG_TRANS_TOGGLE);
+      break;
+    case CMD_TOGGLE_TRANSLATE_ONLY:
+      sendTabMsg(MSG_TRANS_TOGGLE_ONLY);
+      break;
+    case CMD_TOGGLE_STYLE:
+      sendTabMsg(MSG_TRANS_TOGGLE_STYLE);
+      break;
+    case CMD_OPEN_OPTIONS:
+      browser.runtime.openOptionsPage();
+      break;
+    default:
   }
-);
+});
 
 /**
  * 专门处理 SSE/翻译大模型的流式数据请求通道。

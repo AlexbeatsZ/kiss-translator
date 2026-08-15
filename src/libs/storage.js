@@ -4,9 +4,7 @@ import {
   STOKEY_SETTING_OLD,
   STOKEY_RULES,
   STOKEY_RULES_OLD,
-  STOKEY_WORDS,
   STOKEY_FAB,
-  STOKEY_TRANBOX,
   STOKEY_SYNC,
   STOKEY_MSAUTH,
   STOKEY_BDAUTH,
@@ -23,7 +21,6 @@ import {
 import { isExt, isGm } from "./client";
 import { browser } from "./browser";
 import { kissLog } from "./log";
-import { debounce } from "./utils";
 import { getGmMethod } from "./gm";
 
 /**
@@ -36,10 +33,15 @@ import { getGmMethod } from "./gm";
  * @returns {{setValue: Function, getValue: Function, deleteValue: Function}} 封装好的存储方法集合
  */
 function getGmStorage() {
+  const call =
+    (method, legacyMethod) =>
+    (...args) =>
+      getGmMethod(method, legacyMethod, [window.KISS_GM])(...args);
+
   return {
-    setValue: getGmMethod("setValue", "GM_setValue", [window.KISS_GM]),
-    getValue: getGmMethod("getValue", "GM_getValue", [window.KISS_GM]),
-    deleteValue: getGmMethod("deleteValue", "GM_deleteValue", [window.KISS_GM]),
+    setValue: call("setValue", "GM_setValue"),
+    getValue: call("getValue", "GM_getValue"),
+    deleteValue: call("deleteValue", "GM_deleteValue"),
   };
 }
 
@@ -215,11 +217,6 @@ export const getRulesWithDefault = async () =>
   (await getRules()) || DEFAULT_RULES;
 export const setRules = (val) => setObj(STOKEY_RULES, val);
 
-// --- 个人生词本词汇 (Fav Words) 数据存取 ---
-export const getWords = () => getObj(STOKEY_WORDS);
-export const getWordsWithDefault = async () => (await getWords()) || {};
-export const setWords = (val) => setObj(STOKEY_WORDS, val);
-
 // --- 订阅翻译规则 (Subscription Rules Cache) 数据存取 ---
 export const getSubRules = (url) => getObj(STOKEY_RULESCACHE_PREFIX + url);
 export const getSubRulesWithDefault = async () => (await getSubRules()) || [];
@@ -280,23 +277,10 @@ export const getFabWithDefault = async () => (await getFab()) || {};
 export const setFab = (obj) => setObj(STOKEY_FAB, obj);
 export const putFab = (obj) => putObj(STOKEY_FAB, obj);
 
-// --- 交互翻译框 (TranBox UI) 位置与大小存取 ---
-export const getTranBox = () => getObj(STOKEY_TRANBOX);
-export const putTranBox = (obj) => putObj(STOKEY_TRANBOX, obj);
-// 节流处理高频更新的 TranBox 位置写入
-export const debouncePutTranBox = debounce(putTranBox, 300);
-
-// --- 云同步元数据 (Sync Settings & Timestamps) 存取 ---
+// --- Site-rule subscription cache metadata ---
 export const getSync = () => getObj(STOKEY_SYNC);
 export const getSyncWithDefault = async () => (await getSync()) || DEFAULT_SYNC;
 export const putSync = (obj) => putObj(STOKEY_SYNC, obj);
-export const putSyncMeta = async (key) => {
-  const { syncMeta = {} } = await getSyncWithDefault();
-  syncMeta[key] = { ...(syncMeta[key] || {}), updateAt: Date.now() };
-  await putSync({ syncMeta });
-};
-// 节流处理同步时间元数据的更新
-export const debounceSyncMeta = debounce(putSyncMeta, 300);
 
 // --- 微软云服务授权 Token 存取 ---
 export const getMsauth = () => getObj(STOKEY_MSAUTH);

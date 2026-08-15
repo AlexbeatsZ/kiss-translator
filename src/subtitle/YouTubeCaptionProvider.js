@@ -899,12 +899,7 @@ class YouTubeCaptionProvider {
     );
 
     if (showList && !this.#subtitleListManager) {
-      this.#subtitleListManager = new YouTubeSubtitleList(videoEl, this.#i18n, {
-        enableHoverLookup: isSubtitleModeEnabled(
-          this.#setting.hoverLookupMode,
-          this.#setting.enhanceMode
-        ),
-      });
+      this.#subtitleListManager = new YouTubeSubtitleList(videoEl, this.#i18n);
       this.#subtitleListManager.initialize(
         this.#subtitles,
         this.#rawSubtitleEvents,

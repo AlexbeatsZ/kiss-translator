@@ -4092,11 +4092,11 @@ export const I18N = {
     ko: `설정 화면을 여는 방식과 페이지 컨트롤 표시 방식을 선택합니다. 변경 사항은 자동 저장됩니다.`,
   },
   show_fab_button_description: {
-    zh: `显示用于开始翻译或打开菜单的页面控制按钮。`,
-    en: `Show the page control used to start translation or open its menu.`,
-    zh_TW: `顯示用於開始翻譯或開啟選單的頁面控制按鈕。`,
-    ja: `翻訳の開始やメニュー表示に使うページ操作ボタンを表示します。`,
-    ko: `번역을 시작하거나 메뉴를 여는 페이지 제어 버튼을 표시합니다.`,
+    zh: `显示用于开始或停止网页翻译的页面控制按钮。`,
+    en: `Show the page control used to start or stop page translation.`,
+    zh_TW: `顯示用於開始或停止網頁翻譯的頁面控制按鈕。`,
+    ja: `ページ翻訳の開始または停止に使う操作ボタンを表示します。`,
+    ko: `웹페이지 번역을 시작하거나 중지하는 페이지 제어 버튼을 표시합니다.`,
   },
   settings_page_translation_section: {
     zh: `页面翻译行为`,

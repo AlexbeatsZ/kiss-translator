@@ -202,15 +202,14 @@ describe("common iframe startup", () => {
     expect(runSubtitle).toHaveBeenCalledTimes(1);
   });
 
-  test("starts transbox-only manager for PDF documents", async () => {
+  test("skips PDF plugin documents now that the selection overlay is removed", async () => {
     setContentType("application/pdf");
 
     await run();
 
-    expect(matchRule).toHaveBeenCalledTimes(1);
-    expect(TranslatorManager).toHaveBeenCalledTimes(1);
-    expect(TranslatorManager.mock.calls[0][0].transboxOnly).toBe(true);
-    expect(mockTranslatorManagerStart).toHaveBeenCalledTimes(1);
+    expect(matchRule).not.toHaveBeenCalled();
+    expect(TranslatorManager).not.toHaveBeenCalled();
+    expect(mockTranslatorManagerStart).not.toHaveBeenCalled();
     expect(runSubtitle).not.toHaveBeenCalled();
   });
 

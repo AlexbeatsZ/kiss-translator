@@ -1,9 +1,4 @@
-import { OPT_HIGHLIGHT_WORDS_DISABLE } from "./config";
-import {
-  getFabWithDefault,
-  getSettingWithDefault,
-  getWordsWithDefault,
-} from "./libs/storage";
+import { getFabWithDefault, getSettingWithDefault } from "./libs/storage";
 import { isIframe } from "./libs/iframe";
 import { genEventName } from "./libs/utils";
 import { handlePing, injectScript } from "./libs/gm";
@@ -144,26 +139,6 @@ function showErr(message) {
   setTimeout(removeBanner, 10000); // 10秒后自动消失
 }
 
-/**
- * 依据匹配规则，获取用户生词本中的所有单词用于高亮显示。
- * @param {Object} rule 当前页面的翻译匹配规则
- * @returns {Promise<Array<string>>} 生词本里的单词数组
- */
-async function getFavWords(rule) {
-  if (
-    rule.highlightWords &&
-    rule.highlightWords !== OPT_HIGHLIGHT_WORDS_DISABLE
-  ) {
-    try {
-      return Object.keys(await getWordsWithDefault());
-    } catch (err) {
-      logger.info("get fav words", err);
-    }
-  }
-
-  return [];
-}
-
 const IFRAME_TEXT_CHECK_TIMEOUT = 1000;
 const IFRAME_TEXT_IGNORE_SELECTOR = [
   "script",
@@ -257,12 +232,7 @@ export async function run(isUserscript = false) {
 
     // 3. 页面类型拦截：若是 PDF / 图片 / 音视频等非 HTML 或纯文本媒体页面，则终止执行，避免注入多余 DOM
     const contentType = document?.contentType?.toLowerCase() || "";
-    const isPdfDocument = contentType.includes("application/pdf");
-    if (
-      !contentType.includes("text") &&
-      !contentType.includes("html") &&
-      !isPdfDocument
-    ) {
+    if (!contentType.includes("text") && !contentType.includes("html")) {
       logger.info("Skip running in document content type: ", contentType);
       return;
     }
@@ -277,45 +247,29 @@ export async function run(isUserscript = false) {
       return;
     }
 
-    // 6. 细粒度划词/输入框/鼠标悬停组件的专属黑名单拦截，若命中则单独禁用该交互组件
-    if (isInBlacklist(href, setting.tranboxSetting?.blacklist)) {
-      setting.tranboxSetting.transOpen = false;
-    }
-
-    if (isInBlacklist(href, setting.inputRule?.blacklist)) {
-      setting.inputRule.transOpen = false;
-    }
-
-    if (isInBlacklist(href, setting.mouseHoverSetting?.blacklist)) {
-      setting.mouseHoverSetting.useMouseHover = false;
-    }
-
-    // 7. 匹配当前网页专用的规则 (三级规则合并：个人 > 订阅 > 内置全局)
+    // 6. 匹配当前网页专用的规则 (三级规则合并：个人 > 订阅 > 内置全局)
     const rule = await matchRule(href, setting);
-    const favWords = await getFavWords(rule);
     const fabConfig = await getFabWithDefault();
 
-    // 8. 创建翻译调度器管理器并启动
+    // 7. 创建网页翻译生命周期管理器并启动
     const translatorManager = new TranslatorManager({
       setting,
       rule,
       fabConfig,
-      favWords,
       isIframe,
       isUserscript,
-      transboxOnly: isPdfDocument,
     });
     translatorManager.start();
 
-    // 9. 若当前页面是嵌套的 iframe，不进行视频字幕翻译，避免多个 iframe 里重复跑字幕服务造成冲突
-    if (isIframe || isPdfDocument) {
+    // 8. 若当前页面是嵌套的 iframe，不进行视频字幕翻译，避免重复字幕运行期。
+    if (isIframe) {
       return;
     }
 
-    // 10. 启动视频字幕翻译子模块 (仅在顶级 frame 下运行)
+    // 9. 启动视频字幕翻译子模块 (仅在顶级 frame 下运行)
     runSubtitle({ href, setting, rule, isUserscript });
 
-    // 11. 在油猴环境下，每次进入顶级页面时尝试触发一次订阅规则的自动同步检查 (每日一次)
+    // 10. 油猴环境下仍保留网站规则订阅更新；这属于网页翻译范围。
     if (isUserscript) {
       trySyncAllSubRules(setting);
     }

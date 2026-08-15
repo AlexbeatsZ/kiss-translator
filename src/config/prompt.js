@@ -4,8 +4,6 @@ import {
   defaultSystemPrompt,
   defaultSystemPromptLines,
   defaultSystemPromptXml,
-  defaultDictPrompt,
-  defaultDictUserPrompt,
   defaultSubtitlePrompt,
   API_SPE_TYPES,
 } from "./api";
@@ -16,7 +14,6 @@ export const PROMPT_SLUG_BATCH_TRANSLATION_JSON = "batch-translation-json";
 export const PROMPT_SLUG_BATCH_TRANSLATION_XML = "batch-translation-xml";
 export const PROMPT_SLUG_BATCH_TRANSLATION_LINE = "batch-translation-line";
 export const PROMPT_SLUG_SUBTITLE_SEGMENTATION = "subtitle-segmentation";
-export const PROMPT_SLUG_DICTIONARY_EN_ZH = "dictionary-en-zh";
 
 // 提示词应用模式：跟随接口内部配置，或使用全局统一配置
 export const PROMPT_MODE_FOLLOW_API = "follow_api";
@@ -26,20 +23,17 @@ export const PROMPT_MODE_GLOBAL = "global";
 export const PROMPT_CATEGORY_BATCH_SYSTEM = "batch system prompt";
 export const PROMPT_CATEGORY_USER = "user prompt";
 export const PROMPT_CATEGORY_SUBTITLE = "subtitle prompt";
-export const PROMPT_CATEGORY_DICTIONARY = "dictionary prompt";
 // 允许在设置界面“提示词管理”中展示和维护的分类列表
 export const PROMPT_TEMPLATE_CATEGORIES = [
   PROMPT_CATEGORY_USER,
   PROMPT_CATEGORY_BATCH_SYSTEM,
   PROMPT_CATEGORY_SUBTITLE,
-  PROMPT_CATEGORY_DICTIONARY,
 ];
 
 // 各类功能默认使用的提示词 Slug，当未配置时作为后备默认值
 export const DEFAULT_NOBATCH_PROMPT_SLUG = PROMPT_SLUG_NOBATCH_TRANSLATION;
 export const DEFAULT_BATCH_PROMPT_SLUG = PROMPT_SLUG_BATCH_TRANSLATION_JSON;
 export const DEFAULT_SUBTITLE_PROMPT_SLUG = PROMPT_SLUG_SUBTITLE_SEGMENTATION;
-export const DEFAULT_DICTIONARY_PROMPT_SLUG = PROMPT_SLUG_DICTIONARY_EN_ZH;
 
 // 配置数据结构的版本号（用于检测并执行数据迁移升级逻辑）
 export const SETTINGS_VERSION_V1 = 1;
@@ -90,14 +84,6 @@ export const PRESET_PROMPTS = [
     name: "Subtitle AI segmentation",
     systemPrompt: defaultSubtitlePrompt,
     userPrompt: "",
-  },
-  {
-    slug: PROMPT_SLUG_DICTIONARY_EN_ZH,
-    category: PROMPT_CATEGORY_DICTIONARY,
-    nameKey: "preset_prompt_dictionary_en_zh",
-    name: "AI English-Chinese Dictionary",
-    systemPrompt: defaultDictPrompt,
-    userPrompt: defaultDictUserPrompt,
   },
 ];
 
@@ -325,7 +311,6 @@ export function getPromptCategoryDisplayName(category, i18n) {
     [PROMPT_CATEGORY_BATCH_SYSTEM]: "prompt_category_batch_system",
     [PROMPT_CATEGORY_USER]: "prompt_category_user",
     [PROMPT_CATEGORY_SUBTITLE]: "prompt_category_subtitle",
-    [PROMPT_CATEGORY_DICTIONARY]: "prompt_category_dictionary",
   };
 
   return i18n(keyMap[category], category || "");
@@ -365,18 +350,6 @@ export function getBatchPromptOptions(prompts = []) {
  */
 export function getSubtitlePromptOptions(prompts = []) {
   return getPromptOptions(prompts, PROMPT_CATEGORY_SUBTITLE);
-}
-
-/**
- * 获取 AI 词典可选提示词列表。
- *
- * 仅返回词典分类，供接口配置页和划词翻译框设置页复用。
- *
- * @param {Array<Object>} prompts 用户与预设提示词集合
- * @returns {Array<Object>} 可用于 AI 词典的提示词选项
- */
-export function getDictionaryPromptOptions(prompts = []) {
-  return getPromptOptions(prompts, PROMPT_CATEGORY_DICTIONARY);
 }
 
 function hasPromptReference(source = {}, promptSlugFieldName, promptSlug) {
@@ -433,14 +406,6 @@ const LEGACY_API_PROMPT_MIGRATIONS = [
     systemPromptFieldName: "subtitlePrompt",
     userPromptFieldName: "",
     promptSlugFieldName: "subtitlePromptSlug",
-  },
-  {
-    promptType: "dict",
-    promptLabel: "Dictionary prompt",
-    category: PROMPT_CATEGORY_DICTIONARY,
-    systemPromptFieldName: "dictPrompt",
-    userPromptFieldName: "dictUserPrompt",
-    promptSlugFieldName: "dictPromptSlug",
   },
 ];
 
@@ -738,16 +703,6 @@ export function removePromptReferences(setting = {}, promptSlug) {
       hasApiChanges = true;
     }
 
-    if (hasPromptReference(api, "dictPromptSlug", promptSlug)) {
-      nextApi = {
-        ...nextApi,
-        dictPromptSlug: DEFAULT_DICTIONARY_PROMPT_SLUG,
-      };
-      delete nextApi.dictPrompt;
-      delete nextApi.dictUserPrompt;
-      hasApiChanges = true;
-    }
-
     return nextApi;
   });
 
@@ -756,17 +711,7 @@ export function removePromptReferences(setting = {}, promptSlug) {
     "segPromptSlug",
     promptSlug
   );
-  const hasTranboxDictPromptReference = hasPromptReference(
-    setting?.tranboxSetting,
-    "aiDictPromptSlug",
-    promptSlug
-  );
-
-  if (
-    !hasApiChanges &&
-    !hasSubtitlePromptReference &&
-    !hasTranboxDictPromptReference
-  ) {
+  if (!hasApiChanges && !hasSubtitlePromptReference) {
     return setting;
   }
 
@@ -781,13 +726,6 @@ export function removePromptReferences(setting = {}, promptSlug) {
       ...(setting?.subtitleSetting || {}),
       segPromptMode: PROMPT_MODE_FOLLOW_API,
       segPromptSlug: DEFAULT_SUBTITLE_PROMPT_SLUG,
-    };
-  }
-
-  if (hasTranboxDictPromptReference) {
-    nextSetting.tranboxSetting = {
-      ...(setting?.tranboxSetting || {}),
-      aiDictPromptSlug: PROMPT_MODE_FOLLOW_API,
     };
   }
 
@@ -898,30 +836,6 @@ export function resolveApiPromptSettings(
       nextApiSetting.subtitlePromptSlug = subtitlePrompt.slug;
     }
     nextApiSetting.subtitlePrompt = subtitlePrompt.systemPrompt;
-  }
-
-  const hasDictPromptReference = hasPromptReferenceField(
-    nextApiSetting,
-    "dictPromptSlug"
-  );
-  const hasDictPromptInlineValue =
-    hasOwn(nextApiSetting, "dictPrompt") ||
-    hasOwn(nextApiSetting, "dictUserPrompt");
-  const dictPromptSlug = getPromptFieldValue(
-    nextApiSetting,
-    "dictPromptSlug",
-    DEFAULT_DICTIONARY_PROMPT_SLUG
-  );
-  const dictPrompt = findPromptBySlugOrDefault(
-    userPrompts,
-    dictPromptSlug,
-    DEFAULT_DICTIONARY_PROMPT_SLUG
-  );
-
-  if (dictPrompt && (hasDictPromptReference || !hasDictPromptInlineValue)) {
-    nextApiSetting.dictPromptSlug = dictPrompt.slug;
-    nextApiSetting.dictPrompt = dictPrompt.systemPrompt;
-    nextApiSetting.dictUserPrompt = dictPrompt.userPrompt;
   }
 
   return nextApiSetting;

@@ -1,7 +1,10 @@
 import {
+  DEFAULT_API_LIST,
   normalizeApiModelListUrls,
   OPT_TRANS_CLOUDFLAREAI,
   OPT_TRANS_DEEPSEEK,
+  OPT_TRANS_LOCAL_AGY,
+  OPT_TRANS_LOCAL_CODEX,
   OPT_TRANS_OPENAI,
 } from "./api";
 
@@ -63,5 +66,25 @@ describe("normalizeApiModelListUrls", () => {
     ];
 
     expect(normalizeApiModelListUrls(transApis)).toBe(transApis);
+  });
+
+  test("ships loopback-only Agy and Codex bridge profiles", () => {
+    const agy = DEFAULT_API_LIST.find(
+      (api) => api.apiType === OPT_TRANS_LOCAL_AGY
+    );
+    const codex = DEFAULT_API_LIST.find(
+      (api) => api.apiType === OPT_TRANS_LOCAL_CODEX
+    );
+
+    expect(agy).toMatchObject({
+      url: "http://127.0.0.1:17891/v1/agy/chat/completions",
+      modelListUrl: "http://127.0.0.1:17891/v1/agy/models",
+      useStream: false,
+    });
+    expect(codex).toMatchObject({
+      url: "http://127.0.0.1:17891/v1/codex/chat/completions",
+      modelListUrl: "http://127.0.0.1:17891/v1/codex/models",
+      useStream: false,
+    });
   });
 });
