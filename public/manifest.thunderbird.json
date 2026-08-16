@@ -58,7 +58,7 @@
     },
     "toggleNeverTranslate": {
       "suggested_key": {
-        "default": "Alt+Shift+T"
+        "default": "Alt+Shift+D"
       },
       "description": "__MSG_toggle_never_translate__"
     },

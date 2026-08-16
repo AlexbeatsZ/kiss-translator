@@ -25,7 +25,7 @@ export const DEFAULT_SHORTCUTS = {
   [OPT_SHORTCUT_TRANSLATE]: ["AltLeft", "KeyQ"],
   [OPT_SHORTCUT_STYLE]: ["AltLeft", "KeyC"],
   [OPT_SHORTCUT_SETTING]: ["AltLeft", "KeyO"],
-  [OPT_SHORTCUT_NEVER_TRANSLATE]: ["AltLeft", "ShiftLeft", "KeyT"],
+  [OPT_SHORTCUT_NEVER_TRANSLATE]: ["AltLeft", "ShiftLeft", "KeyD"],
 };
 
 export const TRANS_MIN_LENGTH = 2;
