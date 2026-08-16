@@ -218,6 +218,7 @@ export const API_SPE_TYPES = {
     OPT_TRANS_OLLAMA,
     OPT_TRANS_OPENROUTER,
     OPT_TRANS_EPHONEAI,
+    OPT_TRANS_LOCAL_AGY,
   ]),
   // 官方推荐/赞助商的翻译服务
   sponsors: new Set([OPT_TRANS_EPHONEAI]),
@@ -416,7 +417,7 @@ export const OPT_LANGS_TO = [
 ];
 export const OPT_LANGS_LIST = OPT_LANGS_TO.map(([lang]) => lang);
 export const OPT_LANGS_FROM = [
-  ["auto", "AutoDetect - AutoDetect"],
+  ["auto", "AutoDetect - 自动检测"],
   ...OPT_LANGS_TO,
 ];
 export const OPT_LANGS_MAP = new Map(OPT_LANGS_TO);
@@ -945,8 +946,8 @@ const defaultApiOpts = {
     // is not supported for the API use).
     model: "gpt-oss-120b-medium",
     ...defaultAiApiOpts,
-    useStream: false,
-    streamRenderMode: "disabled",
+    useStream: true,
+    streamRenderMode: "realtime",
     fetchLimit: 1,
     httpTimeout: 180,
   },
@@ -990,18 +991,27 @@ export function fillDefaultApiModelListUrl(apiSetting) {
   if (!apiSetting || typeof apiSetting !== "object") {
     return apiSetting;
   }
+  let modified = false;
+  let next = { ...apiSetting };
+
   // 只有 undefined 才代表旧数据缺字段；空字符串或自定义 URL 都应原样保留。
-  if (apiSetting.modelListUrl !== undefined) {
-    return apiSetting;
+  if (apiSetting.modelListUrl === undefined) {
+    const defaultApiOpt =
+      DEFAULT_API_LIST.find((item) => item.apiType === apiSetting.apiType) || {};
+    next.modelListUrl = defaultApiOpt.modelListUrl || "";
+    modified = true;
   }
 
-  // 按接口类型查找内置默认配置，未查到官方模型列表接口时补为空字符串。
-  const defaultApiOpt =
-    DEFAULT_API_LIST.find((item) => item.apiType === apiSetting.apiType) || {};
-  return {
-    ...apiSetting,
-    modelListUrl: defaultApiOpt.modelListUrl || "",
-  };
+  if (
+    apiSetting.apiType === OPT_TRANS_LOCAL_AGY &&
+    apiSetting.useStream === undefined
+  ) {
+    next.useStream = true;
+    next.streamRenderMode = "realtime";
+    modified = true;
+  }
+
+  return modified ? next : apiSetting;
 }
 
 /**

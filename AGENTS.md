@@ -13,8 +13,9 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - `/apis` is the canonical translation-service/model manager and the first settings destination; `/page` owns page translation defaults plus a simple no-auto-translate website list; `/rules` now redirects to `/page`. The full website-rule editor (`Rules.js`) has been removed rather than hidden. Retained storage fields and `apiSlug` references are unchanged.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
-- Verification on 2026-08-16: 31 Jest suites/209 tests pass; Chrome and web builds pass. The standalone `cli2api` service is verified separately through `/health`, `/v1/agy/models`, and a real Agy GPT-OSS completion. The simplified settings IA (translation options first, page translation with no-auto-translate site list, subtitles) builds cleanly; the old rules editor suite was deleted with the removed route.
-- Live `cli2api` verification on 2026-08-16: Codex completed a real request; Agy executable/model discovery succeeded, while completion reached Agy and was rejected upstream with `FAILED_PRECONDITION: User location is not supported for API use` for the current account/network region. The same failure is visible in `C:\Users\Meta\.gemini\antigravity-cli\log\cli-*.log`; the CLI prints only the generic `Agent execution terminated due to error.`
+- Verification on 2026-08-16: 32 Jest suites/213 tests pass; Chrome and web builds pass. The standalone `cli2api` service is verified separately through `/health`, `/v1/agy/models`, and a real Agy GPT-OSS completion.
+- LocalAgy streaming is connected end-to-end: `useStream: true`, `streamRenderMode: "realtime"`, `API_SPE_TYPES.stream`, and `getStreamDelta` delta parsing.
+- Popup UI is fixed: concise language display ("自动检测" -> "简体中文") preventing text wrapping, globalRule fallback for unsupported tabs preventing broken blank views, and robust container layout preventing bottom clipping.
 - Settings information architecture: `docs/design/settings-information-architecture.md` (read before changing Options navigation, Rules, Apis, or their persisted responsibilities).
 - Product/domain vocabulary: `CONTEXT.md`.
 - Focused UI contract: `docs/design/focused-translator-ui.md` (read before changing Options, Popup, or shared visual tokens).
@@ -27,6 +28,8 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Rewrite the shell, page setup, rules, subtitles, engines, and Popup around task completion rather than long settings forms.
 - [x] Delete the website-rule editor route and merge its only retained job (no-auto-translate site list) into page translation.
 - [x] Reorder settings navigation to translation options -> page translation -> subtitles; rename the product to 翻译 and replace extension icons with the translate glyph.
+- [x] Fix Popup UI display issues: clean single-line language cards, proper context labels, fallback for unsupported tabs, and anti-overflow dimensions.
+- [x] Wire up LocalAgy streaming translation end-to-end (stream delta parser, default options, SSE pipeline).
 - [x] Add interaction coverage, rebuild, and visually verify desktop and 390px workflows.
 
 # Build / Run / Test

@@ -79,12 +79,29 @@ describe("normalizeApiModelListUrls", () => {
     expect(agy).toMatchObject({
       url: "http://127.0.0.1:17891/v1/agy/chat/completions",
       modelListUrl: "http://127.0.0.1:17891/v1/agy/models",
-      useStream: false,
+      useStream: true,
+      streamRenderMode: "realtime",
     });
     expect(codex).toMatchObject({
       url: "http://127.0.0.1:17891/v1/codex/chat/completions",
       modelListUrl: "http://127.0.0.1:17891/v1/codex/models",
       useStream: false,
+    });
+  });
+
+  test("supplies stream defaults for LocalAgy when useStream is undefined", () => {
+    const transApis = [
+      {
+        apiSlug: "LocalAgy",
+        apiType: OPT_TRANS_LOCAL_AGY,
+        modelListUrl: "http://127.0.0.1:17891/v1/agy/models",
+      },
+    ];
+
+    const nextApis = normalizeApiModelListUrls(transApis);
+    expect(nextApis[0]).toMatchObject({
+      useStream: true,
+      streamRenderMode: "realtime",
     });
   });
 });
