@@ -440,7 +440,9 @@ export const apiTranslate = async ({
   if (Array.isArray(translation)) {
     [trText, srLang = ""] = translation;
     if (srLang) {
-      srCode = OPT_LANGS_TO_CODE[apiType].get(srLang) || "";
+      srCode =
+        (OPT_LANGS_TO_CODE[apiType] || OPT_LANGS_SPEC_DEFAULT).get(srLang) ||
+        "";
     }
   } else if (typeof translation === "string") {
     trText = translation;
