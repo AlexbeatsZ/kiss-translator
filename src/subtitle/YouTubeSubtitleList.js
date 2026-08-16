@@ -114,12 +114,15 @@ export class YouTubeSubtitleList {
       this._t("bilingual_subtitles", "Bilingual subtitles")
     );
     container.style.cssText = [
-      "--kt-paper:#f6faf8",
-      "--kt-ink:#17211d",
-      "--kt-muted:#66756e",
-      "--kt-rule:#bdccc5",
-      "--kt-source:#425b6b",
-      "--kt-translation:#08775c",
+      "--kt-paper:#0F131B",
+      "--kt-surface-raised:#171D28",
+      "--kt-surface-hover:#1E2636",
+      "--kt-ink:#F1F5F9",
+      "--kt-muted:#94A3B8",
+      "--kt-rule:#252E3E",
+      "--kt-source:#94A3B8",
+      "--kt-translation:#7C9CFF",
+      "--kt-active-bg:rgba(124, 156, 255, 0.14)",
       "display:flex",
       "flex-direction:column",
       "width:100%",
@@ -129,33 +132,42 @@ export class YouTubeSubtitleList {
       "border-radius:10px",
       "background:var(--kt-paper)",
       "color:var(--kt-ink)",
-      "font-family:'Noto Sans SC','Microsoft YaHei UI',sans-serif",
+      "font-family:'Segoe UI Variable',Aptos,'Noto Sans SC','Microsoft YaHei UI',sans-serif",
       "box-sizing:border-box",
+      "box-shadow:0 4px 20px rgba(0,0,0,0.35)",
     ].join(";");
 
     const header = document.createElement("header");
     header.style.cssText =
-      "display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--kt-rule);";
+      "display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--kt-rule);background:var(--kt-surface-raised);";
     const marker = document.createElement("span");
     marker.setAttribute("aria-hidden", "true");
     marker.style.cssText =
-      "width:4px;height:28px;border-radius:3px;background:var(--kt-translation);";
+      "width:4px;height:24px;border-radius:3px;background:var(--kt-translation);";
     this.subtitleTabEl = document.createElement("strong");
     this.subtitleTabEl.style.cssText =
-      "flex:1;font-family:Georgia,'Noto Serif SC',serif;font-size:17px;font-weight:600;";
+      "flex:1;font-size:15px;font-weight:650;color:var(--kt-ink);letter-spacing:-0.01em;";
     const closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.textContent = "×";
     closeButton.title = this._t("close", "Close panel");
     closeButton.setAttribute("aria-label", closeButton.title);
     closeButton.style.cssText =
-      "border:0;background:transparent;color:var(--kt-muted);font-size:24px;line-height:1;cursor:pointer;";
+      "border:0;background:transparent;color:var(--kt-muted);font-size:22px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px;transition:color 0.15s,background 0.15s;";
+    closeButton.addEventListener("mouseenter", () => {
+      closeButton.style.color = "var(--kt-ink)";
+      closeButton.style.background = "var(--kt-surface-hover)";
+    });
+    closeButton.addEventListener("mouseleave", () => {
+      closeButton.style.color = "var(--kt-muted)";
+      closeButton.style.background = "transparent";
+    });
     closeButton.addEventListener("click", () => this.destroy());
     header.append(marker, this.subtitleTabEl, closeButton);
 
     const actions = document.createElement("div");
     actions.style.cssText =
-      "display:flex;gap:8px;padding:9px 14px;border-bottom:1px solid var(--kt-rule);";
+      "display:flex;gap:8px;padding:8px 14px;border-bottom:1px solid var(--kt-rule);background:var(--kt-paper);";
     actions.append(
       this._createActionButton(
         this._t("download_subtitles_vtt", "Download subtitles (VTT)"),
@@ -172,7 +184,7 @@ export class YouTubeSubtitleList {
 
     this.subtitleScrollContainer = document.createElement("div");
     this.subtitleScrollContainer.style.cssText =
-      "flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;";
+      "flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--kt-rule) transparent;";
     this.subtitleScrollContainer.addEventListener(
       "mouseenter",
       this._boundMouseEnter
@@ -197,7 +209,15 @@ export class YouTubeSubtitleList {
     button.type = "button";
     button.textContent = label;
     button.style.cssText =
-      "min-height:30px;padding:4px 9px;border:1px solid var(--kt-rule);border-radius:6px;background:transparent;color:var(--kt-ink);font:inherit;font-size:11px;cursor:pointer;";
+      "min-height:28px;padding:4px 10px;border:1px solid var(--kt-rule);border-radius:6px;background:var(--kt-surface-raised);color:var(--kt-ink);font:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:background 0.15s,border-color 0.15s;";
+    button.addEventListener("mouseenter", () => {
+      button.style.background = "var(--kt-surface-hover)";
+      button.style.borderColor = "var(--kt-translation)";
+    });
+    button.addEventListener("mouseleave", () => {
+      button.style.background = "var(--kt-surface-raised)";
+      button.style.borderColor = "var(--kt-rule)";
+    });
     button.addEventListener("click", onClick);
     return button;
   }
@@ -211,14 +231,20 @@ export class YouTubeSubtitleList {
         item.className = "kiss-youtube-item";
         item.dataset.index = String(index);
         item.style.cssText =
-          "display:grid;grid-template-columns:58px 1fr;gap:10px;padding:12px 14px;border-bottom:1px solid var(--kt-rule);transition:background-color 160ms ease;";
+          "display:grid;grid-template-columns:52px 1fr;gap:10px;padding:10px 14px;border-bottom:1px solid var(--kt-rule);transition:background-color 140ms ease;";
 
         const time = document.createElement("button");
         time.type = "button";
         time.textContent = this.millisToMinutesAndSeconds(subtitle.start || 0);
         time.title = this._t("jump_to_subtitle", "Jump to subtitle");
         time.style.cssText =
-          "align-self:start;border:0;background:transparent;color:var(--kt-source);font-family:'Cascadia Mono',monospace;font-size:11px;cursor:pointer;text-align:left;padding:2px 0;";
+          "align-self:start;border:0;background:transparent;color:var(--kt-muted);font-family:'JetBrains Mono','Cascadia Mono',monospace;font-size:11px;cursor:pointer;text-align:left;padding:2px 0;transition:color 0.15s;";
+        time.addEventListener("mouseenter", () => {
+          time.style.color = "var(--kt-translation)";
+        });
+        time.addEventListener("mouseleave", () => {
+          time.style.color = "var(--kt-muted)";
+        });
         time.addEventListener("click", () =>
           this.jumpToTime(subtitle.start, index)
         );
@@ -228,12 +254,12 @@ export class YouTubeSubtitleList {
         original.className = "kiss-youtube-original";
         original.textContent = subtitle.text || "";
         original.style.cssText =
-          "color:var(--kt-source);font-size:13px;line-height:1.5;";
+          "color:var(--kt-source);font-size:13px;line-height:1.5;word-break:break-word;";
         const translation = document.createElement("div");
         translation.className = "kiss-youtube-translation";
         translation.textContent = subtitle.translation || "…";
         translation.style.cssText =
-          "margin-top:4px;color:var(--kt-translation);font-size:13px;line-height:1.5;font-weight:600;";
+          "margin-top:4px;color:var(--kt-translation);font-size:13px;line-height:1.5;font-weight:600;word-break:break-word;";
         text.append(original, translation);
         item.append(time, text);
         fragment.appendChild(item);
@@ -273,7 +299,7 @@ export class YouTubeSubtitleList {
     const current = this._cachedSubtitleItems[index];
     if (!current) return;
     current.style.background =
-      "color-mix(in srgb, var(--kt-translation) 10%, transparent)";
+      "var(--kt-active-bg, rgba(124, 156, 255, 0.14))";
     current.setAttribute("aria-current", "true");
     if (shouldScroll) {
       current.scrollIntoView?.({ block: "center", behavior: "smooth" });

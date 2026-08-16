@@ -94,18 +94,18 @@ export function createRetrySVG() {
 }
 
 /**
- * 动态创建 Kiss-Translator 主徽标 LOGO SVG 元素节点
+ * 动态创建翻译/双语字幕主徽标 SVG 元素节点
  * @param {Object} [options]
- * @param {string} [options.width] - 宽度
- * @param {string} [options.height] - 高度
- * @param {string} [options.viewBox] - viewBox
- * @param {boolean} [options.isSelected] - 是否处于选中状态（反转前景与背景色）
+ * @param {string} [options.width] - 宽度 (默认 "100%")
+ * @param {string} [options.height] - 高度 (默认 "100%")
+ * @param {string} [options.viewBox] - viewBox (默认 "0 0 24 24")
+ * @param {boolean} [options.isSelected] - 是否处于选中/激活状态
  * @returns {SVGElement}
  */
 export function createLogoSVG({
-  width = "24",
-  height = "24",
-  viewBox = "-5 -5 40 40",
+  width = "100%",
+  height = "100%",
+  viewBox = "0 0 24 24",
   isSelected = false,
 } = {}) {
   const svg = createSVGElement("svg", {
@@ -116,26 +116,17 @@ export function createLogoSVG({
     version: "1.1",
   });
 
-  const primaryColor = "#209CEE";
-  const secondaryColor = "#E9F5FD";
+  const activeColor = "#7C9CFF";
+  const defaultColor = "#FFFFFF";
+  const fillColor = isSelected ? activeColor : defaultColor;
 
-  const path1Fill = isSelected ? secondaryColor : primaryColor;
-  const path2Fill = isSelected ? primaryColor : secondaryColor;
-
-  const path1 = createSVGElement("path", {
-    d: "M0 0 C10.56 0 21.12 0 32 0 C32 10.56 32 21.12 32 32 C21.44 32 10.88 32 0 32 C0 21.44 0 10.88 0 0 Z ",
-    fill: path1Fill,
-    transform: "translate(0,0)",
+  // "文 / A" 翻译与双语字幕标准矢量字形路径
+  const path = createSVGElement("path", {
+    d: "M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
+    fill: fillColor,
   });
 
-  const path2 = createSVGElement("path", {
-    d: "M0 0 C0.66 0 1.32 0 2 0 C2 2.97 2 5.94 2 9 C2.969375 8.2575 3.93875 7.515 4.9375 6.75 C5.48277344 6.33234375 6.02804688 5.9146875 6.58984375 5.484375 C8.39053593 3.83283924 8.39053593 3.83283924 9 0 C13.95 0 18.9 0 24 0 C24 0.99 24 1.98 24 3 C22.68 3 21.36 3 20 3 C20 9.27 20 15.54 20 22 C19.01 22 18.02 22 17 22 C17 15.73 17 9.46 17 3 C15.35 3 13.7 3 12 3 C11.731875 3.598125 11.46375 4.19625 11.1875 4.8125 C10.01506533 6.97224808 8.80630718 8.35790256 7 10 C8.01790655 12.27071461 8.77442829 13.80784632 10.6875 15.4375 C11.120625 15.953125 11.55375 16.46875 12 17 C11.6875 19.6875 11.6875 19.6875 11 22 C10.34 22 9.68 22 9 22 C8.773125 21.236875 8.54625 20.47375 8.3125 19.6875 C6.73268318 16.45263699 5.16717283 15.58358642 2 14 C2 16.64 2 19.28 2 22 C1.34 22 0.68 22 0 22 C0 14.74 0 7.48 0 0 Z ",
-    fill: path2Fill,
-    transform: "translate(4,5)",
-  });
-
-  svg.appendChild(path1);
-  svg.appendChild(path2);
+  svg.appendChild(path);
 
   return svg;
 }

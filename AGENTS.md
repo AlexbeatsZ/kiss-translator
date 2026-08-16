@@ -28,6 +28,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Wire up LocalAgy streaming translation end-to-end (stream delta parser, default options, SSE pipeline).
 - [x] Add permanent never-translate shortcut option (default `Alt+Shift+T`) to toggle sites in/out of the no-auto-translate list.
 - [x] Remove right-click context menu and floating ball components, permissions, options, and runtime logic.
+- [x] Replace leftover legacy KT player icon with universal Translate ("文 A") SVG glyph and upgrade YouTube subtitle sidebar & floating menus to Nocturne dark theme.
 - [x] Add interaction coverage, rebuild, and visually verify desktop and 390px workflows.
 
 # Build / Run / Test

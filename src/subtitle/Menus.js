@@ -84,8 +84,9 @@ function Switch({ label, name, value, onChange, disabled }) {
           width: 40,
           height: 24,
           borderRadius: 12,
-          background: value ? "rgba(32,156,238,.8)" : "rgba(255,255,255,.3)",
+          background: value ? "#7C9CFF" : "rgba(255,255,255,.25)",
           position: "relative",
+          transition: "background 0.2s ease",
         }}
       >
         {/* 开关滑块 (Thumb) */}
@@ -97,8 +98,9 @@ function Switch({ label, name, value, onChange, disabled }) {
             position: "absolute",
             left: 2,
             top: 2,
-            background: "rgba(255,255,255,.9)",
+            background: "#FFFFFF",
             transform: `translateX(${value ? 16 : 0}px)`,
+            transition: "transform 0.2s ease",
           }}
         ></div>
       </div>
@@ -165,8 +167,10 @@ function Select({ label, name, value, options, onChange, disabled }) {
             position: "absolute",
             right: 0,
             top: "100%",
-            background: "rgba(0,0,0,.8)",
-            borderRadius: 5,
+            background: "rgba(21, 26, 36, 0.98)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6)",
+            borderRadius: 6,
             minWidth: 250,
             maxHeight: 200,
             overflow: "auto",
@@ -183,18 +187,18 @@ function Select({ label, name, value, options, onChange, disabled }) {
                 cursor: "pointer",
                 background:
                   option.value === value
-                    ? "rgba(32,156,238,.3)"
+                    ? "rgba(124, 156, 255, 0.25)"
                     : "transparent",
-                opacity: option.value === value ? 1 : 0.8,
-                transition: "all 0.2s",
+                opacity: option.value === value ? 1 : 0.85,
+                transition: "all 0.15s",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,.1)";
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background =
                   option.value === value
-                    ? "rgba(32,156,238,.3)"
+                    ? "rgba(124, 156, 255, 0.25)"
                     : "transparent";
               }}
             >
@@ -310,12 +314,17 @@ export function Menus({
         position: "absolute",
         left: 0,
         bottom: 100,
-        background: "rgba(0,0,0,.6)",
+        background: "rgba(15, 19, 27, 0.94)",
+        backdropFilter: "blur(12px)",
+        border: "1px solid rgba(255, 255, 255, 0.12)",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
         width: 250,
         lineHeight: "40px",
-        fontSize: 16,
+        fontSize: 14,
         padding: 8,
-        borderRadius: 5,
+        borderRadius: 8,
+        color: "#F1F5F9",
+        fontFamily: "'Segoe UI Variable', Aptos, 'Noto Sans SC', sans-serif",
       }}
     >
       {/* 智能断句下拉项：若可用 AI 大模型数量为 0 时禁用下拉 */}
