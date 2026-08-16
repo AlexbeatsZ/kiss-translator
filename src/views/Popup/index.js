@@ -151,10 +151,29 @@ export default function Popup() {
 
   const toggleNeverTranslateSite = useCallback(async () => {
     if (!currentHostname) return;
-    await sendBgMsg(MSG_TOGGLE_NEVER_TRANSLATE, { hostname: currentHostname });
-    await sendTabMsg(MSG_TRANS_TOGGLE_NEVER_TRANSLATE);
-    await loadCurrentRule();
-  }, [currentHostname, loadCurrentRule]);
+    try {
+      let result;
+      if (tabAvailable) {
+        result = await sendTabMsg(MSG_TRANS_TOGGLE_NEVER_TRANSLATE);
+      } else {
+        result = await sendBgMsg(MSG_TOGGLE_NEVER_TRANSLATE, {
+          hostname: currentHostname,
+        });
+      }
+
+      if (rules.reload) {
+        await rules.reload();
+      }
+
+      if (result?.rule) {
+        setTabRule(result.rule);
+      } else {
+        await loadCurrentRule();
+      }
+    } catch (err) {
+      kissLog("toggle never translate site error", err);
+    }
+  }, [currentHostname, tabAvailable, rules, loadCurrentRule]);
 
   const toggleSubtitles = useCallback(() => {
     updateSetting((current) => ({
@@ -460,6 +479,7 @@ export default function Popup() {
         {/* 当前网站不自动翻译排除状态控制卡片 */}
         {currentHostname && (
           <Box
+            onClick={toggleNeverTranslateSite}
             sx={{
               p: 1.25,
               border: `1px solid ${
@@ -473,6 +493,8 @@ export default function Popup() {
               alignItems: "center",
               justifyContent: "space-between",
               transition: "all 0.2s ease",
+              cursor: "pointer",
+              userSelect: "none",
             }}
           >
             <Stack
@@ -518,6 +540,8 @@ export default function Popup() {
               size="small"
               checked={isSiteExcluded}
               onChange={toggleNeverTranslateSite}
+              onClick={(e) => e.stopPropagation()}
+              inputProps={{ "aria-label": "toggle-never-translate" }}
               sx={{
                 flexShrink: 0,
                 "& .MuiSwitch-switchBase.Mui-checked": {

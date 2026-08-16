@@ -18,7 +18,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
 - Native YouTube subtitles are reliably hidden using injected `!important` `<style>` sheet and inline offset; CC observer re-binds across SPA navigation without injecting player buttons.
 - Global UI defaults and fallbacks are strictly simplified to Chinese (`zh` / `zh_CN`).
-- Verification: 31 Jest suites/212 tests pass; Chrome production build passes.
+- Verification: 31 Jest suites/214 tests pass; Chrome production build passes.
 
 # Active Work
 
@@ -29,6 +29,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Delete the website-rule editor route and merge its only retained job (no-auto-translate site list) into page translation.
 - [x] Reorder settings navigation to translation options -> page translation -> subtitles; rename the product to 翻译 and replace extension icons with the translate glyph.
 - [x] Fix Popup UI display issues: clean single-line language cards, proper context labels, fallback for unsupported tabs, and anti-overflow dimensions.
+- [x] Fix Popup never-translate switch responsiveness and storage reactive sync: resolve message bounce/double-toggle, reload rule state, listen to storage onChanged, and make whole card clickable.
 - [x] Wire up LocalAgy streaming translation end-to-end (stream delta parser, default options, SSE pipeline).
 - [x] Add permanent never-translate shortcut option (default `Alt+Shift+T`) to toggle sites in/out of the no-auto-translate list.
 - [x] Remove right-click context menu and floating ball components, permissions, options, and runtime logic.

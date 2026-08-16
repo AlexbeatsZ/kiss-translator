@@ -55,10 +55,13 @@ const mockRulesList = [
   },
 ];
 
+const mockReload = jest.fn();
+
 jest.mock("../../hooks/Rules", () => ({
   useRules: () => ({
     list: mockRulesList,
     put: jest.fn(),
+    reload: mockReload,
   }),
 }));
 
@@ -137,5 +140,82 @@ describe("Popup component", () => {
 
     expect(container.textContent).toContain("已加入不自动翻译列表");
     expect(container.textContent).toContain("excluded.com");
+  });
+
+  test("toggles site exclusion via tab message and reloads rules when tab is available", async () => {
+    const { sendBgMsg } = require("../../libs/msg");
+    getCurTab.mockResolvedValue({ url: "https://example.com/page" });
+    sendTabMsg
+      .mockResolvedValueOnce({
+        rule: {
+          pattern: "example.com",
+          apiSlug: "Google2",
+          fromLang: "en",
+          toLang: "zh-CN",
+          transOpen: "true",
+        },
+      })
+      .mockResolvedValueOnce({
+        isNeverTranslate: true,
+        rule: {
+          pattern: "example.com",
+          apiSlug: "Google2",
+          fromLang: "en",
+          toLang: "zh-CN",
+          transOpen: "false",
+        },
+      });
+
+    await act(async () => {
+      root.render(<Popup />);
+    });
+
+    const toggleInput = container.querySelector(
+      'input[aria-label="toggle-never-translate"]'
+    );
+    expect(toggleInput).not.toBeNull();
+
+    await act(async () => {
+      toggleInput.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(sendTabMsg).toHaveBeenCalledWith("trans_toggle_never_translate");
+    expect(sendBgMsg).not.toHaveBeenCalledWith(
+      "toggle_never_translate_site",
+      expect.anything()
+    );
+    expect(mockReload).toHaveBeenCalled();
+  });
+
+  test("toggles site exclusion via background message and reloads rules when tab is unavailable", async () => {
+    const { sendBgMsg } = require("../../libs/msg");
+    getCurTab.mockResolvedValue({ url: "https://example.com/page" });
+    sendTabMsg.mockRejectedValue(new Error("Receiving end does not exist"));
+    sendBgMsg.mockResolvedValue({
+      isNeverTranslate: true,
+      pattern: "example.com",
+    });
+
+    await act(async () => {
+      root.render(<Popup />);
+    });
+
+    const toggleInput = container.querySelector(
+      'input[aria-label="toggle-never-translate"]'
+    );
+    expect(toggleInput).not.toBeNull();
+
+    await act(async () => {
+      toggleInput.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(sendBgMsg).toHaveBeenCalledWith("toggle_never_translate_site", {
+      hostname: "example.com",
+    });
+    expect(mockReload).toHaveBeenCalled();
   });
 });

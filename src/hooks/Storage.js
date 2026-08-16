@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { storage } from "../libs/storage";
 import { kissLog } from "../libs/log";
+import { browser } from "../libs/browser";
 
 function isSameStorageValue(a, b) {
   if (Object.is(a, b)) return true;
@@ -76,6 +77,66 @@ export function useStorage(key, defaultVal = null) {
     };
   }, [key, defaultVal]);
 
+  // 监听 Storage 外部变更并同步刷新 React 状态
+  useEffect(() => {
+    if (
+      Boolean(
+        globalThis.chrome?.runtime?.id || globalThis.browser?.runtime?.id
+      ) &&
+      browser?.storage?.onChanged
+    ) {
+      const handleStorageChange = (changes, area) => {
+        if (area === "local" && changes && changes[key]) {
+          try {
+            const raw = changes[key].newValue;
+            const nextVal =
+              raw === undefined || raw === null
+                ? defaultVal
+                : typeof raw === "string"
+                ? JSON.parse(raw)
+                : raw;
+            setData((prev) => {
+              if (isSameStorageValue(prev, nextVal)) {
+                return prev;
+              }
+              return nextVal;
+            });
+          } catch (err) {
+            kissLog(`storage sync parse error for key: ${key}`, err);
+          }
+        }
+      };
+
+      browser.storage.onChanged.addListener(handleStorageChange);
+      return () => {
+        browser.storage.onChanged.removeListener(handleStorageChange);
+      };
+    } else if (typeof window !== "undefined" && window.addEventListener) {
+      const handleWindowStorage = (event) => {
+        if (event.key === key) {
+          try {
+            const nextVal = event.newValue
+              ? JSON.parse(event.newValue)
+              : defaultVal;
+            setData((prev) => {
+              if (isSameStorageValue(prev, nextVal)) {
+                return prev;
+              }
+              return nextVal;
+            });
+          } catch (err) {
+            kissLog(`window storage sync parse error for key: ${key}`, err);
+          }
+        }
+      };
+
+      window.addEventListener("storage", handleWindowStorage);
+      return () => {
+        window.removeEventListener("storage", handleWindowStorage);
+      };
+    }
+  }, [key, defaultVal]);
+
   // 数据发生改变时仅触发本地写盘。
   useEffect(() => {
     if (isLoading) {
@@ -137,14 +198,16 @@ export function useStorage(key, defaultVal = null) {
     try {
       const storedVal = await storage.getObj(key);
       const nextData = storedVal ?? defaultVal;
-      if (isSameStorageValue(data, nextData)) {
-        return;
-      }
-      setData(nextData);
+      setData((prev) => {
+        if (isSameStorageValue(prev, nextData)) {
+          return prev;
+        }
+        return nextData;
+      });
     } catch (err) {
       kissLog(`storage reload error for key: ${key}`, err);
     }
-  }, [key, defaultVal, data]);
+  }, [key, defaultVal]);
 
   return { data, save, update, remove, reload, isLoading };
 }
