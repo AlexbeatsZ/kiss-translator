@@ -36,6 +36,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Expose AI smart segmentation and AI enhanced context directly in the main Subtitle options settings page.
 - [x] Enforce Chinese-only default UI language and fallbacks across manifest, settings, popup, and components.
 - [x] Strengthen YouTube native caption hiding via injected style sheet and fix CC observer re-binding across page navigation.
+- [x] Fix settings page tab favicon to use local extension icon assets instead of remote upstream URL.
 - [x] Run full test suite and rebuild Chrome extension.
 
 # Build / Run / Test
