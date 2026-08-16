@@ -29,8 +29,23 @@ export const getCurTabId = async () => {
  * @param {Object} args 指令参数数据
  * @returns {Promise<*>} 后台响应的数据
  */
-export const sendBgMsg = (action, args) =>
-  browser?.runtime.sendMessage({ action, args });
+export const sendBgMsg = async (action, args) => {
+  try {
+    if (globalThis.chrome?.runtime && !globalThis.chrome.runtime.id) {
+      return;
+    }
+    return await browser?.runtime?.sendMessage({ action, args });
+  } catch (err) {
+    if (
+      err?.message?.includes("Extension context invalidated") ||
+      err?.message?.includes("Could not establish connection") ||
+      err?.message?.includes("Receiving end does not exist")
+    ) {
+      return;
+    }
+    throw err;
+  }
+};
 
 /**
  * 向当前活跃页面标签发送通信消息。
@@ -39,22 +54,19 @@ export const sendBgMsg = (action, args) =>
  * @returns {Promise<*>} 页面 Content Script 接收处理后的响应数据
  */
 export const sendTabMsg = async (action, args) => {
-  const tabId = await getCurTabId();
-  if (!tabId) return;
+  try {
+    const tabId = await getCurTabId();
+    if (!tabId) return;
 
-  // 向指定 ID 的标签页发送消息，并捕获常见的由于注入未就绪产生的错误
-  return browser.tabs.sendMessage(tabId, { action, args }).catch((err) => {
-    // REVIEW: 屏蔽两种常见的无害通信错误：
-    // 1. "Could not establish connection" (多发于前台 content script 尚未加载完毕或无响应)
-    // 2. "Receiving end does not exist" (常见于用户在不支持注入扩展的浏览器内置特权页面如 chrome:// 上触发了消息)
-    // 此处静默返回，避免未就绪的通信异常打断业务逻辑调用链或污染扩展错误页。
+    return await browser.tabs.sendMessage(tabId, { action, args });
+  } catch (err) {
     if (
       err?.message?.includes("Could not establish connection") ||
-      err?.message?.includes("Receiving end does not exist")
+      err?.message?.includes("Receiving end does not exist") ||
+      err?.message?.includes("Extension context invalidated")
     ) {
       return;
-    } else {
-      throw err;
     }
-  });
+    throw err;
+  }
 };

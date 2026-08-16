@@ -53,7 +53,15 @@ function getGmStorage() {
  */
 async function set(key, val) {
   if (isExt) {
-    await browser.storage.local.set({ [key]: val });
+    try {
+      if (globalThis.chrome?.runtime && !globalThis.chrome.runtime.id) {
+        return;
+      }
+      await browser.storage.local.set({ [key]: val });
+    } catch (err) {
+      if (err?.message?.includes("Extension context invalidated")) return;
+      throw err;
+    }
   } else if (isGm) {
     await getGmStorage().setValue(key, val);
   } else {
@@ -68,8 +76,16 @@ async function set(key, val) {
  */
 async function get(key) {
   if (isExt) {
-    const val = await browser.storage.local.get([key]);
-    return val[key];
+    try {
+      if (globalThis.chrome?.runtime && !globalThis.chrome.runtime.id) {
+        return null;
+      }
+      const val = await browser.storage.local.get([key]);
+      return val?.[key];
+    } catch (err) {
+      if (err?.message?.includes("Extension context invalidated")) return null;
+      throw err;
+    }
   } else if (isGm) {
     const val = await getGmStorage().getValue(key);
     return val;
@@ -83,7 +99,15 @@ async function get(key) {
  */
 async function del(key) {
   if (isExt) {
-    await browser.storage.local.remove([key]);
+    try {
+      if (globalThis.chrome?.runtime && !globalThis.chrome.runtime.id) {
+        return;
+      }
+      await browser.storage.local.remove([key]);
+    } catch (err) {
+      if (err?.message?.includes("Extension context invalidated")) return;
+      throw err;
+    }
   } else if (isGm) {
     await getGmStorage().deleteValue(key);
   } else {
