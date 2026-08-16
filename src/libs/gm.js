@@ -82,6 +82,7 @@ function getGmInfo() {
  * @param {string} ping 特权环境监听的自定义 CustomEvent 事件名称
  */
 export const injectScript = (ping) => {
+  if (typeof window === "undefined") return;
   window.APP_INFO = {
     name: process.env.REACT_APP_NAME,
     version: process.env.REACT_APP_VERSION,
@@ -96,6 +97,7 @@ export const injectScript = (ping) => {
  * @param {string} ping 接受页面请求的 CustomEvent 监听事件名称
  */
 export const adaptScript = (ping) => {
+  if (typeof window === "undefined") return;
   /**
    * 通用的 CustomEvent 异步请求封装。
    * @param {string} action 需要执行的 GM 操作

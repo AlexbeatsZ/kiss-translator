@@ -379,7 +379,7 @@ export const extractJson = (raw) => {
  * @returns {number} 调度 ID
  */
 export const scheduleIdle = (cb, timeout = 200) => {
-  if (window.requestIdleCallback) {
+  if (typeof window !== "undefined" && window.requestIdleCallback) {
     return requestIdleCallback(cb, { timeout });
   }
   return setTimeout(cb, timeout);

@@ -32,10 +32,11 @@ import { getGmMethod } from "./gm";
  * @returns {{setValue: Function, getValue: Function, deleteValue: Function}} 封装好的存储方法集合
  */
 function getGmStorage() {
+  const kissGM = typeof window !== "undefined" ? window.KISS_GM : undefined;
   const call =
     (method, legacyMethod) =>
     (...args) =>
-      getGmMethod(method, legacyMethod, [window.KISS_GM])(...args);
+      getGmMethod(method, legacyMethod, kissGM ? [kissGM] : [])(...args);
 
   return {
     setValue: call("setValue", "GM_setValue"),
@@ -52,19 +53,20 @@ function getGmStorage() {
  * @param {*} val 待写入的字符串数据
  */
 async function set(key, val) {
-  if (isExt) {
+  if ((isExt || globalThis.chrome?.runtime?.id) && browser?.storage?.local) {
     try {
       if (globalThis.chrome?.runtime && !globalThis.chrome.runtime.id) {
         return;
       }
       await browser.storage.local.set({ [key]: val });
+      return;
     } catch (err) {
       if (err?.message?.includes("Extension context invalidated")) return;
       throw err;
     }
   } else if (isGm) {
     await getGmStorage().setValue(key, val);
-  } else {
+  } else if (typeof window !== "undefined" && window.localStorage) {
     window.localStorage.setItem(key, val);
   }
 }
@@ -75,7 +77,7 @@ async function set(key, val) {
  * @returns {Promise<string|null>} 读取到的原始字符串数据
  */
 async function get(key) {
-  if (isExt) {
+  if ((isExt || globalThis.chrome?.runtime?.id) && browser?.storage?.local) {
     try {
       if (globalThis.chrome?.runtime && !globalThis.chrome.runtime.id) {
         return null;
@@ -89,8 +91,10 @@ async function get(key) {
   } else if (isGm) {
     const val = await getGmStorage().getValue(key);
     return val;
+  } else if (typeof window !== "undefined" && window.localStorage) {
+    return window.localStorage.getItem(key);
   }
-  return window.localStorage.getItem(key);
+  return null;
 }
 
 /**
@@ -98,19 +102,20 @@ async function get(key) {
  * @param {string} key 键名
  */
 async function del(key) {
-  if (isExt) {
+  if ((isExt || globalThis.chrome?.runtime?.id) && browser?.storage?.local) {
     try {
       if (globalThis.chrome?.runtime && !globalThis.chrome.runtime.id) {
         return;
       }
       await browser.storage.local.remove([key]);
+      return;
     } catch (err) {
       if (err?.message?.includes("Extension context invalidated")) return;
       throw err;
     }
   } else if (isGm) {
     await getGmStorage().deleteValue(key);
-  } else {
+  } else if (typeof window !== "undefined" && window.localStorage) {
     window.localStorage.removeItem(key);
   }
 }

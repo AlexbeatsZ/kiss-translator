@@ -1,5 +1,6 @@
 #!/usr/bin/env zx
-import { argv, quote, $ } from "zx";
+import path from "node:path";
+import { argv, quote, $, chalk, fs } from "zx";
 
 // 在 Windows 上使用 cmd.exe，避免 zx 默认使用 WSL bash 导致 node not found
 if (process.platform === "win32") {

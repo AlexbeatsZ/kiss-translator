@@ -1,7 +1,8 @@
 /**
  * 判定当前脚本是否运行在 Iframe 嵌套子页面中。
  */
-export const isIframe = window.self !== window.top;
+export const isIframe =
+  typeof window !== "undefined" && window.self !== window.top;
 
 /**
  * 从当前页面向所有页面内的 iframe 子元素广播 HTML5 postMessage 消息。
@@ -13,8 +14,9 @@ export const isIframe = window.self !== window.top;
  * @param {Object} args 指令参数
  */
 export const sendIframeMsg = (action, args) => {
+  if (typeof document === "undefined") return;
   document.querySelectorAll("iframe").forEach((iframe) => {
-    iframe.contentWindow.postMessage({ action, args }, "*");
+    iframe.contentWindow?.postMessage({ action, args }, "*");
   });
 };
 
@@ -25,5 +27,6 @@ export const sendIframeMsg = (action, args) => {
  * @param {Object} args 指令参数
  */
 export const sendParentMsg = (action, args) => {
-  window.parent.postMessage({ action, args }, "*");
+  if (typeof window === "undefined") return;
+  window.parent?.postMessage({ action, args }, "*");
 };

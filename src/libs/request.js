@@ -205,7 +205,13 @@ const fetchKissGM = async (
 
     signal?.addEventListener?.("abort", abortBySignal, { once: true });
 
-    requestHandle = window.KISS_GM.xmlHttpRequest({
+    const kissGM = typeof window !== "undefined" ? window.KISS_GM : undefined;
+    if (!kissGM) {
+      finish(reject, new Error("KISS_GM is not available"));
+      return;
+    }
+
+    requestHandle = kissGM.xmlHttpRequest({
       method,
       url: input,
       headers,
@@ -245,8 +251,9 @@ export const fetchPatcher = async (input, init = {}, opts) => {
 
   if (isGm) {
     const gmInit = { ...requestInit, timeout };
+    const kissGM = typeof window !== "undefined" ? window.KISS_GM : undefined;
 
-    const { body, headers, status, statusText } = window.KISS_GM
+    const { body, headers, status, statusText } = kissGM
       ? await fetchKissGM(input, gmInit)
       : await fetchGM(input, gmInit);
 
