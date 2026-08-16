@@ -77,8 +77,6 @@ export const DEFAULT_SUBTITLE_SETTING = {
   windowStyle: SUBTITLE_WINDOW_STYLE,
   originStyle: SUBTITLE_ORIGIN_STYLE,
   translationStyle: SUBTITLE_TRANSLATION_STYLE,
-  showList: OPT_ENHANCE_MOBILE_OFF,
-  hideSubtitleButton: false,
   aiContextSlug: "-",
   segPromptMode: PROMPT_MODE_FOLLOW_API,
   segPromptSlug: DEFAULT_SUBTITLE_PROMPT_SLUG,

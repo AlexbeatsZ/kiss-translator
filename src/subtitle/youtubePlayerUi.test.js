@@ -1,28 +1,7 @@
-import DomManager from "../libs/domManager.js";
-import { YouTubePlayerUi } from "./youtubePlayerUi.js";
-
-const mockDestroy = jest.fn();
-const mockHide = jest.fn();
-const mockShow = jest.fn();
-const mockUpdateProps = jest.fn();
-
-jest.mock("../libs/domManager.js", () => jest.fn());
-
-jest.mock("../config", () => ({
-  APP_NAME: "Kiss Translator",
-}));
-
-jest.mock("../libs/svg.js", () => ({
-  createLogoSVG: ({ isSelected } = {}) => {
-    const el = global.document.createElement("span");
-    el.dataset.selected = isSelected ? "true" : "false";
-    return el;
-  },
-}));
-
-jest.mock("./Menus.js", () => ({
-  Menus: () => null,
-}));
+import {
+  YouTubePlayerUi,
+  YT_CAPTION_SELECTOR,
+} from "./youtubePlayerUi.js";
 
 describe("YouTubePlayerUi", () => {
   let setting;
@@ -30,14 +9,8 @@ describe("YouTubePlayerUi", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
-    DomManager.mockImplementation(() => ({
-      destroy: mockDestroy,
-      hide: mockHide,
-      show: mockShow,
-      updateProps: mockUpdateProps,
-    }));
     document.body.innerHTML = "";
-    setting = { hideSubtitleButton: false, showLoadNotification: true };
+    setting = { showLoadNotification: true };
   });
 
   afterEach(() => {
@@ -48,41 +21,42 @@ describe("YouTubePlayerUi", () => {
   function createUi(videoEl = null) {
     return new YouTubePlayerUi({
       getSetting: () => setting,
-      getMenuProps: () => ({ progressed: 0 }),
       getVideoEl: () => videoEl,
     });
   }
 
-  test("removes and reinjects the subtitle toggle button", () => {
-    document.body.innerHTML = '<div class="ytp-right-controls"></div>';
-    const controls = document.querySelector(".ytp-right-controls");
+  test("hides and shows native YouTube caption container", () => {
+    document.body.innerHTML = `<div id="ytp-caption-window-container"></div>`;
+    const captionContainer = document.querySelector(YT_CAPTION_SELECTOR);
     const ui = createUi();
 
-    ui.injectToggleButton(controls);
-    expect(document.querySelector(".kiss-subtitle-button")).not.toBeNull();
+    ui.hideYtCaption();
+    expect(captionContainer.style.top).toBe("-10000px");
 
-    setting.hideSubtitleButton = true;
-    ui.removeToggleButton();
-    expect(document.querySelector(".kiss-subtitle-button")).toBeNull();
-    expect(mockDestroy).toHaveBeenCalledTimes(1);
-
-    setting.hideSubtitleButton = false;
-    ui.injectToggleButton(controls);
-    expect(document.querySelector(".kiss-subtitle-button")).not.toBeNull();
+    ui.showYtCaption();
+    expect(captionContainer.style.top).toBe("0px");
   });
 
-  test("hides notification when loading notification setting is disabled", () => {
+  test("shows and hides notification toast correctly", () => {
     document.body.innerHTML = "<div><div><video></video></div></div>";
     const videoEl = document.querySelector("video");
     const ui = createUi(videoEl);
 
-    ui.showNotification("loading");
+    ui.showNotification("双语字幕加载成功！");
     const notification = document.querySelector(".kiss-notification");
-    expect(notification.textContent).toBe("loading");
+    expect(notification).not.toBeNull();
+    expect(notification.textContent).toBe("双语字幕加载成功！");
     expect(notification.style.opacity).toBe("1");
 
-    setting.showLoadNotification = false;
-    ui.showNotification("hidden");
+    ui.hideNotification();
     expect(notification.style.opacity).toBe("0");
+
+    setting.showLoadNotification = false;
+    ui.showNotification("hidden message");
+    expect(notification.style.opacity).toBe("0");
+
+    ui.destroy();
+    expect(document.querySelector(".kiss-notification")).toBeNull();
   });
 });
+

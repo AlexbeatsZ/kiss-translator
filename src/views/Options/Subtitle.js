@@ -15,9 +15,6 @@ import Divider from "@mui/material/Divider";
 import { useI18n } from "../../hooks/I18n";
 import {
   OPT_LANGS_TO_REVERSED as OPT_LANGS_TO,
-  OPT_ENHANCE_ON,
-  OPT_ENHANCE_OFF,
-  OPT_ENHANCE_MOBILE_OFF,
   DEFAULT_SUBTITLE_PROMPT_SLUG,
   PROMPT_MODE_FOLLOW_API,
   PROMPT_MODE_GLOBAL,
@@ -31,7 +28,6 @@ import { useApiList } from "../../hooks/Api";
 import { usePromptList } from "../../hooks/Prompt";
 import ValidationInput from "../../hooks/ValidationInput";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { normalizeSubtitleMode } from "../../subtitle/modes";
 import { SettingsSection } from "./SettingsSurface";
 
 /**
@@ -338,7 +334,7 @@ export default function SubtitleSetting() {
   const {
     enabled,
     apiSlug,
-    segSlug,
+    segSlug = "-",
     forceSubtitleRetranslate = false,
     useAlgorithmBreaker = "rule",
     chunkLength,
@@ -346,11 +342,9 @@ export default function SubtitleSetting() {
     preTrans = 90,
     throttleTrans = 30,
     toLang,
-    isBilingual,
+    isBilingual = true,
     displayOrder = "original-first",
     blurTranslation = false,
-    enhanceMode,
-    showList = OPT_ENHANCE_MOBILE_OFF,
     skipAd = false,
     aiContextSlug = "-",
     segPromptMode = PROMPT_MODE_FOLLOW_API,
@@ -359,14 +353,8 @@ export default function SubtitleSetting() {
     originStyle,
     translationStyle,
     showLoadNotification = true,
-    hideSubtitleButton = false,
   } = subtitleSetting;
 
-  // 整理字幕列表模式的旧配置回退逻辑
-  const showListValue = normalizeSubtitleMode(
-    showList,
-    enhanceMode || OPT_ENHANCE_MOBILE_OFF
-  );
   const selectedSegPromptSlug = segPromptSlug || DEFAULT_SUBTITLE_PROMPT_SLUG;
   const hasSelectedSegPrompt = subtitlePromptOptions.some(
     (prompt) => prompt.slug === selectedSegPromptSlug
@@ -623,7 +611,7 @@ export default function SubtitleSetting() {
           <Box sx={{ opacity: enabled ? 1 : 0.55 }}>
             <Grid container spacing={2} columns={12}>
               {/* 字幕翻译首选的翻译引擎服务商 */}
-              <Grid item xs={12} sm={6} sx={{ order: 1 }}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   select
                   fullWidth
@@ -640,13 +628,28 @@ export default function SubtitleSetting() {
                   ))}
                 </TextField>
               </Grid>
+
+              {/* 目标翻译出的双语字幕语言 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  select
+                  size="small"
+                  name="toLang"
+                  value={toLang}
+                  label={i18n("to_lang")}
+                  onChange={handleChange}
+                >
+                  {OPT_LANGS_TO.map(([lang, name]) => (
+                    <MenuItem key={lang} value={lang}>
+                      {name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
               {/* 字幕长句断句首选的大语言 AI 引擎服务商 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 6, display: showAdvanced ? "block" : "none" }}
-              >
+              <Grid item xs={12} sm={6}>
                 <TextField
                   select
                   fullWidth
@@ -675,13 +678,29 @@ export default function SubtitleSetting() {
                   ))}
                 </TextField>
               </Grid>
-              {segSlug !== "-" && (
-                <Grid
-                  item
-                  xs={12}
-                  sm={6}
-                  sx={{ order: 7, display: showAdvanced ? "block" : "none" }}
+
+              {/* 字幕翻译是否使用 AI 增强上下文，并指定提供服务的 AI 引擎 */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  name="aiContextSlug"
+                  value={aiContextSlug}
+                  label={i18n("ai_enhanced_context")}
+                  onChange={handleChange}
                 >
+                  <MenuItem value={"-"}>{i18n("disable")}</MenuItem>
+                  {aiEnabledApis.map((api) => (
+                    <MenuItem key={api.apiSlug} value={api.apiSlug}>
+                      {api.apiName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              {segSlug !== "-" && (
+                <Grid item xs={12} sm={6}>
                   <TextField
                     select
                     fullWidth
@@ -702,171 +721,9 @@ export default function SubtitleSetting() {
                   </TextField>
                 </Grid>
               )}
-              {/* AI 断句服务与翻译服务不同时，是否丢弃 AI 断句返回的译文并交给翻译服务重翻 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 8, display: showAdvanced ? "block" : "none" }}
-              >
-                <TextField
-                  fullWidth
-                  select
-                  size="small"
-                  name="forceSubtitleRetranslate"
-                  value={forceSubtitleRetranslate}
-                  label={i18n("force_subtitle_retranslate")}
-                  onChange={handleChange}
-                >
-                  <MenuItem value={true}>{i18n("enable")}</MenuItem>
-                  <MenuItem value={false}>{i18n("disable")}</MenuItem>
-                </TextField>
-              </Grid>
-              {/* 系统内置的轻量断句算法类型 (基于固定句尾符号断句，或统计学概率断句) */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 9, display: showAdvanced ? "block" : "none" }}
-              >
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  name="useAlgorithmBreaker"
-                  value={useAlgorithmBreaker}
-                  label={i18n("builtin_sentence_break")}
-                  onChange={handleChange}
-                >
-                  <MenuItem value={"rule"}>
-                    {i18n("rule_sentence_break")}
-                  </MenuItem>
-                  <MenuItem value={"statistical"}>
-                    {i18n("statistical_sentence_break")}
-                  </MenuItem>
-                </TextField>
-              </Grid>
-              {/* 字幕翻译是否使用 AI 增强上下文，并指定提供服务的 AI 引擎 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 10, display: showAdvanced ? "block" : "none" }}
-              >
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  name="aiContextSlug"
-                  value={aiContextSlug}
-                  label={i18n("ai_enhanced_context")}
-                  onChange={handleChange}
-                >
-                  <MenuItem value={"-"}>{i18n("disable")}</MenuItem>
-                  {aiEnabledApis.map((api) => (
-                    <MenuItem key={api.apiSlug} value={api.apiSlug}>
-                      {api.apiName}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              {/* 一批提交给 AI 进行断句的最长原始字幕文本长度阈值 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 11, display: showAdvanced ? "block" : "none" }}
-              >
-                <ValidationInput
-                  fullWidth
-                  size="small"
-                  label={i18n("ai_chunk_length")}
-                  type="number"
-                  name="chunkLength"
-                  value={chunkLength}
-                  onChange={handleChange}
-                  min={200}
-                  max={20000}
-                />
-              </Grid>
-              {/* 判定为长句并强行触发断句的句子最大长度限制 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 12, display: showAdvanced ? "block" : "none" }}
-              >
-                <ValidationInput
-                  fullWidth
-                  size="small"
-                  label={i18n("long_sentence_threshold")}
-                  type="number"
-                  name="longSentenceThreshold"
-                  value={longSentenceThreshold}
-                  onChange={handleChange}
-                  min={20}
-                  max={500}
-                />
-              </Grid>
-              {/* 视频拉取到字幕时，默认超前预翻译多少秒的后续字幕，以防视频播放时发生延迟查词 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 13, display: showAdvanced ? "block" : "none" }}
-              >
-                <ValidationInput
-                  fullWidth
-                  size="small"
-                  label={i18n("pre_trans_seconds")}
-                  type="number"
-                  name="preTrans"
-                  value={preTrans}
-                  onChange={handleChange}
-                  min={10}
-                  max={36000}
-                />
-              </Grid>
-              {/* 避免短时间内视频拖拽和字幕块大量翻滚时发生高频网络请求的防抖限流间隔 (s) */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 14, display: showAdvanced ? "block" : "none" }}
-              >
-                <ValidationInput
-                  fullWidth
-                  size="small"
-                  label={i18n("throttle_trans_interval")}
-                  type="number"
-                  name="throttleTrans"
-                  value={throttleTrans}
-                  onChange={handleChange}
-                  min={1}
-                  max={3600}
-                />
-              </Grid>
-              {/* 目标翻译出的双语字幕语言 */}
-              <Grid item xs={12} sm={6} sx={{ order: 2 }}>
-                <TextField
-                  fullWidth
-                  select
-                  size="small"
-                  name="toLang"
-                  value={toLang}
-                  label={i18n("to_lang")}
-                  onChange={handleChange}
-                >
-                  {OPT_LANGS_TO.map(([lang, name]) => (
-                    <MenuItem key={lang} value={lang}>
-                      {name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
 
               {/* 是否保留双语字幕 (若禁用则在视频窗口上仅显示翻译后的目标语字幕) */}
-              <Grid item xs={12} sm={6} sx={{ order: 3 }}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   select
@@ -880,8 +737,9 @@ export default function SubtitleSetting() {
                   <MenuItem value={false}>{i18n("disable")}</MenuItem>
                 </TextField>
               </Grid>
+
               {/* 双语字幕在视频画面中的显示顺序 */}
-              <Grid item xs={12} sm={6} sx={{ order: 4 }}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   select
@@ -899,7 +757,8 @@ export default function SubtitleSetting() {
                   </MenuItem>
                 </TextField>
               </Grid>
-              <Grid item xs={12} sx={{ order: 5 }}>
+
+              <Grid item xs={12}>
                 <Stack
                   direction={{ xs: "column", sm: "row" }}
                   alignItems={{ xs: "flex-start", sm: "center" }}
@@ -922,12 +781,139 @@ export default function SubtitleSetting() {
                   </Typography>
                 </Stack>
               </Grid>
+
+              {/* AI 断句服务与翻译服务不同时，是否丢弃 AI 断句返回的译文并交给翻译服务重翻 */}
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                sx={{ display: showAdvanced ? "block" : "none" }}
+              >
+                <TextField
+                  fullWidth
+                  select
+                  size="small"
+                  name="forceSubtitleRetranslate"
+                  value={forceSubtitleRetranslate}
+                  label={i18n("force_subtitle_retranslate")}
+                  onChange={handleChange}
+                >
+                  <MenuItem value={true}>{i18n("enable")}</MenuItem>
+                  <MenuItem value={false}>{i18n("disable")}</MenuItem>
+                </TextField>
+              </Grid>
+
+              {/* 系统内置的轻量断句算法类型 (基于固定句尾符号断句，或统计学概率断句) */}
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                sx={{ display: showAdvanced ? "block" : "none" }}
+              >
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  name="useAlgorithmBreaker"
+                  value={useAlgorithmBreaker}
+                  label={i18n("builtin_sentence_break")}
+                  onChange={handleChange}
+                >
+                  <MenuItem value={"rule"}>
+                    {i18n("rule_sentence_break")}
+                  </MenuItem>
+                  <MenuItem value={"statistical"}>
+                    {i18n("statistical_sentence_break")}
+                  </MenuItem>
+                </TextField>
+              </Grid>
+
+              {/* 一批提交给 AI 进行断句的最长原始字幕文本长度阈值 */}
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                sx={{ display: showAdvanced ? "block" : "none" }}
+              >
+                <ValidationInput
+                  fullWidth
+                  size="small"
+                  label={i18n("ai_chunk_length")}
+                  type="number"
+                  name="chunkLength"
+                  value={chunkLength}
+                  onChange={handleChange}
+                  min={200}
+                  max={20000}
+                />
+              </Grid>
+
+              {/* 判定为长句并强行触发断句的句子最大长度限制 */}
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                sx={{ display: showAdvanced ? "block" : "none" }}
+              >
+                <ValidationInput
+                  fullWidth
+                  size="small"
+                  label={i18n("long_sentence_threshold")}
+                  type="number"
+                  name="longSentenceThreshold"
+                  value={longSentenceThreshold}
+                  onChange={handleChange}
+                  min={20}
+                  max={500}
+                />
+              </Grid>
+
+              {/* 视频拉取到字幕时，默认超前预翻译多少秒的后续字幕，以防视频播放时发生延迟查词 */}
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                sx={{ display: showAdvanced ? "block" : "none" }}
+              >
+                <ValidationInput
+                  fullWidth
+                  size="small"
+                  label={i18n("pre_trans_seconds")}
+                  type="number"
+                  name="preTrans"
+                  value={preTrans}
+                  onChange={handleChange}
+                  min={10}
+                  max={36000}
+                />
+              </Grid>
+
+              {/* 避免短时间内视频拖拽和字幕块大量翻滚时发生高频网络请求的防抖限流间隔 (s) */}
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                sx={{ display: showAdvanced ? "block" : "none" }}
+              >
+                <ValidationInput
+                  fullWidth
+                  size="small"
+                  label={i18n("throttle_trans_interval")}
+                  type="number"
+                  name="throttleTrans"
+                  value={throttleTrans}
+                  onChange={handleChange}
+                  min={1}
+                  max={3600}
+                />
+              </Grid>
+
               {/* 是否开启磨砂模糊译文字幕显示效果 (鼠标划过时才高亮看清译文，用于英语听力训练备考) */}
               <Grid
                 item
                 xs={12}
                 sm={6}
-                sx={{ order: 15, display: showAdvanced ? "block" : "none" }}
+                sx={{ display: showAdvanced ? "block" : "none" }}
               >
                 <TextField
                   fullWidth
@@ -942,12 +928,13 @@ export default function SubtitleSetting() {
                   <MenuItem value={false}>{i18n("disable")}</MenuItem>
                 </TextField>
               </Grid>
+
               {/* 视频插播商业广告时是否自动识别并跳过翻译网络请求 */}
               <Grid
                 item
                 xs={12}
                 sm={6}
-                sx={{ order: 16, display: showAdvanced ? "block" : "none" }}
+                sx={{ display: showAdvanced ? "block" : "none" }}
               >
                 <TextField
                   fullWidth
@@ -962,35 +949,13 @@ export default function SubtitleSetting() {
                   <MenuItem value={false}>{i18n("disable")}</MenuItem>
                 </TextField>
               </Grid>
-              {/* 视频侧边/下方的独立字幕全文滚动列表显示模式 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 17, display: showAdvanced ? "block" : "none" }}
-              >
-                <TextField
-                  fullWidth
-                  select
-                  size="small"
-                  name="showList"
-                  value={showListValue}
-                  label={i18n("show_subtitle_list") || "显示字幕列表"}
-                  onChange={handleChange}
-                >
-                  <MenuItem value={OPT_ENHANCE_ON}>{i18n("enable")}</MenuItem>
-                  <MenuItem value={OPT_ENHANCE_OFF}>{i18n("disable")}</MenuItem>
-                  <MenuItem value={OPT_ENHANCE_MOBILE_OFF}>
-                    {i18n("disable_on_mobile")}
-                  </MenuItem>
-                </TextField>
-              </Grid>
+
               {/* 网页加载完毕且成功识别到视频字幕流时，是否在右下角弹出载入成功的横幅提示 */}
               <Grid
                 item
                 xs={12}
                 sm={6}
-                sx={{ order: 18, display: showAdvanced ? "block" : "none" }}
+                sx={{ display: showAdvanced ? "block" : "none" }}
               >
                 <TextField
                   fullWidth
@@ -1003,26 +968,6 @@ export default function SubtitleSetting() {
                 >
                   <MenuItem value={true}>{i18n("show")}</MenuItem>
                   <MenuItem value={false}>{i18n("hide")}</MenuItem>
-                </TextField>
-              </Grid>
-              {/* 是否隐藏 YouTube 播放器控制栏中的 KT 字幕功能按钮 */}
-              <Grid
-                item
-                xs={12}
-                sm={6}
-                sx={{ order: 19, display: showAdvanced ? "block" : "none" }}
-              >
-                <TextField
-                  fullWidth
-                  select
-                  size="small"
-                  name="hideSubtitleButton"
-                  value={hideSubtitleButton}
-                  label={i18n("hide_subtitle_button")}
-                  onChange={handleChange}
-                >
-                  <MenuItem value={true}>{i18n("enable")}</MenuItem>
-                  <MenuItem value={false}>{i18n("disable")}</MenuItem>
                 </TextField>
               </Grid>
             </Grid>

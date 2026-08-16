@@ -14,7 +14,9 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
 - Completely removed browser right-click context menus (`contextMenus` permission, background listener/methods, `MSG_CONTEXT_MENUS`, and settings toggle) and floating action button (`ContentFab.js`, `Draggable.js`, `fabManager.js`, `Fab.js`, `STOKEY_FAB`, and runtime hooks).
-- Verification on 2026-08-16: 32 Jest suites/217 tests pass; Chrome and web builds pass.
+- Removed YouTube subtitle sidebar list (`YouTubeSubtitleList.js`, `modes.js`), on-player toggle button injection, and floating quick menu (`Menus.js`).
+- Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
+- Verification: 31 Jest suites/212 tests pass; Chrome production build passes.
 
 # Active Work
 
@@ -28,8 +30,9 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Wire up LocalAgy streaming translation end-to-end (stream delta parser, default options, SSE pipeline).
 - [x] Add permanent never-translate shortcut option (default `Alt+Shift+T`) to toggle sites in/out of the no-auto-translate list.
 - [x] Remove right-click context menu and floating ball components, permissions, options, and runtime logic.
-- [x] Replace leftover legacy KT player icon with universal Translate ("文 A") SVG glyph and upgrade YouTube subtitle sidebar & floating menus to Nocturne dark theme.
-- [x] Add interaction coverage, rebuild, and visually verify desktop and 390px workflows.
+- [x] Completely remove YouTube subtitle sidebar list (`YouTubeSubtitleList.js`), floating menu popup (`Menus.js`), and on-player injected buttons.
+- [x] Expose AI smart segmentation and AI enhanced context directly in the main Subtitle options settings page.
+- [x] Run full test suite and rebuild Chrome extension.
 
 # Build / Run / Test
 

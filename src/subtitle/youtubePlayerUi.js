@@ -1,15 +1,9 @@
-import { APP_NAME } from "../config";
-import DomManager from "../libs/domManager.js";
-import { createLogoSVG } from "../libs/svg.js";
-import { Menus } from "./Menus.js";
-
 /**
  * YouTube 播放器 UI 层。
- * 只负责按钮、菜单、通知气泡和原生字幕窗口的 DOM 操作，不处理字幕数据和翻译流程。
+ * 负责控制原生字幕窗口位移避免遮挡，以及展示播放器顶部通知气泡。
  */
 
 export const VIDEO_SELECTOR = "#container video";
-export const CONTROLS_SELECTOR = ".ytp-right-controls";
 export const YT_CAPTION_SELECTOR = "#ytp-caption-window-container";
 export const YT_AD_SELECTOR = ".video-ads";
 export const YT_SUBTITLE_BUTTON_SELECTOR = "button.ytp-subtitles-button";
@@ -43,15 +37,11 @@ export function waitForElement(selector, callback) {
 }
 
 /**
- * 管理 YouTube 播放器上的 Kiss Translator 按钮、菜单和通知。
+ * 管理 YouTube 播放器上的通知和原生字幕隐藏。
  */
 export class YouTubePlayerUi {
   #getSetting;
-  #getMenuProps;
   #getVideoEl;
-  #toggleButton = null;
-  #isMenuShow = false;
-  #menuManager = null;
   #notificationEl = null;
   #notificationTimeout = null;
 
@@ -60,113 +50,11 @@ export class YouTubePlayerUi {
    *
    * @param {object} param0 参数对象。
    * @param {Function} param0.getSetting 获取当前字幕设置的函数。
-   * @param {Function} param0.getMenuProps 获取菜单 React props 的函数。
    * @param {Function} param0.getVideoEl 获取当前 video DOM 的函数。
    */
-  constructor({ getSetting, getMenuProps, getVideoEl }) {
+  constructor({ getSetting, getVideoEl }) {
     this.#getSetting = getSetting;
-    this.#getMenuProps = getMenuProps;
     this.#getVideoEl = getVideoEl;
-  }
-
-  /**
-   * 更新菜单组件的 props。
-   *
-   * @returns {void}
-   */
-  updateMenuProps() {
-    if (this.#menuManager && this.#isMenuShow) {
-      this.#menuManager.updateProps(this.#getMenuProps());
-    }
-  }
-
-  /**
-   * 向 YouTube 右侧控制栏注入 Kiss Translator 字幕菜单按钮。
-   *
-   * @param {HTMLElement|null} ytControls YouTube 原生右侧控制栏容器。
-   * @returns {void}
-   */
-  injectToggleButton(ytControls) {
-    if (
-      this.#getSetting().hideSubtitleButton === true ||
-      !ytControls ||
-      ytControls.querySelector(".kiss-subtitle-button")
-    ) {
-      return;
-    }
-
-    const kissControls = document.createElement("div");
-    kissControls.className = "notranslate kiss-subtitle-controls";
-    Object.assign(kissControls.style, {
-      display: "inline-block",
-      height: "100%",
-      verticalAlign: "top",
-      position: "relative",
-    });
-
-    const toggleButton = document.createElement("button");
-    toggleButton.className = "ytp-button kiss-subtitle-button";
-    toggleButton.title = APP_NAME;
-    toggleButton.setAttribute("aria-label", APP_NAME);
-    Object.assign(toggleButton.style, {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: "100%",
-      height: "100%",
-      padding: "0",
-      border: "0",
-      background: "transparent",
-      cursor: "pointer",
-      verticalAlign: "top",
-      outline: "none",
-    });
-
-    toggleButton.appendChild(createLogoSVG());
-    kissControls.appendChild(toggleButton);
-
-    // 使用 DomManager 挂载 React 菜单，避免直接把菜单结构散落到 provider 编排层。
-    this.#menuManager = new DomManager({
-      id: "kiss-subtitle-menus",
-      className: "notranslate",
-      reactComponent: Menus,
-      rootElement: kissControls,
-      props: this.#getMenuProps(),
-    });
-
-    toggleButton.onclick = () => {
-      if (!this.#isMenuShow) {
-        this.#isMenuShow = true;
-        this.#toggleButton?.replaceChildren(
-          createLogoSVG({ isSelected: true })
-        );
-        this.#menuManager.show();
-        this.updateMenuProps();
-      } else {
-        this.#isMenuShow = false;
-        this.#toggleButton?.replaceChildren(createLogoSVG());
-        this.#menuManager.hide();
-      }
-    };
-    this.#toggleButton = toggleButton;
-
-    ytControls?.prepend(kissControls);
-  }
-
-  /**
-   * 移除已注入的字幕菜单按钮并销毁对应菜单挂载实例。
-   *
-   * @returns {void}
-   */
-  removeToggleButton() {
-    this.#isMenuShow = false;
-    this.#menuManager?.destroy();
-    this.#menuManager = null;
-    const kissControls =
-      this.#toggleButton?.closest(".kiss-subtitle-controls") ||
-      document.querySelector(".kiss-subtitle-controls");
-    kissControls?.remove();
-    this.#toggleButton = null;
   }
 
   /**
@@ -176,7 +64,7 @@ export class YouTubePlayerUi {
    */
   hideYtCaption() {
     const ytCaption = document.querySelector(YT_CAPTION_SELECTOR);
-    ytCaption && (ytCaption.style.top = "-10000px");
+    if (ytCaption) ytCaption.style.top = "-10000px";
   }
 
   /**
@@ -186,7 +74,7 @@ export class YouTubePlayerUi {
    */
   showYtCaption() {
     const ytCaption = document.querySelector(YT_CAPTION_SELECTOR);
-    ytCaption && (ytCaption.style.top = "0");
+    if (ytCaption) ytCaption.style.top = "0";
   }
 
   /**
@@ -202,21 +90,24 @@ export class YouTubePlayerUi {
       top: "16px",
       left: "50%",
       transform: "translateX(-50%)",
-      background: "rgba(0, 0, 0, 0.5)",
-      color: "#fff",
-      padding: "8px 12px",
+      background: "rgba(15, 19, 27, 0.88)",
+      backdropFilter: "blur(8px)",
+      border: "1px solid rgba(255, 255, 255, 0.12)",
+      color: "#F1F5F9",
+      padding: "8px 14px",
       borderRadius: "8px",
       zIndex: "2147483647",
       opacity: "0",
-      transition: "opacity 0.3s ease-in-out",
+      transition: "opacity 0.25s ease-in-out",
       pointerEvents: "none",
-      fontSize: "16px",
+      fontSize: "14px",
+      fontWeight: "500",
       lineHeight: "1.4",
       width: "auto",
       maxWidth: "min(360px, calc(100% - 32px))",
       textAlign: "left",
       boxSizing: "border-box",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+      boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
     });
 
     const videoEl = this.#getVideoEl();
@@ -261,5 +152,16 @@ export class YouTubePlayerUi {
     this.#notificationTimeout = setTimeout(() => {
       this.hideNotification();
     }, duration);
+  }
+
+  /**
+   * 销毁通知并清理定时器
+   *
+   * @returns {void}
+   */
+  destroy() {
+    this.hideNotification();
+    this.#notificationEl?.remove();
+    this.#notificationEl = null;
   }
 }

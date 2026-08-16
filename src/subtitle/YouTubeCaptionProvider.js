@@ -1,13 +1,11 @@
 import { logger } from "../libs/log.js";
 import { apiSubtitle, apiSummarizeContext } from "../apis/index.js";
 import { BilingualSubtitleManager } from "./BilingualSubtitleManager.js";
-import { YouTubeSubtitleList } from "./YouTubeSubtitleList.js";
 import { MSG_XHR_DATA_YOUTUBE, API_SPE_TYPES } from "../config";
 import { downloadBlobFile } from "../libs/utils.js";
 import { newI18n } from "../config";
 import { buildBilingualVtt } from "./vtt.js";
 import { getDocInfo } from "../libs/docInfo.js";
-import { isSubtitleModeEnabled } from "./modes.js";
 import { clearMsgHistory } from "../apis/history.js";
 import {
   buildTrackKey,
@@ -25,7 +23,6 @@ import {
   normalizeTimedTextEvents,
 } from "./youtubeSubtitleProcessing.js";
 import {
-  CONTROLS_SELECTOR,
   VIDEO_SELECTOR,
   YT_AD_SELECTOR,
   YT_SUBTITLE_BUTTON_SELECTOR,
@@ -72,13 +69,10 @@ class YouTubeCaptionProvider {
   #managerInstance = null;
   // 国际化文案翻译辅助函数
   #i18n = () => "";
-  // YouTube 播放器按钮、菜单、通知等 DOM 操作管理器
+  // YouTube 播放器通知等 DOM 操作管理器
   #playerUi = null;
   // YouTube 底部控制条原生字幕激活状态的 DOM 监听器
   #ytSubtitleStateObserver = null;
-
-  // 挂载在视频右侧/下方的双语字幕列表面板管理器实例
-  #subtitleListManager = null;
 
   /**
    * 创建 YouTube 字幕处理器实例，并初始化用户配置、国际化和播放器 UI 管理器。
@@ -90,7 +84,6 @@ class YouTubeCaptionProvider {
     this.#i18n = newI18n(setting.uiLang || "zh");
     this.#playerUi = new YouTubePlayerUi({
       getSetting: () => this.#setting,
-      getMenuProps: () => this.#getMenuProps(),
       getVideoEl: () => this.#videoEl,
     });
   }
@@ -115,13 +108,12 @@ class YouTubeCaptionProvider {
   }
 
   /**
-   * 更新字幕处理进度，并同步刷新已展开的菜单状态。
+   * 更新字幕处理进度。
    *
    * @param {number} num 新的处理进度百分比。
    */
   set #progressed(num) {
     this.#progressedNum = num;
-    this.#playerUi.updateMenuProps();
   }
 
   /**
@@ -134,7 +126,7 @@ class YouTubeCaptionProvider {
   }
 
   /**
-   * 初始化 YouTube 页面监听器和字幕按钮注入流程。
+   * 初始化 YouTube 页面监听器和字幕开关监听。
    * 只注册事件与 DOM 观察器，真正的字幕处理由拦截到 timedtext 请求后触发。
    *
    * @public
@@ -170,18 +162,10 @@ class YouTubeCaptionProvider {
       this.#aiChunkScheduler = null;
       this.#subtitleAbortController?.abort();
       this.#subtitleAbortController = null;
-      this.#playerUi.updateMenuProps();
     });
 
-    waitForElement(CONTROLS_SELECTOR, (ytControls) => {
-      const ytSubtitleBtn = ytControls.querySelector(
-        YT_SUBTITLE_BUTTON_SELECTOR
-      );
-      if (ytSubtitleBtn) {
-        this.#observeYtSubtitleState(ytSubtitleBtn);
-      }
-
-      this.#playerUi.injectToggleButton(ytControls);
+    waitForElement(YT_SUBTITLE_BUTTON_SELECTOR, (ytSubtitleBtn) => {
+      this.#observeYtSubtitleState(ytSubtitleBtn);
     });
 
     waitForElement(YT_AD_SELECTOR, (adContainer) => {
@@ -259,8 +243,6 @@ class YouTubeCaptionProvider {
           if (node.matches(adLayoutSelector)) {
             logger.debug("Youtube Provider: AD start playing!", node);
             if (videoEl && skipAd) {
-              // REVIEW: 沿用原有直接 16 倍速并跳到广告末尾的行为，可能触发 YouTube 风控。
-              // REVIEW: 广告结束时仍会重置到 1 倍速，可能覆盖用户自定义倍速；后续应单独修复。
               videoEl.playbackRate = 16;
               videoEl.currentTime = videoEl.duration;
             }
@@ -317,8 +299,6 @@ class YouTubeCaptionProvider {
     logger.debug("Youtube Provider: update setting", name, value);
     this.#setting[name] = value;
 
-    this.#playerUi.updateMenuProps();
-
     if (
       name === "isBilingual" ||
       name === "blurTranslation" ||
@@ -333,14 +313,6 @@ class YouTubeCaptionProvider {
       this.#reProcessEventsWithContext();
     } else if (name === "showLoadNotification" && value === false) {
       this.#playerUi.hideNotification();
-    } else if (name === "hideSubtitleButton") {
-      if (value === true) {
-        this.#playerUi.removeToggleButton();
-      } else {
-        this.#playerUi.injectToggleButton(
-          document.querySelector(CONTROLS_SELECTOR)
-        );
-      }
     }
   }
 
@@ -379,39 +351,6 @@ class YouTubeCaptionProvider {
     } catch (error) {
       logger.info("Youtube Provider: download subtitles:", error);
     }
-  }
-
-  /**
-   * 获取字幕菜单 React 组件的 props。
-   *
-   * @private
-   * @returns {object} 传给字幕菜单 React 组件的 props。
-   */
-  #getMenuProps() {
-    const {
-      transApis,
-      segSlug,
-      skipAd,
-      isBilingual,
-      blurTranslation,
-      showOrigin,
-      aiContextSlug,
-    } = this.#setting;
-    return {
-      i18n: this.#i18n,
-      updateSetting: this.updateSetting.bind(this),
-      downloadSubtitle: this.downloadSubtitle.bind(this),
-      transApis,
-      progressed: this.#progressedNum,
-      formData: {
-        segSlug,
-        skipAd,
-        isBilingual,
-        blurTranslation,
-        showOrigin,
-        aiContextSlug,
-      },
-    };
   }
 
   /**
@@ -707,10 +646,6 @@ class YouTubeCaptionProvider {
     }
 
     this.#managerInstance?.appendSubtitles(managedSubtitles);
-    this.#subtitleListManager?.setBilingualSubtitles(
-      this.#subtitles,
-      this.#progressed
-    );
     this.#managerInstance?.repairChunkTranslations(managedSubtitles);
   }
 
@@ -849,7 +784,7 @@ class YouTubeCaptionProvider {
   }
 
   /**
-   * 实例化双语字幕渲染管理器，并在页面和侧边栏初始化显示。
+   * 实例化双语字幕渲染管理器，并在页面初始化显示。
    *
    * @private
    * @returns {void}
@@ -893,33 +828,13 @@ class YouTubeCaptionProvider {
       },
     });
 
-    const showList = isSubtitleModeEnabled(
-      this.#setting.showList,
-      this.#setting.enhanceMode
-    );
-
-    if (showList && !this.#subtitleListManager) {
-      this.#subtitleListManager = new YouTubeSubtitleList(videoEl, this.#i18n);
-      this.#subtitleListManager.initialize(
-        this.#subtitles,
-        this.#rawSubtitleEvents,
-        this.#progressed
-      );
-
-      this.#managerInstance.onSubtitleUpdate = (subtitleUpdate) => {
-        this.#subtitleListManager.updateSingleSubtitle(subtitleUpdate);
-      };
-
-      this.#subtitleListManager.turnOnAutoSub();
-    }
-
     this.#managerInstance.start();
     this.#playerUi.showNotification(this.#i18n("subtitle_load_succeed"));
     this.#playerUi.hideYtCaption();
   }
 
   /**
-   * 销毁双语字幕管理器以及字幕侧边栏，恢复网页原生字幕展示状态。
+   * 销毁双语字幕管理器，恢复网页原生字幕展示状态。
    *
    * @private
    * @returns {void}
@@ -936,11 +851,6 @@ class YouTubeCaptionProvider {
     this.#managerInstance.onSubtitleUpdate = null;
     this.#managerInstance.destroy();
     this.#managerInstance = null;
-
-    if (this.#subtitleListManager) {
-      this.#subtitleListManager.destroy();
-      this.#subtitleListManager = null;
-    }
   }
 }
 
