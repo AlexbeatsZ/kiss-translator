@@ -4,7 +4,7 @@ Read this document before changing the Options shell, Popup, or shared visual to
 
 ## Product job
 
-KISS Translator has two outcomes: translate the page being read and translate the subtitles being watched. The settings experience must help a reader reach either outcome without first understanding providers, rules, request batching, selectors, or storage.
+翻译 has two outcomes: translate the page being read and translate the subtitles being watched. The settings experience must help a reader reach either outcome without first understanding providers, rules, request batching, selectors, or storage.
 
 The default path answers four questions in this order:
 
@@ -72,16 +72,15 @@ Desktop is a compact application shell:
 
 ```text
 ┌ navigation ─────┬ route / status ──────────────────────────────┐
-│ Page setup      │ source  →  engine  →  target                │
-│ Website rules   ├──────────────────────────────────────────────┤
+│ Translation opt │ source  →  engine  →  target                │
+│ Page translation├──────────────────────────────────────────────┤
 │ Subtitles       │ primary task                                │
-│ Engines         │                                              │
 │                 │ secondary task / advanced disclosure         │
 │ version/status  │                                              │
 └─────────────────┴──────────────────────────────────────────────┘
 ```
 
-At 390px, navigation becomes a fixed four-destination bottom bar. Content is one column, primary actions stay visible, and no horizontally scrolling navigation strip is used.
+At 390px, navigation becomes a fixed three-destination bottom bar. Content is one column, primary actions stay visible, and no horizontally scrolling navigation strip is used.
 
 ### Signature
 
