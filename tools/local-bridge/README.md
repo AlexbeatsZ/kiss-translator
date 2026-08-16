@@ -38,5 +38,8 @@ set the Codex model suggestions with `KISS_CODEX_MODELS` (comma separated).
 `/health` and the model endpoints confirm that the bridge can find the local
 CLI. They do not confirm that the CLI's upstream account is allowed to make a
 request. For example, Agy may list models successfully and then return
-`FAILED_PRECONDITION: User location is not supported for API use`; in that case
-the bridge is working and the Agy account/network region must be fixed.
+`Agent execution terminated due to error.` while the real upstream error is
+`FAILED_PRECONDITION: User location is not supported for API use`; read
+`~/.gemini/antigravity-cli/log/cli-*.log` on Windows (or the equivalent
+Antigravity CLI log directory) to confirm. The bridge is working in that case
+and the Agy account/network region must be fixed.
