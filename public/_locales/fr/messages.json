@@ -17,6 +17,9 @@
   "toggle_style": {
     "message": "Changer de style"
   },
+  "toggle_never_translate": {
+    "message": "Activer/désactiver ne jamais traduire pour ce site"
+  },
   "open_options": {
     "message": "Ouvrir les paramètres"
   },

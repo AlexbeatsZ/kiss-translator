@@ -17,6 +17,9 @@
   "toggle_style": {
     "message": "Stile umschalten"
   },
+  "toggle_never_translate": {
+    "message": "Nie übersetzen für diese Website umschalten"
+  },
   "open_options": {
     "message": "Einstellungen öffnen"
   },

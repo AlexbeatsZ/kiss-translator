@@ -425,3 +425,60 @@ export const saveRule = async (curRule) => {
   rules.unshift(newRule);
   await setRules(rules);
 };
+
+/**
+ * 切换指定网站的永久不翻译状态（加入或移出不自动翻译列表）。
+ * @param {string} hostnameOrUrl 网站域名或 URL
+ * @returns {Promise<{ isNeverTranslate: boolean, rule: object, pattern: string }>} 操作结果
+ */
+export const toggleSiteExclusion = async (hostnameOrUrl) => {
+  if (!hostnameOrUrl) return { isNeverTranslate: false };
+  let hostname = hostnameOrUrl;
+  try {
+    if (hostnameOrUrl.includes("://")) {
+      hostname = new URL(hostnameOrUrl).hostname;
+    }
+  } catch {
+    // 忽略解析异常，直接使用原始输入
+  }
+  hostname = hostname.trim();
+  if (!hostname) return { isNeverTranslate: false };
+
+  const rules = await getRulesWithDefault();
+  const existingIndex = rules.findIndex(
+    (item) =>
+      item.pattern !== GLOBAL_KEY &&
+      (item.pattern === hostname || isMatch(hostname, item.pattern))
+  );
+
+  let isNeverTranslate = false;
+  let targetRule = null;
+
+  if (existingIndex !== -1) {
+    const existing = rules[existingIndex];
+    if (existing.transOpen === "false") {
+      // 当前处于“不自动翻译”，切换为移除排除（恢复需要翻译）
+      rules.splice(existingIndex, 1);
+      isNeverTranslate = false;
+      targetRule = { ...existing, transOpen: "true" };
+    } else {
+      // 当前规则 transOpen 不是 "false"，设置为 "false"
+      existing.transOpen = "false";
+      isNeverTranslate = true;
+      targetRule = existing;
+    }
+  } else {
+    // 尚无特定规则，添加新规则并设置 transOpen 为 "false"
+    const newRule = {
+      ...DEFAULT_RULE,
+      pattern: hostname,
+      transOpen: "false",
+    };
+    rules.unshift(newRule);
+    isNeverTranslate = true;
+    targetRule = newRule;
+  }
+
+  await setRules(rules);
+  return { isNeverTranslate, rule: targetRule, pattern: hostname };
+};

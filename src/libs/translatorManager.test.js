@@ -8,11 +8,22 @@ jest.mock("../config", () => ({
   MSG_TRANS_TOGGLE: "trans-toggle",
   MSG_TRANS_TOGGLE_ONLY: "trans-toggle-only",
   MSG_TRANS_TOGGLE_STYLE: "trans-toggle-style",
+  MSG_TOGGLE_NEVER_TRANSLATE: "toggle-never-translate-site",
+  MSG_TRANS_TOGGLE_NEVER_TRANSLATE: "trans-toggle-never-translate",
   OPT_SHORTCUT_SETTING: "setting",
   OPT_SHORTCUT_STYLE: "style",
   OPT_SHORTCUT_TRANSLATE: "translate",
   OPT_SHORTCUT_TRANSONLY: "transonly",
+  OPT_SHORTCUT_NEVER_TRANSLATE: "toggleNeverTranslate",
   newI18n: () => (key) => key,
+}));
+
+jest.mock("./msg", () => ({
+  sendBgMsg: jest.fn(),
+}));
+
+jest.mock("./rules", () => ({
+  toggleSiteExclusion: jest.fn(),
 }));
 
 jest.mock("./browser", () => ({
@@ -37,6 +48,8 @@ jest.mock("./translator", () => ({
       toggleTransOnly: jest.fn(),
       toggleStyle: jest.fn(),
       updateRule: jest.fn(),
+      disable: jest.fn(),
+      enable: jest.fn(),
     };
     mockTranslatorInstances.push(instance);
     return instance;
@@ -59,13 +72,15 @@ jest.mock("./touch", () => ({
 }));
 jest.mock("./iframe", () => ({ sendIframeMsg: jest.fn() }));
 jest.mock("./log", () => ({
-  logger: { debug: jest.fn(), info: jest.fn() },
+  logger: { debug: jest.fn(), info: jest.fn(), error: jest.fn() },
 }));
 
 const { browser } = require("./browser");
 const { Translator } = require("./translator");
 const { FabManager } = require("./fabManager");
 const { sendIframeMsg } = require("./iframe");
+const { sendBgMsg } = require("./msg");
+const { toggleSiteExclusion } = require("./rules");
 const TranslatorManager = require("./translatorManager").default;
 
 function setupRuntimeMocks() {
@@ -79,6 +94,8 @@ function setupRuntimeMocks() {
       toggleTransOnly: jest.fn(),
       toggleStyle: jest.fn(),
       updateRule: jest.fn(),
+      disable: jest.fn(),
+      enable: jest.fn(),
     };
     mockTranslatorInstances.push(instance);
     return instance;
@@ -165,6 +182,25 @@ describe("TranslatorManager focused page runtime", () => {
     expect(mockTranslatorInstances[0].updateRule).toHaveBeenCalledWith({
       toLang: "ja",
     });
+    manager.stop();
+  });
+
+  test("toggles never-translate exclusion through message", async () => {
+    const manager = createManager();
+    manager.start();
+
+    sendBgMsg.mockResolvedValue({ isNeverTranslate: true });
+    await manager.toggleNeverTranslate();
+
+    expect(sendBgMsg).toHaveBeenCalledWith("toggle-never-translate-site", {
+      hostname: window.location.hostname,
+    });
+    expect(mockTranslatorInstances[0].disable).toHaveBeenCalledTimes(1);
+
+    sendBgMsg.mockResolvedValue({ isNeverTranslate: false });
+    await manager.toggleNeverTranslate();
+
+    expect(mockTranslatorInstances[0].enable).toHaveBeenCalledTimes(1);
     manager.stop();
   });
 

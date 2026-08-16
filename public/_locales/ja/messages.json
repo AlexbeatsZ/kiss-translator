@@ -17,6 +17,9 @@
   "toggle_style": {
     "message": "スタイル切り替え"
   },
+  "toggle_never_translate": {
+    "message": "このサイトを自動翻訳しない設定の切り替え"
+  },
   "open_options": {
     "message": "設定を開く"
   },

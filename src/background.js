@@ -18,6 +18,7 @@ import {
   CMD_TOGGLE_TRANSLATE,
   CMD_TOGGLE_TRANSLATE_ONLY,
   CMD_TOGGLE_STYLE,
+  CMD_TOGGLE_NEVER_TRANSLATE,
   CMD_OPEN_OPTIONS,
   CLIENT_THUNDERBIRD,
   MSG_SET_LOGLEVEL,
@@ -25,6 +26,8 @@ import {
   PORT_STREAM_FETCH,
   MSG_UPDATE_ICON,
   MSG_SHA256,
+  MSG_TOGGLE_NEVER_TRANSLATE,
+  MSG_TRANS_TOGGLE_NEVER_TRANSLATE,
 } from "./config";
 import {
   getSettingWithDefault,
@@ -35,7 +38,7 @@ import { fetchHandle, fetchStreamNative } from "./libs/fetch";
 import { tryClearCaches, getHttpCache, putHttpCache } from "./libs/cache";
 import { sendTabMsg } from "./libs/msg";
 import { trySyncAllSubRules } from "./libs/subRules";
-import { saveRule } from "./libs/rules";
+import { saveRule, toggleSiteExclusion } from "./libs/rules";
 import { getCurTabId } from "./libs/msg";
 import { injectInlineJsBg, injectInternalCss } from "./libs/injector";
 import { kissLog, logger } from "./libs/log";
@@ -396,6 +399,8 @@ const messageHandlers = {
   [MSG_SHA256]: ({ text = "", salt = "" } = {}) => sha256(text, salt), // 代算缓存签名
   [MSG_OPEN_OPTIONS]: () => browser.runtime.openOptionsPage(), // 打开设置选项页
   [MSG_SAVE_RULE]: (args) => saveRule(args), // 写入/保存规则
+  [MSG_TOGGLE_NEVER_TRANSLATE]: (args) =>
+    toggleSiteExclusion(args?.hostname || args?.url), // 切换网站永久不翻译
   [MSG_INJECT_JS]: (args) => injectToCurrentTab(injectInlineJsBg, args), // 注入 JS 代码到前台
   [MSG_INJECT_CSS]: (args) => injectToCurrentTab(injectInternalCss, args), // 注入 CSS 样式到前台
   [MSG_UPDATE_CSP]: (args) => updateCspRules(args), // 触发 CSP 重写规则变更
@@ -435,6 +440,9 @@ browser.commands?.onCommand?.addListener?.((command) => {
       break;
     case CMD_TOGGLE_STYLE:
       sendTabMsg(MSG_TRANS_TOGGLE_STYLE);
+      break;
+    case CMD_TOGGLE_NEVER_TRANSLATE:
+      sendTabMsg(MSG_TRANS_TOGGLE_NEVER_TRANSLATE);
       break;
     case CMD_OPEN_OPTIONS:
       browser.runtime.openOptionsPage();

@@ -2,9 +2,11 @@ import { browser } from "./browser";
 import { Translator } from "./translator";
 import { shortcutRegister } from "./shortcut";
 import { sendIframeMsg } from "./iframe";
+import { sendBgMsg } from "./msg";
 import { touchTapListener } from "./touch";
 import { FabManager } from "./fabManager";
 import { logger } from "./log";
+import { toggleSiteExclusion } from "./rules";
 import {
   EVENT_KISS_TRANSLATOR,
   MSG_TRANS_GETRULE,
@@ -12,6 +14,9 @@ import {
   MSG_TRANS_TOGGLE,
   MSG_TRANS_TOGGLE_ONLY,
   MSG_TRANS_TOGGLE_STYLE,
+  MSG_TOGGLE_NEVER_TRANSLATE,
+  MSG_TRANS_TOGGLE_NEVER_TRANSLATE,
+  OPT_SHORTCUT_NEVER_TRANSLATE,
   OPT_SHORTCUT_SETTING,
   OPT_SHORTCUT_STYLE,
   OPT_SHORTCUT_TRANSLATE,
@@ -342,6 +347,17 @@ export default class TranslatorManager {
 
   #handleBrowserMessage(message, sender, sendResponse) {
     const result = this.#processActions(message, true);
+    if (result && typeof result.then === "function") {
+      result.then((asyncRes) => {
+        sendResponse(
+          asyncRes || {
+            rule: this._translator?.rule || this.#rule,
+            setting: this._translator?.setting || this.#setting,
+          }
+        );
+      });
+      return true;
+    }
     sendResponse(
       result || {
         rule: this._translator?.rule || this.#rule,
@@ -349,6 +365,29 @@ export default class TranslatorManager {
       }
     );
     return true;
+  }
+
+  async toggleNeverTranslate() {
+    const hostname = window.location?.hostname || "";
+    if (!hostname) return;
+
+    try {
+      let result;
+      if (this.#isUserscript) {
+        result = await toggleSiteExclusion(hostname);
+      } else {
+        result = await sendBgMsg(MSG_TOGGLE_NEVER_TRANSLATE, { hostname });
+      }
+
+      if (result?.isNeverTranslate) {
+        this._translator?.disable();
+      } else {
+        this._translator?.enable();
+      }
+      return result;
+    } catch (err) {
+      logger.error("toggleNeverTranslate error:", err);
+    }
   }
 
   #registerShortcuts() {
@@ -362,6 +401,9 @@ export default class TranslatorManager {
       ),
       shortcutRegister(shortcuts[OPT_SHORTCUT_STYLE], () =>
         this.#processActions({ action: MSG_TRANS_TOGGLE_STYLE })
+      ),
+      shortcutRegister(shortcuts[OPT_SHORTCUT_NEVER_TRANSLATE], () =>
+        this.toggleNeverTranslate()
       ),
       shortcutRegister(shortcuts[OPT_SHORTCUT_SETTING], () =>
         window.open(process.env.REACT_APP_OPTIONSPAGE, "_blank")
@@ -392,6 +434,11 @@ export default class TranslatorManager {
         "C"
       ),
       GM.registerMenuCommand?.(
+        i18n("toggle_never_translate_shortcut", "切换当前网站是否永久不自动翻译"),
+        () => this.toggleNeverTranslate(),
+        "T"
+      ),
+      GM.registerMenuCommand?.(
         i18n("open_setting"),
         () => window.open(process.env.REACT_APP_OPTIONSPAGE, "_blank"),
         "O"
@@ -405,19 +452,17 @@ export default class TranslatorManager {
 
     switch (action) {
       case MSG_TRANS_TOGGLE:
-        this._translator?.toggle();
-        break;
+        return this._translator?.toggle();
       case MSG_TRANS_TOGGLE_ONLY:
-        this._translator?.toggleTransOnly();
-        break;
+        return this._translator?.toggleTransOnly();
       case MSG_TRANS_TOGGLE_STYLE:
-        this._translator?.toggleStyle();
-        break;
+        return this._translator?.toggleStyle();
+      case MSG_TRANS_TOGGLE_NEVER_TRANSLATE:
+        return this.toggleNeverTranslate();
       case MSG_TRANS_GETRULE:
         break;
       case MSG_TRANS_PUTRULE:
-        this._translator?.updateRule(args);
-        break;
+        return this._translator?.updateRule(args);
       default:
         return { error: `Message action is unavailable: ${action}` };
     }

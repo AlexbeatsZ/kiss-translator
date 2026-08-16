@@ -7,6 +7,7 @@
 export const CMD_TOGGLE_TRANSLATE = "toggleTranslate"; // 切换网页双语翻译
 export const CMD_TOGGLE_TRANSLATE_ONLY = "toggleTranslateOnly"; // 切换网页仅显示译文（单语翻译模式）
 export const CMD_TOGGLE_STYLE = "toggleStyle"; // 切换译文样式效果
+export const CMD_TOGGLE_NEVER_TRANSLATE = "toggleNeverTranslate"; // 切换当前网站永久不自动翻译
 export const CMD_OPEN_OPTIONS = "openOptions"; // 打开选项配置页面
 
 // --- 扩展运行中的内部通信 Message Action 常量 ---
@@ -15,9 +16,11 @@ export const MSG_GET_HTTPCACHE = "get_httpcache"; // 获取网页翻译请求的
 export const MSG_PUT_HTTPCACHE = "put_httpcache"; // 写入翻译请求的缓存数据
 export const MSG_OPEN_OPTIONS = "open_options"; // 打开扩展设置页面消息
 export const MSG_SAVE_RULE = "save_rule"; // 保存自定义的网页翻译规则
+export const MSG_TOGGLE_NEVER_TRANSLATE = "toggle_never_translate_site"; // 请求后台切换网站永久不翻译规则
 export const MSG_TRANS_TOGGLE = "toggle_translate"; // 广播切换双语翻译消息
 export const MSG_TRANS_TOGGLE_ONLY = "toggle_translate_only"; // 广播切换仅显示译文消息
 export const MSG_TRANS_TOGGLE_STYLE = "toggle_styles"; // 广播切换译文样式消息
+export const MSG_TRANS_TOGGLE_NEVER_TRANSLATE = "trans_toggle_never_translate"; // 广播切换当前网站永久不翻译消息
 export const MSG_TRANS_GETRULE = "trans_getrule"; // 获取网页匹配的特定规则
 export const MSG_TRANS_PUTRULE = "trans_putrule"; // 保存或应用网页翻译规则
 export const MSG_TRANS_CURRULE = "trans_currule"; // 发送当前页面所适配的有效规则

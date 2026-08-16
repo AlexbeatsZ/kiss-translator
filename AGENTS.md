@@ -13,7 +13,8 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - `/apis` is the canonical translation-service/model manager and the first settings destination; `/page` owns page translation defaults plus a simple no-auto-translate website list; `/rules` now redirects to `/page`. The full website-rule editor (`Rules.js`) has been removed rather than hidden. Retained storage fields and `apiSlug` references are unchanged.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
-- Verification on 2026-08-16: 32 Jest suites/213 tests pass; Chrome and web builds pass. The standalone `cli2api` service is verified separately through `/health`, `/v1/agy/models`, and a real Agy GPT-OSS completion.
+- Verification on 2026-08-16: 32 Jest suites/216 tests pass; Chrome and web builds pass. The standalone `cli2api` service is verified separately through `/health`, `/v1/agy/models`, and a real Agy GPT-OSS completion.
+- Added permanent site exclusion shortcut (default `Alt+Shift+T` / `["AltLeft", "ShiftLeft", "KeyT"]`): one-key toggle permanently adding/removing the current site to/from the "no auto-translate" list (`toggleSiteExclusion`), disabling/enabling page translation runtime accordingly.
 - LocalAgy streaming is connected end-to-end: `useStream: true`, `streamRenderMode: "realtime"`, `API_SPE_TYPES.stream`, and `getStreamDelta` delta parsing.
 - Popup UI is fixed: concise language display ("自动检测" -> "简体中文") preventing text wrapping, globalRule fallback for unsupported tabs preventing broken blank views, and robust container layout preventing bottom clipping.
 - Settings information architecture: `docs/design/settings-information-architecture.md` (read before changing Options navigation, Rules, Apis, or their persisted responsibilities).
@@ -30,6 +31,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Reorder settings navigation to translation options -> page translation -> subtitles; rename the product to 翻译 and replace extension icons with the translate glyph.
 - [x] Fix Popup UI display issues: clean single-line language cards, proper context labels, fallback for unsupported tabs, and anti-overflow dimensions.
 - [x] Wire up LocalAgy streaming translation end-to-end (stream delta parser, default options, SSE pipeline).
+- [x] Add permanent never-translate shortcut option (default `Alt+Shift+T`) to toggle sites in/out of the no-auto-translate list.
 - [x] Add interaction coverage, rebuild, and visually verify desktop and 390px workflows.
 
 # Build / Run / Test

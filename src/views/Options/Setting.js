@@ -40,6 +40,7 @@ import {
   OPT_SHORTCUT_STYLE,
   OPT_SHORTCUT_TRANSLATE,
   OPT_SHORTCUT_TRANSONLY,
+  OPT_SHORTCUT_NEVER_TRANSLATE,
   TRANS_NEWLINE_LENGTH,
   UI_LANGS,
 } from "../../config";
@@ -639,6 +640,10 @@ export default function Settings() {
             <ShortcutItem
               action={OPT_SHORTCUT_STYLE}
               label={i18n("toggle_style_shortcut")}
+            />
+            <ShortcutItem
+              action={OPT_SHORTCUT_NEVER_TRANSLATE}
+              label={i18n("toggle_never_translate_shortcut", "切换当前网站是否永久不自动翻译")}
             />
             <ShortcutItem
               action={OPT_SHORTCUT_SETTING}

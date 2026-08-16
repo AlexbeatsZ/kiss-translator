@@ -19,11 +19,13 @@ export const OPT_SHORTCUT_TRANSLATE = "toggleTranslate";
 export const OPT_SHORTCUT_TRANSONLY = "toggleTransOnly";
 export const OPT_SHORTCUT_STYLE = "toggleStyle";
 export const OPT_SHORTCUT_SETTING = "openSetting";
+export const OPT_SHORTCUT_NEVER_TRANSLATE = "toggleNeverTranslate";
 
 export const DEFAULT_SHORTCUTS = {
   [OPT_SHORTCUT_TRANSLATE]: ["AltLeft", "KeyQ"],
   [OPT_SHORTCUT_STYLE]: ["AltLeft", "KeyC"],
   [OPT_SHORTCUT_SETTING]: ["AltLeft", "KeyO"],
+  [OPT_SHORTCUT_NEVER_TRANSLATE]: ["AltLeft", "ShiftLeft", "KeyT"],
 };
 
 export const TRANS_MIN_LENGTH = 2;

@@ -17,6 +17,9 @@
   "toggle_style": {
     "message": "스타일 전환"
   },
+  "toggle_never_translate": {
+    "message": "이 사이트 자동 번역 안 함 전환"
+  },
   "open_options": {
     "message": "설정 열기"
   },

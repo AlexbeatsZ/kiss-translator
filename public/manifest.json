@@ -63,6 +63,12 @@
       },
       "description": "__MSG_toggle_style__"
     },
+    "toggleNeverTranslate": {
+      "suggested_key": {
+        "default": "Alt+Shift+T"
+      },
+      "description": "__MSG_toggle_never_translate__"
+    },
     "openOptions": {
       "description": "__MSG_open_options__"
     }

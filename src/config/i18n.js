@@ -1833,6 +1833,13 @@ export const I18N = {
     ja: `「スタイル切り替え」ショートカット`,
     ko: `"스타일 전환" 단축키`,
   },
+  toggle_never_translate_shortcut: {
+    zh: `"永久不翻译此网站"快捷键`,
+    en: `"Never Translate This Site" Shortcut`,
+    zh_TW: `「永久不翻譯此網站」快速鍵`,
+    ja: `「このサイトを翻訳しない」ショートカット`,
+    ko: `"이 사이트 번역 안 함" 단축키`,
+  },
   toggle_popup_shortcut: {
     zh: `"打开弹窗"快捷键`,
     en: `"Open Popup" Shortcut`,

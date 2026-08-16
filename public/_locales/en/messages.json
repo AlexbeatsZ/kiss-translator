@@ -17,6 +17,9 @@
   "toggle_style": {
     "message": "Toggle Styles"
   },
+  "toggle_never_translate": {
+    "message": "Toggle never translate for this site"
+  },
   "open_options": {
     "message": "Open Setting"
   },

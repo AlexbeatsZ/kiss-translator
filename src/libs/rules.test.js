@@ -1,5 +1,5 @@
-import { checkRules, matchRule } from "./rules";
-import { getDisabledSubRules, getRulesWithDefault } from "./storage";
+import { checkRules, matchRule, toggleSiteExclusion } from "./rules";
+import { getDisabledSubRules, getRulesWithDefault, setRules } from "./storage";
 import { loadOrFetchSubRules } from "./subRules";
 
 jest.mock("./storage", () => ({
@@ -133,5 +133,44 @@ describe("rules enabled state", () => {
         }),
       ])
     );
+  });
+});
+
+describe("toggleSiteExclusion", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("adds a site to never-translate when not in list", async () => {
+    getRulesWithDefault.mockResolvedValue([
+      { pattern: "*", selector: "p" },
+    ]);
+
+    const result = await toggleSiteExclusion("github.com");
+
+    expect(result.isNeverTranslate).toBe(true);
+    expect(result.pattern).toBe("github.com");
+    expect(setRules).toHaveBeenCalledWith([
+      expect.objectContaining({
+        pattern: "github.com",
+        transOpen: "false",
+      }),
+      expect.objectContaining({ pattern: "*" }),
+    ]);
+  });
+
+  test("removes a site from never-translate when currently excluded", async () => {
+    getRulesWithDefault.mockResolvedValue([
+      { pattern: "github.com", transOpen: "false" },
+      { pattern: "*", selector: "p" },
+    ]);
+
+    const result = await toggleSiteExclusion("https://github.com/repo");
+
+    expect(result.isNeverTranslate).toBe(false);
+    expect(result.pattern).toBe("github.com");
+    expect(setRules).toHaveBeenCalledWith([
+      expect.objectContaining({ pattern: "*" }),
+    ]);
   });
 });

@@ -17,6 +17,9 @@
   "toggle_style": {
     "message": "切换样式"
   },
+  "toggle_never_translate": {
+    "message": "切换当前网站是否永久不自动翻译"
+  },
   "open_options": {
     "message": "打开设置"
   },
