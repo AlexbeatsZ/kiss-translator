@@ -14,7 +14,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles use the authenticated loopback companion under `tools/local-bridge/`; browser code never launches a process itself.
 - Verification on 2026-08-16: 31 Jest suites/209 tests and 5 bridge tests pass; Chrome and web builds pass. The simplified settings IA (translation options first, page translation with no-auto-translate site list, subtitles) builds cleanly; the old rules editor suite was deleted with the removed route.
-- Live bridge verification on 2026-08-16: Codex completed a real request; Agy executable/model discovery succeeded, while completion reached Agy and was rejected upstream with `FAILED_PRECONDITION: User location is not supported for API use` for the current account/network region.
+- Live bridge verification on 2026-08-16: Codex completed a real request; Agy executable/model discovery succeeded, while completion reached Agy and was rejected upstream with `FAILED_PRECONDITION: User location is not supported for API use` for the current account/network region. The same failure is visible in `C:\Users\Meta\.gemini\antigravity-cli\log\cli-*.log`; the CLI prints only the generic `Agent execution terminated due to error.`
 - Settings information architecture: `docs/design/settings-information-architecture.md` (read before changing Options navigation, Rules, Apis, or their persisted responsibilities).
 - Product/domain vocabulary: `CONTEXT.md`.
 - Focused UI contract: `docs/design/focused-translator-ui.md` (read before changing Options, Popup, or shared visual tokens).
@@ -50,4 +50,6 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Hiding a route is not feature removal. A removed slice must also leave runtime composition, messages, storage/sync work, prompts, permissions, and production bundles.
 - Browser code cannot spawn Agy or Codex directly. Keep process execution, argv construction, timeouts, cancellation, output limits, and error classification in a loopback-only local companion.
 - A successful bridge health/model response proves executable discovery, not provider-account viability. Classify CLI upstream errors separately; the current Agy account can enumerate models but is region-blocked at completion time.
+- When LocalAgy reports “无法链接”, check the bridge first: nothing listening on `127.0.0.1:17891` means the companion is not running. A running bridge with a wrong saved token returns `401 invalid bridge token`; use `--token` for a stable token.
+- Agy hides upstream failures behind `Agent execution terminated due to error.`; read `~/.gemini/antigravity-cli/log/cli-*.log` to find the real cause (currently `FAILED_PRECONDITION: User location is not supported for the API use`).
 - Windows build tasks must invoke the repository-local `react-app-rewired` entrypoint rather than assuming its shim is globally available on `PATH`.
