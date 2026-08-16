@@ -28,18 +28,19 @@ import {
 } from "../../config";
 
 const TOKENS = {
-  ink: "#17211D",
-  paper: "#EEF3F1",
-  sheet: "#F9FBFA",
-  source: "#425B6B",
-  translation: "#08775C",
-  proof: "#D7694E",
-  rule: "#BECBC5",
+  ink: "#F2F4F8",
+  paper: "#0B0D12",
+  sheet: "#151A24",
+  raised: "#1B2230",
+  source: "#D6A96F",
+  translation: "#7C9CFF",
+  proof: "#FF7A90",
+  rule: "#293142",
 };
 
 const displayFont =
-  '"Newsreader", "Iowan Old Style", "Palatino Linotype", "Noto Serif SC", serif';
-const bodyFont = '"Noto Sans SC", "Microsoft YaHei UI", Aptos, sans-serif';
+  '"Segoe UI Variable", Aptos, "Noto Sans SC", "Microsoft YaHei UI", sans-serif';
+const bodyFont = displayFont;
 const utilityFont = '"IBM Plex Mono", "Cascadia Mono", monospace';
 
 function languageName(code, options) {
@@ -147,11 +148,12 @@ export default function Popup() {
             sx={{
               width: 36,
               height: 36,
-              borderRadius: "50%",
+              borderRadius: 2,
               display: "grid",
               placeItems: "center",
-              bgcolor: TOKENS.ink,
-              color: TOKENS.sheet,
+              bgcolor: TOKENS.raised,
+              color: TOKENS.translation,
+              border: `1px solid ${TOKENS.rule}`,
             }}
           >
             <TranslateRoundedIcon fontSize="small" />
@@ -256,12 +258,16 @@ export default function Popup() {
             sx={{
               minHeight: 48,
               borderRadius: 2,
-              bgcolor: pageEnabled ? TOKENS.ink : TOKENS.translation,
+              bgcolor: pageEnabled ? TOKENS.raised : TOKENS.translation,
+              color: pageEnabled ? TOKENS.ink : TOKENS.paper,
+              border: `1px solid ${
+                pageEnabled ? TOKENS.rule : TOKENS.translation
+              }`,
               boxShadow: "none",
               textTransform: "none",
               fontWeight: 700,
               "&:hover": {
-                bgcolor: pageEnabled ? "#2A3731" : "#075F4A",
+                bgcolor: pageEnabled ? "#222B3A" : "#92AAFF",
                 boxShadow: "none",
               },
             }}

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useBlocker, useLocation, useNavigate } from "react-router-dom";
-import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Link from "@mui/material/Link";
@@ -20,7 +19,7 @@ import Navigator from "./Navigator";
 import { SettingsPageHeader } from "./SettingsSurface";
 import { getSettingsPageMeta } from "./settingsNavigation";
 
-const NAV_WIDTH = 236;
+const NAV_WIDTH = 208;
 
 function languageName(code, languages) {
   const match = languages.find(([value]) => value === code);
@@ -108,6 +107,11 @@ export default function Layout() {
   );
 
   useEffect(() => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (blocker.state !== "blocked") return undefined;
 
     const pendingNavigation = pendingNavigationDecisionRef.current;
@@ -191,7 +195,7 @@ export default function Layout() {
 
       {!isDesktop && (
         <Navigator
-          variant="mobile-strip"
+          variant="mobile-bar"
           onNavigate={handleNavigate}
           activePath={location.pathname}
         />
@@ -215,36 +219,44 @@ export default function Layout() {
             flex: 1,
             minWidth: 0,
             minHeight: {
-              xs: "calc(100dvh - 112px)",
-              md: "calc(100dvh - 64px)",
+              xs: "calc(100dvh - 56px)",
+              md: "calc(100dvh - 56px)",
             },
-            px: { xs: 1.5, sm: 3, lg: 4.5 },
-            py: { xs: 2.25, sm: 3, lg: 4.5 },
+            px: { xs: 1.25, sm: 2.5, lg: 3 },
+            pt: { xs: 1.75, sm: 2.25, lg: 2.5 },
+            pb: { xs: 10, md: 3 },
           }}
         >
-          <Box sx={{ width: "100%", maxWidth: 1180, mx: "auto" }}>
+          <Box sx={{ width: "100%", maxWidth: 1240, mx: "auto" }}>
             <SettingsPageHeader
               eyebrow={pageMeta.groupLabel}
               title={pageMeta.title}
               description={pageMeta.description}
               readingContext={readingContext}
+              actions={
+                latestVersion ? (
+                  <Link
+                    href={process.env.REACT_APP_RELEASES_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    underline="none"
+                    sx={(currentTheme) => ({
+                      display: "inline-flex",
+                      alignItems: "center",
+                      minHeight: 36,
+                      px: 1.25,
+                      border: `1px solid ${currentTheme.palette.divider}`,
+                      borderRadius: 1,
+                      color: "text.secondary",
+                      fontSize: "0.75rem",
+                      fontWeight: 650,
+                    })}
+                  >
+                    {`Update · v${latestVersion}`}
+                  </Link>
+                ) : null
+              }
             />
-
-            {latestVersion && (
-              <Alert severity="warning" variant="outlined" sx={{ mb: 3 }}>
-                {i18n("version_warning")
-                  .replace("{0}", process.env.REACT_APP_VERSION)
-                  .replace("{1}", latestVersion)}{" "}
-                <Link
-                  href={process.env.REACT_APP_RELEASES_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{ fontWeight: 700 }}
-                >
-                  {i18n("download_update")}
-                </Link>
-              </Alert>
-            )}
 
             <Outlet context={outletContext} />
           </Box>

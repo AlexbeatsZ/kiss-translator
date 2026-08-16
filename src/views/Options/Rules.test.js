@@ -419,11 +419,6 @@ describe("Options Rules personal tab", () => {
     });
 
     const view = renderRules();
-    const editButton = getButtonByText(view.container, "edit");
-
-    await act(async () => {
-      editButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
 
     const restoreButton = getButtonByText(view.container, "restore_default");
     await act(async () => {
@@ -445,11 +440,6 @@ describe("Options Rules personal tab", () => {
 
   test("guards tab changes and service links while a rule draft is dirty", async () => {
     const view = renderRules();
-    const editButton = getButtonByText(view.container, "edit");
-
-    await act(async () => {
-      Simulate.click(editButton);
-    });
     await act(async () => {
       Simulate.change(
         view.container.querySelector('textarea[name="rootsSelector"]'),

@@ -1,64 +1,103 @@
-# Focused Translator UI
+# Focused Translator UX
 
 Read this document before changing the Options shell, Popup, or shared visual tokens.
 
-## Subject and single job
+## Product job
 
-The subject is bilingual reading: a person is moving between source text and translated text while staying on the original page or video. The settings shell's single job is to decide what is translated and which translation engine performs it.
+KISS Translator has two outcomes: translate the page being read and translate the subtitles being watched. The settings experience must help a reader reach either outcome without first understanding providers, rules, request batching, selectors, or storage.
+
+The default path answers four questions in this order:
+
+1. What should be translated: page or subtitles?
+2. From which language to which language?
+3. Which translation engine should do it?
+4. How should the source and translation be shown?
+
+Everything else is troubleshooting, tuning, or site-specific customization and must be progressively disclosed.
+
+## Interaction model
+
+### Page setup
+
+The first viewport contains the default source language, target language, engine, automatic-start choice, and bilingual/translation-only presentation. It must not open with a decorative preview, version warning, or maintenance controls.
+
+### Website rules
+
+The default rule opens ready to edit; it does not require an extra Edit click. Site overrides and subscriptions remain separate destinations inside the page. Basic scope and reading behavior appear before CSS selectors, hooks, and compatibility fields.
+
+### Subtitles
+
+The first section contains enable/disable, engine, target language, bilingual mode, and display order. Sentence flow is a second task. Timing thresholds, notifications, and compatibility switches live in an advanced accordion. Appearance has a live preview.
+
+### Translation engines
+
+The engine list and selected editor appear immediately in the first viewport. Search and Add belong to the list. The selected engine can be made the page default from its own header. Connection, translation behavior, and advanced maintenance are separate editor modes. Bulk operations and explanatory alerts do not precede the editor.
+
+On a narrow viewport, the engine list and editor are separate views with an explicit Back action; they are not two long panels stacked on one page.
+
+### Saving
+
+Global page and subtitle choices save immediately. Engine and site-rule editors use an explicit Save/Discard draft. Leaving or switching while a draft is dirty must ask once and preserve the current editor when cancelled.
 
 ## Aesthetic direction
 
-**Translation proof desk**: a cool, precise reading surface inspired by parallel-text editions and editorial proof marks. It is neither a generic administration dashboard nor an “AI” neon interface.
+**Nocturne reading console**: a compact dark workspace inspired by the focus of an e-reader at night and the directional flow of parallel translation. It is an application surface, not an editorial poster or an infrastructure dashboard.
+
+Dark is the default for new installations. Light and system modes remain available.
 
 ### Color tokens
 
-- `ink` — `#17211D`: primary copy and strong surfaces;
-- `paper` — `#EEF3F1`: cool mineral canvas;
-- `sheet` — `#F9FBFA`: editable reading surface;
-- `source` — `#425B6B`: source-language labels and secondary text;
-- `translation` — `#08775C`: translated state, focus, and primary action;
-- `proof` — `#D7694E`: destructive/error proof mark only;
-- `rule` — `#BECBC5`: structural dividers and inactive rails.
+- `canvas` — `#0B0D12`: the uninterrupted night-reading background;
+- `rail` — `#0F131B`: navigation and fixed controls;
+- `surface` — `#151A24`: primary editable panels;
+- `surfaceRaised` — `#1B2230`: hover, selected, and nested controls;
+- `ink` — `#F2F4F8`: primary text;
+- `muted` — `#98A2B3`: explanations and inactive text;
+- `source` — `#D6A96F`: source-language state;
+- `translation` — `#7C9CFF`: translation state, focus, and primary actions;
+- `success` — `#5DD6A3`: connected or ready state;
+- `danger` — `#FF7A90`: destructive actions and failures;
+- `rule` — `#293142`: borders and dividers.
 
-Do not introduce a purple gradient, evenly distributed rainbow palette, or decorative color that does not encode source, translation, success, or failure.
+Avoid green-on-green surfaces, dotted paper textures, purple gradients, oversized white cards, and decorative colors that do not represent source, translation, readiness, or failure.
 
 ### Type roles
 
-- Display: `Newsreader` when bundled, then `Iowan Old Style`, `Palatino Linotype`, `Noto Serif SC`, serif. Use only for route titles and the paired-text signature.
-- Body: `Noto Sans SC` when bundled, then `Microsoft YaHei UI`, `Aptos`, sans-serif.
-- Utility: `IBM Plex Mono` when bundled, then `Cascadia Mono`, monospace. Use for URLs, models, profile identifiers, and compact status labels.
+- Display and body: `Segoe UI Variable`, `Aptos`, `Noto Sans SC`, sans-serif. Product titles use a tighter display cut rather than a serif headline.
+- Utility: `JetBrains Mono`, `Cascadia Mono`, monospace. Use for model names, URLs, and compact state labels only.
 
 ### Layout
 
-Desktop uses a narrow translation rail and a reading sheet rather than a dashboard grid:
+Desktop is a compact application shell:
 
 ```text
-┌─ product / status rail ─┬─ source → translation signature ───────────┐
-│ Page                    │ Page title              primary action     │
-│ Sites                   ├─────────────────────────────────────────────┤
-│ Subtitles               │ frequent controls       live context       │
-│ Engines                 │                                             │
-│                         │ advanced details / editor                    │
-└─ version / diagnostics ─┴─────────────────────────────────────────────┘
+┌ navigation ─────┬ route / status ──────────────────────────────┐
+│ Page setup      │ source  →  engine  →  target                │
+│ Website rules   ├──────────────────────────────────────────────┤
+│ Subtitles       │ primary task                                │
+│ Engines         │                                              │
+│                 │ secondary task / advanced disclosure         │
+│ version/status  │                                              │
+└─────────────────┴──────────────────────────────────────────────┘
 ```
 
-At 390px the rail becomes a compact header plus a horizontal destination strip; content becomes one reading column and sticky actions remain visible.
+At 390px, navigation becomes a fixed four-destination bottom bar. Content is one column, primary actions stay visible, and no horizontally scrolling navigation strip is used.
 
 ### Signature
 
-One **paired-text rail** appears at the top of the shell: a source-language line and translated-language line share a baseline with a small direction marker and the active engine. It uses real current settings, not decorative placeholder statistics. It may reveal once on page load; all other motion stays restrained.
+The memorable element is the **translation flow**: source, engine, and target are shown as one connected directional control. It is real configuration and doubles as orientation; it is not duplicated as a decorative preview.
 
-Respect `prefers-reduced-motion`, visible keyboard focus, and 44px touch targets.
+Motion is limited to view transitions, save status, and the active flow. Respect `prefers-reduced-motion`, visible keyboard focus, and 44px touch targets.
 
-## Self-critique and revision
+## Why the previous direction was rejected
 
-The first concept used a warm paper background, large serif headings, numbered navigation, and hairline newspaper columns. That matched a common generated editorial default rather than this product. The revised direction uses a cool mineral canvas, serif only as a restrained source/translation cue, unnumbered destinations, and a paired rail whose structure directly represents bilingual reading.
+The previous “translation proof desk” changed colors, typography, and card styling while preserving the old interaction structure. Oversized headers, a decorative bilingual preview, a global version alert, stacked explanation cards, and dense four-column forms pushed the actual task below the first viewport. The engine page displayed no engine or editor until the user scrolled.
 
-The visual risk is the paired-text rail. No second signature decoration should compete with it; cards, shadows, icons, and animations remain quiet.
+This revision removes those layers, defaults to a deliberate dark console, and treats viewport space, click count, disclosure, and mobile navigation as product behavior rather than decoration.
 
 ## Copy
 
-- Name controls by what the reader changes: “Translate this page”, “Target language”, “Translation engine”.
-- Do not expose “provider adapter”, `apiSlug`, message channels, or storage keys in ordinary copy.
-- Errors state the failed action and next step: “Local bridge is offline. Start it, then test again.”
-- Empty states invite the relevant action: “Add a translation engine to translate this page.”
+- Use the reader's task: “Page setup”, “Subtitles”, “Use for page translation”, “Test connection”.
+- Do not expose `apiSlug`, message channels, storage keys, or adapter terminology in ordinary copy.
+- Labels are short; helper text appears only when it changes a decision.
+- Errors name the failed action and the next step.

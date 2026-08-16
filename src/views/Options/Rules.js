@@ -103,6 +103,7 @@ const calculateInitialValues = (rule) => {
 function RuleFields({
   rule,
   rules,
+  initiallyEditable = false,
   setShow,
   setKeyword,
   dirtyKey,
@@ -114,7 +115,7 @@ function RuleFields({
 
   const i18n = useI18n();
   // 编辑模式下默认禁用输入框，点击编辑按钮后才允许修改
-  const [disabled, setDisabled] = useState(editMode);
+  const [disabled, setDisabled] = useState(editMode && !initiallyEditable);
   // 表单错误信息状态
   const [errors, setErrors] = useState({});
   // 记录表单的初始值，以便在取消编辑时恢复
@@ -135,7 +136,8 @@ function RuleFields({
     const newInitialValues = calculateInitialValues(rule);
     setInitialFormValues(newInitialValues);
     setFormValues(newInitialValues);
-  }, [rule]);
+    setDisabled(editMode && !initiallyEditable);
+  }, [editMode, initiallyEditable, rule]);
 
   // 从当前表单状态中解构各个字段，提供默认值
   const {
@@ -1078,6 +1080,7 @@ function RuleAccordion({
   onDirtyChange,
   onRequestDiscard,
   onNavigateToService,
+  initiallyEditable = false,
 }) {
   const i18n = useI18n();
   // 面板展开状态
@@ -1224,6 +1227,7 @@ function RuleAccordion({
           <RuleFields
             rule={rule}
             rules={rules}
+            initiallyEditable={initiallyEditable}
             dirtyKey={dirtyKey}
             onDirtyChange={handleDirtyChange}
             onNavigateToService={onNavigateToService}
@@ -1726,6 +1730,7 @@ function GlobalRule({
         rule={globalRule}
         rules={rules}
         isExpanded={true} // 默认展开全局规则面板
+        initiallyEditable
         onDirtyChange={onDirtyChange}
         onRequestDiscard={onRequestDiscard}
         onNavigateToService={onNavigateToService}
@@ -1825,26 +1830,42 @@ export default function Rules() {
   return (
     <Box>
       <Stack spacing={3}>
-        <Typography variant="body1" color="text.secondary">
-          {i18n(
-            "website_translation_rules_intro",
-            "Choose where page translation applies and how translated pages behave. Translation services, credentials, and models are managed separately under Services & models."
-          )}
-        </Typography>
-
         {/* 规则分类选项卡导航 */}
         <Box>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Box
+            sx={(theme) => ({
+              display: { xs: "flex", sm: "inline-flex" },
+              width: { xs: "100%", sm: "auto" },
+              maxWidth: "100%",
+              p: 0.5,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: 1.25,
+              backgroundColor: theme.translationTokens?.surfaceRaised,
+            })}
+          >
             <Tabs
               value={activeTab}
               onChange={handleTabChange}
-              variant="scrollable"
-              scrollButtons="auto"
-              allowScrollButtonsMobile
+              variant="fullWidth"
               aria-label={i18n(
                 "website_rule_sections",
                 "Website rule sections"
               )}
+              sx={{
+                minHeight: 40,
+                width: "100%",
+                "& .MuiTabs-indicator": { display: "none" },
+                "& .MuiTab-root": {
+                  minHeight: 40,
+                  borderRadius: 1,
+                  minWidth: 0,
+                  px: { xs: 0.5, sm: 2 },
+                  fontSize: { xs: "0.71rem", sm: "0.8rem" },
+                },
+                "& .Mui-selected": {
+                  backgroundColor: "background.paper",
+                },
+              }}
             >
               <Tab label={i18n("website_defaults", "Website defaults")} />
               <Tab label={i18n("site_overrides", "Site overrides")} />
@@ -1852,7 +1873,7 @@ export default function Rules() {
               {/* <Tab label={i18n("overwrite_subscribe_rules")} /> */}
             </Tabs>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25 }}>
             {tabDescriptions[activeTab]}
           </Typography>
         </Box>

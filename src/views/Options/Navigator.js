@@ -5,14 +5,13 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
-import ListSubheader from "@mui/material/ListSubheader";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import { NavLink, useMatch } from "react-router-dom";
 import { useI18n } from "../../hooks/I18n";
 import { getSettingsNavigation } from "./settingsNavigation";
 
-function LinkItem({ item, onNavigate, compact = false }) {
+function LinkItem({ item, onNavigate, mobile = false }) {
   const match = useMatch({ path: item.url, end: item.url === "/" });
   const Icon = item.icon;
   const handleClick = (event) => {
@@ -27,7 +26,6 @@ function LinkItem({ item, onNavigate, compact = false }) {
     ) {
       return;
     }
-
     event.preventDefault();
     void onNavigate(item.url);
   };
@@ -40,45 +38,58 @@ function LinkItem({ item, onNavigate, compact = false }) {
       onClick={handleClick}
       sx={(theme) => ({
         position: "relative",
-        mx: compact ? 0 : 1.25,
-        mb: compact ? 0 : 0.35,
-        minWidth: compact ? "max-content" : 0,
-        minHeight: compact ? 46 : 44,
-        borderRadius: compact ? 0 : 1,
+        flexDirection: mobile ? "column" : "row",
+        justifyContent: mobile ? "center" : "flex-start",
+        flex: mobile ? 1 : "none",
+        minWidth: 0,
+        minHeight: mobile ? 58 : 46,
+        mx: mobile ? 0 : 1,
+        mb: mobile ? 0 : 0.4,
+        px: mobile ? 0.5 : 1.25,
+        borderRadius: mobile ? 1.25 : 1,
         color: "text.secondary",
-        borderLeft: compact ? 0 : "3px solid transparent",
-        borderBottom: compact ? "3px solid transparent" : 0,
-        "& .MuiListItemIcon-root": {
-          color: "text.secondary",
-        },
+        "& .MuiListItemIcon-root": { color: "inherit" },
         "&.Mui-selected": {
           color: "primary.main",
           backgroundColor: alpha(
             theme.palette.primary.main,
-            compact ? 0.06 : 0.075
+            mobile ? 0.1 : 0.12
           ),
-          borderLeftColor: compact ? "transparent" : theme.palette.primary.main,
-          borderBottomColor: compact
-            ? theme.palette.primary.main
-            : "transparent",
-          "& .MuiListItemIcon-root": {
-            color: "primary.main",
-          },
+          "&::before": mobile
+            ? {
+                content: '""',
+                position: "absolute",
+                top: 0,
+                width: 28,
+                height: 3,
+                borderRadius: "0 0 4px 4px",
+                backgroundColor: theme.palette.primary.main,
+              }
+            : undefined,
           "&:hover": {
             backgroundColor: alpha(theme.palette.primary.main, 0.16),
           },
         },
       })}
     >
-      <ListItemIcon sx={{ minWidth: compact ? 30 : 36 }}>
-        <Icon fontSize="small" />
+      <ListItemIcon
+        sx={{
+          minWidth: mobile ? 0 : 34,
+          mb: mobile ? 0.3 : 0,
+          justifyContent: "center",
+        }}
+      >
+        <Icon sx={{ fontSize: mobile ? 20 : 19 }} />
       </ListItemIcon>
       <ListItemText
-        primary={item.title}
+        primary={mobile ? item.mobileTitle : item.title}
+        sx={{ m: 0, minWidth: 0 }}
         primaryTypographyProps={{
-          variant: "body2",
-          fontWeight: match ? 700 : 560,
-          lineHeight: 1.3,
+          fontSize: mobile ? "0.67rem" : "0.84rem",
+          fontWeight: match ? 720 : 600,
+          lineHeight: mobile ? 1.15 : 1.3,
+          textAlign: mobile ? "center" : "left",
+          noWrap: true,
         }}
       />
     </ListItemButton>
@@ -86,41 +97,41 @@ function LinkItem({ item, onNavigate, compact = false }) {
 }
 
 export default function Navigator({
-  drawerWidth = 272,
+  drawerWidth = 208,
   PaperProps,
   onNavigate,
   ...props
 }) {
   const i18n = useI18n();
-  const groups = getSettingsNavigation(i18n);
+  const items = getSettingsNavigation(i18n).flatMap((group) => group.items);
 
-  if (props.variant === "mobile-strip") {
+  if (props.variant === "mobile-bar") {
     return (
       <Box
         component="nav"
         aria-label={i18n("settings_navigation", "Settings navigation")}
         sx={(theme) => ({
-          position: "sticky",
-          top: 56,
-          zIndex: theme.zIndex.appBar - 1,
+          position: "fixed",
+          zIndex: theme.zIndex.appBar + 1,
+          left: 0,
+          right: 0,
+          bottom: 0,
           display: "flex",
-          overflowX: "auto",
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: alpha(theme.palette.background.paper, 0.96),
-          scrollbarWidth: "none",
-          "&::-webkit-scrollbar": { display: "none" },
+          gap: 0.25,
+          px: 0.75,
+          pt: 0.4,
+          pb: "max(4px, env(safe-area-inset-bottom))",
+          borderTop: `1px solid ${theme.palette.divider}`,
+          backgroundColor: alpha(
+            theme.translationTokens?.rail || theme.palette.background.paper,
+            0.97
+          ),
+          backdropFilter: "blur(16px)",
         })}
       >
-        {groups.flatMap((group) =>
-          group.items.map((item) => (
-            <LinkItem
-              key={item.id}
-              item={item}
-              onNavigate={onNavigate}
-              compact
-            />
-          ))
-        )}
+        {items.map((item) => (
+          <LinkItem key={item.id} item={item} onNavigate={onNavigate} mobile />
+        ))}
       </Box>
     );
   }
@@ -133,10 +144,11 @@ export default function Navigator({
         sx: (theme) => ({
           width: drawerWidth,
           boxSizing: "border-box",
-          top: { xs: 56, sm: 64 },
-          height: { xs: "calc(100% - 56px)", sm: "calc(100% - 64px)" },
-          borderRightColor: alpha(theme.palette.divider, 0.92),
-          backgroundColor: alpha(theme.palette.background.paper, 0.93),
+          top: 56,
+          height: "calc(100% - 56px)",
+          borderRightColor: theme.palette.divider,
+          backgroundColor:
+            theme.translationTokens?.rail || theme.palette.background.paper,
           backgroundImage: "none",
         }),
       }}
@@ -144,43 +156,25 @@ export default function Navigator({
       <Box
         component="nav"
         aria-label={i18n("settings_navigation", "Settings navigation")}
-        sx={{ flex: 1, minHeight: 0, overflowY: "auto", py: 2 }}
+        sx={{ flex: 1, minHeight: 0, overflowY: "auto", pt: 1.5 }}
       >
-        {groups.map((group, index) => (
-          <List
-            key={group.id}
-            disablePadding
-            subheader={
-              <ListSubheader
-                component="div"
-                disableSticky
-                sx={{
-                  px: 2.75,
-                  pt: index === 0 ? 0.5 : 1.25,
-                  pb: 0.65,
-                  color: "primary.main",
-                  bgcolor: "transparent",
-                  fontSize: "0.69rem",
-                  fontWeight: 650,
-                  lineHeight: 1.5,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {group.label}
-              </ListSubheader>
-            }
-          >
-            {group.items.map((item) => (
-              <LinkItem key={item.id} item={item} onNavigate={onNavigate} />
-            ))}
-          </List>
-        ))}
+        <Typography
+          variant="overline"
+          color="text.secondary"
+          sx={{ display: "block", px: 2.25, pb: 0.8, fontSize: "0.65rem" }}
+        >
+          {i18n("settings_group_reading", "Translation")}
+        </Typography>
+        <List disablePadding>
+          {items.map((item) => (
+            <LinkItem key={item.id} item={item} onNavigate={onNavigate} />
+          ))}
+        </List>
       </Box>
       <Divider />
-      <Box sx={{ px: 2.5, py: 1.5 }}>
-        <Typography variant="caption" color="text.disabled">
-          {`PROOF DESK · v${process.env.REACT_APP_VERSION}`}
+      <Box sx={{ px: 2, py: 1.25 }}>
+        <Typography variant="caption" color="text.disabled" fontSize="0.64rem">
+          {`KISS · v${process.env.REACT_APP_VERSION}`}
         </Typography>
       </Box>
     </Drawer>

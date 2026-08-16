@@ -14,16 +14,10 @@ import LoadingButton from "@mui/lab/LoadingButton";
 import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
-import Checkbox from "@mui/material/Checkbox";
 import { useI18n } from "../../hooks/I18n";
 import Typography from "@mui/material/Typography";
 import StarIcon from "@mui/icons-material/Star";
 import AddIcon from "@mui/icons-material/Add";
-import SwapVertIcon from "@mui/icons-material/SwapVert";
-import PushPinIcon from "@mui/icons-material/PushPin";
-import DeleteIcon from "@mui/icons-material/Delete";
-import BlockIcon from "@mui/icons-material/Block";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import Alert from "@mui/material/Alert";
@@ -34,7 +28,6 @@ import ListItemButton from "@mui/material/ListItemButton";
 import Tooltip from "@mui/material/Tooltip";
 import Grid from "@mui/material/Grid";
 import Chip from "@mui/material/Chip";
-import Divider from "@mui/material/Divider";
 import InputAdornment from "@mui/material/InputAdornment";
 import Paper from "@mui/material/Paper";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -42,6 +35,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import ApiIcon from "@mui/icons-material/Api";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import Link from "@mui/material/Link";
 import { useOutletContext } from "react-router-dom";
 import { useSetting } from "../../hooks/Setting";
@@ -287,7 +281,7 @@ function TestButton({ api }) {
       onClick={handleApiTest}
       loading={loading}
     >
-      {i18n("click_test")}
+      {i18n("test_connection", "Test connection")}
     </LoadingButton>
   );
 }
@@ -330,12 +324,16 @@ function ApiFields({
   onCreated,
   isReferenced,
   onReferencedMutation,
+  onBack,
+  isDefault,
+  onSetDefault,
 }) {
   const { api, update, resetData } = useApiItem(apiSlug);
   const { prompts } = usePromptList();
   const i18n = useI18n();
   const [formData, setFormData] = useState(() => api || {});
   const [showMore, setShowMore] = useState(false);
+  const [editorSection, setEditorSection] = useState("connection");
   const [modelOptions, setModelOptions] = useState([]);
   const [modelListStatus, setModelListStatus] = useState("idle");
   const [modelListError, setModelListError] = useState("");
@@ -350,6 +348,7 @@ function ApiFields({
   useLayoutEffect(() => {
     modelListRequestIdRef.current += 1;
     setShowMore(false);
+    setEditorSection("connection");
     setModelOptions([]);
     setModelListStatus("idle");
     setModelListError("");
@@ -671,8 +670,19 @@ function ApiFields({
         })}
       >
         <Box sx={{ minWidth: 0 }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="h6" noWrap>
+          <Stack direction="row" alignItems="center" spacing={0.75}>
+            {onBack && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={onBack}
+                startIcon={<ArrowBackRoundedIcon />}
+                sx={{ display: { xs: "inline-flex", lg: "none" }, px: 0.75 }}
+              >
+                {i18n("back", "Back")}
+              </Button>
+            )}
+            <Typography variant="h6" noWrap sx={{ flex: 1, minWidth: 0 }}>
               {apiName || apiType}
             </Typography>
             <Chip
@@ -680,7 +690,16 @@ function ApiFields({
               color={isDisabled ? "default" : "success"}
               variant="outlined"
               label={i18n(isDisabled ? "disabled" : "enabled")}
+              sx={{ display: { xs: "none", sm: "inline-flex" } }}
             />
+            {isDefault && (
+              <Chip
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={i18n("page_default", "Page default")}
+              />
+            )}
           </Stack>
           <Typography variant="body2" color="text.secondary" noWrap>
             {API_SPE_TYPES.ai.has(apiType)
@@ -689,6 +708,16 @@ function ApiFields({
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          {!isDefault && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onSetDefault}
+              disabled={isDisabled}
+            >
+              {i18n("use_for_page_translation", "Use for pages")}
+            </Button>
+          )}
           <Button
             size="small"
             variant="contained"
@@ -709,240 +738,270 @@ function ApiFields({
         </Stack>
       </Stack>
 
-      <Paper variant="outlined" sx={editorSectionSx}>
-        <Stack spacing={0.5} sx={{ mb: 2 }}>
-          <Typography variant="subtitle1" fontWeight={700}>
-            {i18n("connection_and_model", "Connection and model")}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {i18n(
-              "connection_and_model_description",
-              "Configure the provider connection and the exact model used by this translation service."
-            )}
-          </Typography>
-        </Stack>
-        {isLocalBridge && (
-          <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight={700}>
-              {i18n("local_bridge_required", "Local bridge required")}
+      <ToggleButtonGroup
+        exclusive
+        fullWidth
+        size="small"
+        value={editorSection}
+        onChange={(_event, value) => value && setEditorSection(value)}
+        aria-label={i18n("engine_editor_sections", "Engine editor sections")}
+      >
+        <ToggleButton value="connection">
+          {i18n("connection", "Connection")}
+        </ToggleButton>
+        <ToggleButton value="behavior">
+          {i18n("translation_behavior", "Behavior")}
+        </ToggleButton>
+        <ToggleButton value="maintenance">
+          {i18n("advanced", "Advanced")}
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {editorSection === "connection" && (
+        <Paper variant="outlined" sx={editorSectionSx}>
+          <Stack spacing={0.5} sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              {i18n("connection_and_model", "Connection and model")}
             </Typography>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
               {i18n(
-                "local_bridge_start_help",
-                "Start tools/local-bridge/kiss_cli_bridge.py on this computer, then paste its token below. The bridge listens only on 127.0.0.1 and never uses a shell."
+                "connection_and_model_description",
+                "Configure the provider connection and the exact model used by this translation service."
               )}
             </Typography>
-          </Alert>
-        )}
+          </Stack>
+          {isLocalBridge && (
+            <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+              <Typography variant="body2" fontWeight={700}>
+                {i18n("local_bridge_required", "Local bridge required")}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {i18n(
+                  "local_bridge_start_help",
+                  "Start tools/local-bridge/kiss_cli_bridge.py on this computer, then paste its token below. The bridge listens only on 127.0.0.1 and never uses a shell."
+                )}
+              </Typography>
+            </Alert>
+          )}
+          <Stack spacing={2}>
+            <Box>
+              <Grid container spacing={2} columns={12}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label={i18n("translation_service_name", "Service name")}
+                    name="apiName"
+                    value={apiName}
+                    onChange={handleChange}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {!API_SPE_TYPES.machine.has(apiType) &&
+              apiType !== OPT_TRANS_BUILTINAI && (
+                <>
+                  <TextField
+                    size="small"
+                    label={"URL"}
+                    name="url"
+                    value={url}
+                    onChange={handleChange}
+                    multiline={apiType === OPT_TRANS_DEEPLX}
+                    maxRows={10}
+                    helperText={
+                      apiType === OPT_TRANS_DEEPLX ? i18n("mulkeys_help") : ""
+                    }
+                  />
+                  <SensitiveTextField
+                    size="small"
+                    label={
+                      isLocalBridge
+                        ? i18n("bridge_token", "Bridge token")
+                        : "Key"
+                    }
+                    name="key"
+                    value={key}
+                    onChange={handleChange}
+                    multiline={
+                      API_SPE_TYPES.mulkeys.has(apiType) && !isLocalBridge
+                    }
+                    maxRows={10}
+                    helperText={keyHelper}
+                  />
+                </>
+              )}
+
+            {apiType === OPT_TRANS_AZUREAI && (
+              <TextField
+                size="small"
+                label={"Region"}
+                name="region"
+                value={region}
+                onChange={handleChange}
+              />
+            )}
+
+            {API_SPE_TYPES.ai.has(apiType) && (
+              <>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label={i18n("model_list_url")}
+                  name="modelListUrl"
+                  value={modelListUrl}
+                  onChange={handleChange}
+                />
+                <Box>
+                  <Grid container spacing={2} columns={12}>
+                    <Grid item xs={12} md={8}>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <ReusableAutocomplete
+                            freeSolo
+                            commitOnInputChange
+                            size="small"
+                            fullWidth
+                            options={allModelOptions}
+                            name="model"
+                            label={i18n("model", "Model")}
+                            value={model}
+                            onChange={handleChange}
+                            onFocus={() => void handleLoadModelList()}
+                            loading={modelListStatus === "loading"}
+                            loadingText={i18n("model_list_loading")}
+                            noOptionsText={i18n("model_list_empty")}
+                            textFieldProps={{
+                              helperText: modelListHelperText,
+                              error: modelListStatus === "error",
+                            }}
+                          />
+                        </Box>
+                        <LoadingButton
+                          size="small"
+                          variant="outlined"
+                          startIcon={<RefreshIcon />}
+                          loading={modelListStatus === "loading"}
+                          disabled={!modelListUrl?.trim()}
+                          onClick={handleRefreshModelList}
+                          sx={{
+                            alignSelf: { xs: "stretch", sm: "flex-start" },
+                          }}
+                        >
+                          {i18n("refresh_models", "Refresh models")}
+                        </LoadingButton>
+                      </Stack>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <ReusableAutocomplete
+                        freeSolo
+                        commitOnInputChange
+                        size="small"
+                        fullWidth
+                        options={BUILTIN_STONES}
+                        name="tone"
+                        label={i18n("translation_style")}
+                        value={tone}
+                        onChange={handleChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <ValidationInput
+                        size="small"
+                        fullWidth
+                        label={"Temperature (0.0-2.0)"}
+                        type="number"
+                        name="temperature"
+                        value={temperature}
+                        onChange={handleChange}
+                        min={0.0}
+                        max={2.0}
+                        isFloat={true}
+                        inputProps={{
+                          step: 0.1,
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <ValidationInput
+                        size="small"
+                        fullWidth
+                        label={"Max Tokens (0-1000000)"}
+                        type="number"
+                        name="maxTokens"
+                        value={maxTokens}
+                        onChange={handleChange}
+                        min={0}
+                        max={1000000}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+              </>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
+      {editorSection === "behavior" && (
         <Stack spacing={2}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent="space-between"
+            gap={1}
+          >
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                {i18n("translation_behavior", "Translation behavior")}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {i18n(
+                  "translation_behavior_description",
+                  "Tune batching, streaming, prompts, and request performance for this service."
+                )}
+              </Typography>
+            </Stack>
+            <ShowMoreButton showMore={showMore} onChange={setShowMore} />
+          </Stack>
+
           <Box>
             <Grid container spacing={2} columns={12}>
               <Grid item xs={12} md={6}>
                 <TextField
-                  size="small"
+                  select
                   fullWidth
-                  label={i18n("translation_service_name", "Service name")}
-                  name="apiName"
-                  value={apiName}
+                  size="small"
+                  name="transAllnow"
+                  value={transAllnow}
+                  label={i18n("trigger_mode")}
                   onChange={handleChange}
+                >
+                  <MenuItem value={false}>{i18n("mk_pagescroll")}</MenuItem>
+                  <MenuItem value={true}>{i18n("mk_pageopen")}</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <ValidationInput
+                  fullWidth
+                  size="small"
+                  label={i18n("pagescroll_root_margin")}
+                  type="number"
+                  name="rootMargin"
+                  value={rootMargin}
+                  onChange={handleChange}
+                  min={0}
+                  max={10000}
                 />
               </Grid>
             </Grid>
           </Box>
 
-          {!API_SPE_TYPES.machine.has(apiType) &&
-            apiType !== OPT_TRANS_BUILTINAI && (
-              <>
-                <TextField
-                  size="small"
-                  label={"URL"}
-                  name="url"
-                  value={url}
-                  onChange={handleChange}
-                  multiline={apiType === OPT_TRANS_DEEPLX}
-                  maxRows={10}
-                  helperText={
-                    apiType === OPT_TRANS_DEEPLX ? i18n("mulkeys_help") : ""
-                  }
-                />
-                <SensitiveTextField
-                  size="small"
-                  label={
-                    isLocalBridge ? i18n("bridge_token", "Bridge token") : "Key"
-                  }
-                  name="key"
-                  value={key}
-                  onChange={handleChange}
-                  multiline={
-                    API_SPE_TYPES.mulkeys.has(apiType) && !isLocalBridge
-                  }
-                  maxRows={10}
-                  helperText={keyHelper}
-                />
-              </>
-            )}
-
-          {apiType === OPT_TRANS_AZUREAI && (
-            <TextField
-              size="small"
-              label={"Region"}
-              name="region"
-              value={region}
-              onChange={handleChange}
-            />
-          )}
-
-          {API_SPE_TYPES.ai.has(apiType) && (
-            <>
-              <TextField
-                size="small"
-                fullWidth
-                label={i18n("model_list_url")}
-                name="modelListUrl"
-                value={modelListUrl}
-                onChange={handleChange}
-              />
-              <Box>
-                <Grid container spacing={2} columns={12}>
-                  <Grid item xs={12} md={8}>
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <ReusableAutocomplete
-                          freeSolo
-                          commitOnInputChange
-                          size="small"
-                          fullWidth
-                          options={allModelOptions}
-                          name="model"
-                          label={i18n("model", "Model")}
-                          value={model}
-                          onChange={handleChange}
-                          onFocus={() => void handleLoadModelList()}
-                          loading={modelListStatus === "loading"}
-                          loadingText={i18n("model_list_loading")}
-                          noOptionsText={i18n("model_list_empty")}
-                          textFieldProps={{
-                            helperText: modelListHelperText,
-                            error: modelListStatus === "error",
-                          }}
-                        />
-                      </Box>
-                      <LoadingButton
-                        size="small"
-                        variant="outlined"
-                        startIcon={<RefreshIcon />}
-                        loading={modelListStatus === "loading"}
-                        disabled={!modelListUrl?.trim()}
-                        onClick={handleRefreshModelList}
-                        sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
-                      >
-                        {i18n("refresh_models", "Refresh models")}
-                      </LoadingButton>
-                    </Stack>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <ReusableAutocomplete
-                      freeSolo
-                      commitOnInputChange
-                      size="small"
-                      fullWidth
-                      options={BUILTIN_STONES}
-                      name="tone"
-                      label={i18n("translation_style")}
-                      value={tone}
-                      onChange={handleChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <ValidationInput
-                      size="small"
-                      fullWidth
-                      label={"Temperature (0.0-2.0)"}
-                      type="number"
-                      name="temperature"
-                      value={temperature}
-                      onChange={handleChange}
-                      min={0.0}
-                      max={2.0}
-                      isFloat={true}
-                      inputProps={{
-                        step: 0.1,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <ValidationInput
-                      size="small"
-                      fullWidth
-                      label={"Max Tokens (0-1000000)"}
-                      type="number"
-                      name="maxTokens"
-                      value={maxTokens}
-                      onChange={handleChange}
-                      min={0}
-                      max={1000000}
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-            </>
-          )}
-        </Stack>
-      </Paper>
-
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        alignItems={{ xs: "stretch", sm: "center" }}
-        justifyContent="space-between"
-        gap={1}
-      >
-        <Stack spacing={0.5}>
-          <Typography variant="subtitle1" fontWeight={700}>
-            {i18n("translation_behavior", "Translation behavior")}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {i18n(
-              "translation_behavior_description",
-              "Tune batching, streaming, prompts, and request performance for this service."
-            )}
-          </Typography>
-        </Stack>
-        <ShowMoreButton showMore={showMore} onChange={setShowMore} />
-      </Stack>
-
-      <Box>
-        <Grid container spacing={2} columns={12}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              name="transAllnow"
-              value={transAllnow}
-              label={i18n("trigger_mode")}
-              onChange={handleChange}
-            >
-              <MenuItem value={false}>{i18n("mk_pagescroll")}</MenuItem>
-              <MenuItem value={true}>{i18n("mk_pageopen")}</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ValidationInput
-              fullWidth
-              size="small"
-              label={i18n("pagescroll_root_margin")}
-              type="number"
-              name="rootMargin"
-              value={rootMargin}
-              onChange={handleChange}
-              min={0}
-              max={10000}
-            />
-          </Grid>
-        </Grid>
-      </Box>
-
-      {/* {apiType === OPT_TRANS_OLLAMA && (
+          {/* {apiType === OPT_TRANS_OLLAMA && (
         <>
           <TextField
             select
@@ -965,515 +1024,527 @@ function ApiFields({
         </>
       )} */}
 
-      {apiType === OPT_TRANS_CUSTOMIZE && (
-        <>
-          <CodeField
-            size="small"
-            label={"Request Hook"}
-            name="reqHook"
-            value={reqHook}
-            onChange={handleChange}
-            maxRows={10}
-            FormHelperTextProps={{
-              component: "div",
-            }}
-            helperText={
-              <Box component="pre" sx={{ overflowX: "auto" }}>
-                {i18n("request_hook_helper")}
-              </Box>
-            }
-          />
-          <CodeField
-            size="small"
-            label={"Response Hook"}
-            name="resHook"
-            value={resHook}
-            onChange={handleChange}
-            maxRows={10}
-            FormHelperTextProps={{
-              component: "div",
-            }}
-            helperText={
-              <Box component="pre" sx={{ overflowX: "auto" }}>
-                {i18n("response_hook_helper")}
-              </Box>
-            }
-          />
-        </>
-      )}
-
-      {API_SPE_TYPES.batch.has(apiType) && (
-        <Box>
-          <Grid container spacing={2} columns={12}>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="useBatchFetch"
-                value={useBatchFetch}
-                label={i18n("use_batch_fetch")}
-                onChange={handleChange}
-              >
-                <MenuItem value={false}>{i18n("disable")}</MenuItem>
-                <MenuItem value={true}>{i18n("enable")}</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                size="small"
-                fullWidth
-                label={i18n("batch_interval")}
-                type="number"
-                name="batchInterval"
-                value={batchInterval}
-                onChange={handleChange}
-                min={10}
-                max={10000}
-              />
-            </Grid>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                size="small"
-                fullWidth
-                label={i18n("batch_size")}
-                type="number"
-                name="batchSize"
-                value={batchSize}
-                onChange={handleChange}
-                min={1}
-                max={100}
-              />
-            </Grid>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <ValidationInput
-                size="small"
-                fullWidth
-                label={i18n("batch_length")}
-                type="number"
-                name="batchLength"
-                value={batchLength}
-                onChange={handleChange}
-                min={1000}
-                max={100000}
-              />
-            </Grid>
-          </Grid>
-        </Box>
-      )}
-
-      <Box>
-        <Grid container spacing={2} columns={12}>
-          {API_SPE_TYPES.stream.has(apiType) && (
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="useStream"
-                value={useStream}
-                label={i18n("use_stream")}
-                onChange={handleChange}
-              >
-                <MenuItem value={false}>{i18n("disable")}</MenuItem>
-                <MenuItem value={true}>{i18n("enable")}</MenuItem>
-              </TextField>
-            </Grid>
-          )}
-
-          {API_SPE_TYPES.stream.has(apiType) && useStream && (
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="streamRenderMode"
-                value={streamRenderMode}
-                label={i18n("stream_render_mode")}
-                onChange={handleChange}
-              >
-                <MenuItem value="disabled">{i18n("disable")}</MenuItem>
-                <MenuItem value="realtime">
-                  {i18n("stream_render_realtime")}
-                </MenuItem>
-                <MenuItem value="segment">
-                  {i18n("stream_render_segment")}
-                </MenuItem>
-              </TextField>
-            </Grid>
-          )}
-
-          {API_SPE_TYPES.context.has(apiType) && (
+          {apiType === OPT_TRANS_CUSTOMIZE && (
             <>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                {" "}
-                <TextField
-                  select
-                  size="small"
-                  fullWidth
-                  name="useContext"
-                  value={useContext}
-                  label={i18n("use_context")}
-                  onChange={handleChange}
-                >
-                  <MenuItem value={false}>{i18n("disable")}</MenuItem>
-                  <MenuItem value={true}>{i18n("enable")}</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                {" "}
-                <TextField
-                  size="small"
-                  fullWidth
-                  label={i18n("context_size")}
-                  type="number"
-                  name="contextSize"
-                  value={contextSize}
-                  onChange={handleChange}
-                  min={1}
-                  max={20}
-                />
-              </Grid>
+              <CodeField
+                size="small"
+                label={"Request Hook"}
+                name="reqHook"
+                value={reqHook}
+                onChange={handleChange}
+                maxRows={10}
+                FormHelperTextProps={{
+                  component: "div",
+                }}
+                helperText={
+                  <Box component="pre" sx={{ overflowX: "auto" }}>
+                    {i18n("request_hook_helper")}
+                  </Box>
+                }
+              />
+              <CodeField
+                size="small"
+                label={"Response Hook"}
+                name="resHook"
+                value={resHook}
+                onChange={handleChange}
+                maxRows={10}
+                FormHelperTextProps={{
+                  component: "div",
+                }}
+                helperText={
+                  <Box component="pre" sx={{ overflowX: "auto" }}>
+                    {i18n("response_hook_helper")}
+                  </Box>
+                }
+              />
             </>
           )}
-        </Grid>
-      </Box>
 
-      <Box>
-        <Grid container spacing={2} columns={12}>
-          <Grid item xs={12} sm={12} md={6} lg={3}>
-            <ValidationInput
-              size="small"
-              fullWidth
-              label={i18n("fetch_limit")}
-              type="number"
-              name="fetchLimit"
-              value={fetchLimit}
-              onChange={handleChange}
-              min={1}
-              max={100}
-            />
-          </Grid>
-          <Grid item xs={12} sm={12} md={6} lg={3}>
-            <ValidationInput
-              size="small"
-              fullWidth
-              label={i18n("fetch_interval")}
-              type="number"
-              name="fetchInterval"
-              value={fetchInterval}
-              onChange={handleChange}
-              min={0}
-              max={5000}
-            />
-          </Grid>
-          <Grid item xs={12} sm={12} md={6} lg={3}>
-            <ValidationInput
-              size="small"
-              fullWidth
-              label={i18n("http_timeout")}
-              type="number"
-              name="httpTimeout"
-              value={httpTimeout}
-              onChange={handleChange}
-              min={1}
-              max={600}
-            />
-          </Grid>
-          <Grid item xs={12} sm={12} md={6} lg={3}></Grid>
-        </Grid>
-      </Box>
-
-      {API_SPE_TYPES.ai.has(apiType) && (
-        <Box>
-          <Grid container spacing={2} columns={12}>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="nobatchPromptSlug"
-                value={selectedNobatchPromptSlug}
-                label={i18n("nobatch_prompt", "非聚合翻译提示词")}
-                onChange={handlePromptChange}
-              >
-                {nobatchPromptOptions.map((prompt) => (
-                  <MenuItem key={prompt.slug} value={prompt.slug}>
-                    {getPromptDisplayName(prompt, i18n)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="batchPromptSlug"
-                value={selectedBatchPromptSlug}
-                label={i18n("batch_prompt", "聚合翻译提示词")}
-                onChange={handlePromptChange}
-              >
-                {batchPromptOptions.map((prompt) => (
-                  <MenuItem key={prompt.slug} value={prompt.slug}>
-                    {getPromptDisplayName(prompt, i18n)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="subtitlePromptSlug"
-                value={selectedSubtitlePromptSlug}
-                label={i18n("subtitle_prompt", "AI断句提示词")}
-                onChange={handlePromptChange}
-              >
-                {subtitlePromptOptions.map((prompt) => (
-                  <MenuItem key={prompt.slug} value={prompt.slug}>
-                    {getPromptDisplayName(prompt, i18n)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-        </Box>
-      )}
-
-      {thinkingParam && (
-        <Box>
-          <Grid container spacing={2} columns={12}>
-            <Grid item xs={12} sm={12} md={6} lg={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                name="thinkingMode"
-                value={thinkingMode}
-                label={i18n("thinking_mode")}
-                onChange={handleChange}
-                helperText={i18n("thinking_mode_helper")}
-              >
-                <MenuItem value="auto">
-                  {i18n("thinking_mode_default")}
-                </MenuItem>
-                <MenuItem value="enabled">
-                  {i18n("thinking_mode_enabled")}
-                </MenuItem>
-                {thinkingParam.disableSupported !== false && (
-                  <MenuItem value="disabled">
-                    {i18n("thinking_mode_disabled")}
-                  </MenuItem>
-                )}
-              </TextField>
-            </Grid>
-            {thinkingMode === "enabled" && thinkingParam.efforts && (
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  name="thinkingEffort"
-                  value={thinkingEffort}
-                  label={i18n("thinking_effort")}
-                  onChange={handleChange}
-                >
-                  {thinkingParam.efforts.map((e) => (
-                    <MenuItem key={e.value} value={e.value}>
-                      {e.label}
-                    </MenuItem>
-                  ))}
-                  <MenuItem value="_default">
-                    {i18n("thinking_effort_default")}
-                  </MenuItem>
-                </TextField>
+          {API_SPE_TYPES.batch.has(apiType) && (
+            <Box>
+              <Grid container spacing={2} columns={12}>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="useBatchFetch"
+                    value={useBatchFetch}
+                    label={i18n("use_batch_fetch")}
+                    onChange={handleChange}
+                  >
+                    <MenuItem value={false}>{i18n("disable")}</MenuItem>
+                    <MenuItem value={true}>{i18n("enable")}</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <ValidationInput
+                    size="small"
+                    fullWidth
+                    label={i18n("batch_interval")}
+                    type="number"
+                    name="batchInterval"
+                    value={batchInterval}
+                    onChange={handleChange}
+                    min={10}
+                    max={10000}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <ValidationInput
+                    size="small"
+                    fullWidth
+                    label={i18n("batch_size")}
+                    type="number"
+                    name="batchSize"
+                    value={batchSize}
+                    onChange={handleChange}
+                    min={1}
+                    max={100}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <ValidationInput
+                    size="small"
+                    fullWidth
+                    label={i18n("batch_length")}
+                    type="number"
+                    name="batchLength"
+                    value={batchLength}
+                    onChange={handleChange}
+                    min={1000}
+                    max={100000}
+                  />
+                </Grid>
               </Grid>
-            )}
-          </Grid>
-        </Box>
-      )}
+            </Box>
+          )}
 
-      {showMore && (
-        <>
           <Box>
             <Grid container spacing={2} columns={12}>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  name="placeholder"
-                  value={placeholder}
-                  label={i18n("api_placeholder")}
-                  onChange={handleChange}
-                >
-                  {BUILTIN_PLACEHOLDERS.map((item) => (
-                    <MenuItem key={item} value={item}>
-                      {item}
+              {API_SPE_TYPES.stream.has(apiType) && (
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="useStream"
+                    value={useStream}
+                    label={i18n("use_stream")}
+                    onChange={handleChange}
+                  >
+                    <MenuItem value={false}>{i18n("disable")}</MenuItem>
+                    <MenuItem value={true}>{i18n("enable")}</MenuItem>
+                  </TextField>
+                </Grid>
+              )}
+
+              {API_SPE_TYPES.stream.has(apiType) && useStream && (
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="streamRenderMode"
+                    value={streamRenderMode}
+                    label={i18n("stream_render_mode")}
+                    onChange={handleChange}
+                  >
+                    <MenuItem value="disabled">{i18n("disable")}</MenuItem>
+                    <MenuItem value="realtime">
+                      {i18n("stream_render_realtime")}
                     </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  name="placetag"
-                  value={placetag}
-                  label={i18n("api_placetag")}
-                  onChange={handleChange}
-                >
-                  {BUILTIN_PLACETAGS.map((item) => (
-                    <MenuItem key={item} value={item}>
-                      {`<${item}>`}
+                    <MenuItem value="segment">
+                      {i18n("stream_render_segment")}
                     </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={12} md={6} lg={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  name="placetagFormat"
-                  value={placetagFormat}
-                  label={i18n("placetag_format") || "占位符格式"}
-                  onChange={handleChange}
-                >
-                  <MenuItem value="compact">
-                    {i18n("format_compact") || "简洁格式 <a1>"}
-                  </MenuItem>
-                  <MenuItem value="attribute">
-                    {i18n("format_attribute") || "属性格式 <a i=1>"}
-                  </MenuItem>
-                </TextField>
-              </Grid>
+                  </TextField>
+                </Grid>
+              )}
+
+              {API_SPE_TYPES.context.has(apiType) && (
+                <>
+                  <Grid item xs={12} sm={12} md={6} lg={3}>
+                    {" "}
+                    <TextField
+                      select
+                      size="small"
+                      fullWidth
+                      name="useContext"
+                      value={useContext}
+                      label={i18n("use_context")}
+                      onChange={handleChange}
+                    >
+                      <MenuItem value={false}>{i18n("disable")}</MenuItem>
+                      <MenuItem value={true}>{i18n("enable")}</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={12} md={6} lg={3}>
+                    {" "}
+                    <TextField
+                      size="small"
+                      fullWidth
+                      label={i18n("context_size")}
+                      type="number"
+                      name="contextSize"
+                      value={contextSize}
+                      onChange={handleChange}
+                      min={1}
+                      max={20}
+                    />
+                  </Grid>
+                </>
+              )}
             </Grid>
           </Box>
 
-          {apiType !== OPT_TRANS_BUILTINAI && (
-            <>
-              {" "}
-              <CodeField
-                size="small"
-                label={i18n("custom_header")}
-                name="customHeader"
-                value={customHeader}
-                onChange={handleChange}
-                maxRows={10}
-                helperText={i18n("custom_header_help")}
-              />
-              <CodeField
-                size="small"
-                label={i18n("custom_body")}
-                name="customBody"
-                value={customBody}
-                onChange={handleChange}
-                maxRows={10}
-                helperText={i18n("custom_body_help")}
-              />
-            </>
+          <Box>
+            <Grid container spacing={2} columns={12}>
+              <Grid item xs={12} sm={12} md={6} lg={3}>
+                <ValidationInput
+                  size="small"
+                  fullWidth
+                  label={i18n("fetch_limit")}
+                  type="number"
+                  name="fetchLimit"
+                  value={fetchLimit}
+                  onChange={handleChange}
+                  min={1}
+                  max={100}
+                />
+              </Grid>
+              <Grid item xs={12} sm={12} md={6} lg={3}>
+                <ValidationInput
+                  size="small"
+                  fullWidth
+                  label={i18n("fetch_interval")}
+                  type="number"
+                  name="fetchInterval"
+                  value={fetchInterval}
+                  onChange={handleChange}
+                  min={0}
+                  max={5000}
+                />
+              </Grid>
+              <Grid item xs={12} sm={12} md={6} lg={3}>
+                <ValidationInput
+                  size="small"
+                  fullWidth
+                  label={i18n("http_timeout")}
+                  type="number"
+                  name="httpTimeout"
+                  value={httpTimeout}
+                  onChange={handleChange}
+                  min={1}
+                  max={600}
+                />
+              </Grid>
+              <Grid item xs={12} sm={12} md={6} lg={3}></Grid>
+            </Grid>
+          </Box>
+
+          {API_SPE_TYPES.ai.has(apiType) && (
+            <Box>
+              <Grid container spacing={2} columns={12}>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="nobatchPromptSlug"
+                    value={selectedNobatchPromptSlug}
+                    label={i18n("nobatch_prompt", "非聚合翻译提示词")}
+                    onChange={handlePromptChange}
+                  >
+                    {nobatchPromptOptions.map((prompt) => (
+                      <MenuItem key={prompt.slug} value={prompt.slug}>
+                        {getPromptDisplayName(prompt, i18n)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="batchPromptSlug"
+                    value={selectedBatchPromptSlug}
+                    label={i18n("batch_prompt", "聚合翻译提示词")}
+                    onChange={handlePromptChange}
+                  >
+                    {batchPromptOptions.map((prompt) => (
+                      <MenuItem key={prompt.slug} value={prompt.slug}>
+                        {getPromptDisplayName(prompt, i18n)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="subtitlePromptSlug"
+                    value={selectedSubtitlePromptSlug}
+                    label={i18n("subtitle_prompt", "AI断句提示词")}
+                    onChange={handlePromptChange}
+                  >
+                    {subtitlePromptOptions.map((prompt) => (
+                      <MenuItem key={prompt.slug} value={prompt.slug}>
+                        {getPromptDisplayName(prompt, i18n)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              </Grid>
+            </Box>
           )}
 
-          {apiType !== OPT_TRANS_CUSTOMIZE &&
-            apiType !== OPT_TRANS_BUILTINAI && (
-              <>
-                <CodeField
-                  size="small"
-                  label={"Request Hook"}
-                  name="reqHook"
-                  value={reqHook}
-                  onChange={handleChange}
-                  maxRows={10}
-                  FormHelperTextProps={{
-                    component: "div",
-                  }}
-                  helperText={
-                    <Box component="pre" sx={{ overflowX: "auto" }}>
-                      {i18n("request_hook_helper")}
-                    </Box>
-                  }
-                />
-                <CodeField
-                  size="small"
-                  label={"Response Hook"}
-                  name="resHook"
-                  value={resHook}
-                  onChange={handleChange}
-                  maxRows={10}
-                  FormHelperTextProps={{
-                    component: "div",
-                  }}
-                  helperText={
-                    <Box component="pre" sx={{ overflowX: "auto" }}>
-                      {i18n("response_hook_helper")}
-                    </Box>
-                  }
-                />
-              </>
-            )}
-        </>
+          {thinkingParam && (
+            <Box>
+              <Grid container spacing={2} columns={12}>
+                <Grid item xs={12} sm={12} md={6} lg={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="thinkingMode"
+                    value={thinkingMode}
+                    label={i18n("thinking_mode")}
+                    onChange={handleChange}
+                    helperText={i18n("thinking_mode_helper")}
+                  >
+                    <MenuItem value="auto">
+                      {i18n("thinking_mode_default")}
+                    </MenuItem>
+                    <MenuItem value="enabled">
+                      {i18n("thinking_mode_enabled")}
+                    </MenuItem>
+                    {thinkingParam.disableSupported !== false && (
+                      <MenuItem value="disabled">
+                        {i18n("thinking_mode_disabled")}
+                      </MenuItem>
+                    )}
+                  </TextField>
+                </Grid>
+                {thinkingMode === "enabled" && thinkingParam.efforts && (
+                  <Grid item xs={12} sm={12} md={6} lg={3}>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      name="thinkingEffort"
+                      value={thinkingEffort}
+                      label={i18n("thinking_effort")}
+                      onChange={handleChange}
+                    >
+                      {thinkingParam.efforts.map((e) => (
+                        <MenuItem key={e.value} value={e.value}>
+                          {e.label}
+                        </MenuItem>
+                      ))}
+                      <MenuItem value="_default">
+                        {i18n("thinking_effort_default")}
+                      </MenuItem>
+                    </TextField>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
+
+          {showMore && (
+            <>
+              <Box>
+                <Grid container spacing={2} columns={12}>
+                  <Grid item xs={12} sm={12} md={6} lg={3}>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      name="placeholder"
+                      value={placeholder}
+                      label={i18n("api_placeholder")}
+                      onChange={handleChange}
+                    >
+                      {BUILTIN_PLACEHOLDERS.map((item) => (
+                        <MenuItem key={item} value={item}>
+                          {item}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={12} md={6} lg={3}>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      name="placetag"
+                      value={placetag}
+                      label={i18n("api_placetag")}
+                      onChange={handleChange}
+                    >
+                      {BUILTIN_PLACETAGS.map((item) => (
+                        <MenuItem key={item} value={item}>
+                          {`<${item}>`}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={12} md={6} lg={3}>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      name="placetagFormat"
+                      value={placetagFormat}
+                      label={i18n("placetag_format") || "占位符格式"}
+                      onChange={handleChange}
+                    >
+                      <MenuItem value="compact">
+                        {i18n("format_compact") || "简洁格式 <a1>"}
+                      </MenuItem>
+                      <MenuItem value="attribute">
+                        {i18n("format_attribute") || "属性格式 <a i=1>"}
+                      </MenuItem>
+                    </TextField>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {apiType !== OPT_TRANS_BUILTINAI && (
+                <>
+                  {" "}
+                  <CodeField
+                    size="small"
+                    label={i18n("custom_header")}
+                    name="customHeader"
+                    value={customHeader}
+                    onChange={handleChange}
+                    maxRows={10}
+                    helperText={i18n("custom_header_help")}
+                  />
+                  <CodeField
+                    size="small"
+                    label={i18n("custom_body")}
+                    name="customBody"
+                    value={customBody}
+                    onChange={handleChange}
+                    maxRows={10}
+                    helperText={i18n("custom_body_help")}
+                  />
+                </>
+              )}
+
+              {apiType !== OPT_TRANS_CUSTOMIZE &&
+                apiType !== OPT_TRANS_BUILTINAI && (
+                  <>
+                    <CodeField
+                      size="small"
+                      label={"Request Hook"}
+                      name="reqHook"
+                      value={reqHook}
+                      onChange={handleChange}
+                      maxRows={10}
+                      FormHelperTextProps={{
+                        component: "div",
+                      }}
+                      helperText={
+                        <Box component="pre" sx={{ overflowX: "auto" }}>
+                          {i18n("request_hook_helper")}
+                        </Box>
+                      }
+                    />
+                    <CodeField
+                      size="small"
+                      label={"Response Hook"}
+                      name="resHook"
+                      value={resHook}
+                      onChange={handleChange}
+                      maxRows={10}
+                      FormHelperTextProps={{
+                        component: "div",
+                      }}
+                      helperText={
+                        <Box component="pre" sx={{ overflowX: "auto" }}>
+                          {i18n("response_hook_helper")}
+                        </Box>
+                      }
+                    />
+                  </>
+                )}
+            </>
+          )}
+        </Stack>
       )}
 
-      <Paper
-        variant="outlined"
-        component={Stack}
-        direction="row"
-        alignItems="center"
-        spacing={2}
-        useFlexGap
-        flexWrap="wrap"
-        sx={{ ...editorSectionSx, p: 2 }}
-      >
-        <Button size="small" variant="outlined" onClick={handleReset}>
-          {i18n("restore_default")}
-        </Button>
-        <Button size="small" variant="outlined" onClick={handleCopy}>
-          {API_SPE_TYPES.ai.has(apiType)
-            ? i18n("duplicate_model_profile", "Duplicate for another model")
-            : i18n("copy_api")}
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          color="error"
-          onClick={handleDelete}
-        >
-          {i18n("delete")}
-        </Button>
-
-        <FormControlLabel
-          control={
-            <Switch
+      {editorSection === "maintenance" && (
+        <Stack spacing={2}>
+          <Typography variant="body2" color="text.secondary">
+            {i18n(
+              "advanced_engine_controls_description",
+              "Restore, duplicate, disable, pin, or remove this engine."
+            )}
+          </Typography>
+          <Paper
+            variant="outlined"
+            component={Stack}
+            direction="row"
+            alignItems="center"
+            spacing={2}
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ ...editorSectionSx, p: 2 }}
+          >
+            <Button size="small" variant="outlined" onClick={handleReset}>
+              {i18n("restore_default")}
+            </Button>
+            <Button size="small" variant="outlined" onClick={handleCopy}>
+              {API_SPE_TYPES.ai.has(apiType)
+                ? i18n("duplicate_model_profile", "Duplicate for another model")
+                : i18n("copy_api")}
+            </Button>
+            <Button
               size="small"
-              name="isDisabled"
-              checked={isDisabled}
-              onChange={handleChange}
-            />
-          }
-          label={i18n("is_disabled")}
-        />
+              variant="outlined"
+              color="error"
+              onClick={handleDelete}
+            >
+              {i18n("delete")}
+            </Button>
 
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={sortOrder === -1}
-              onChange={(e) => {
-                setFormData((prev) => ({
-                  ...(prev?.apiSlug === apiSlug ? prev : api || {}),
-                  sortOrder: e.target.checked ? -1 : 0,
-                }));
-              }}
-              disabled={isDisabled}
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  name="isDisabled"
+                  checked={isDisabled}
+                  onChange={handleChange}
+                />
+              }
+              label={i18n("is_disabled")}
             />
-          }
-          label={i18n("is_pinned")}
-        />
-      </Paper>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={sortOrder === -1}
+                  onChange={(e) => {
+                    setFormData((prev) => ({
+                      ...(prev?.apiSlug === apiSlug ? prev : api || {}),
+                      sortOrder: e.target.checked ? -1 : 0,
+                    }));
+                  }}
+                  disabled={isDisabled}
+                />
+              }
+              label={i18n("is_pinned")}
+            />
+          </Paper>
+        </Stack>
+      )}
 
       {/* {apiType === OPT_TRANS_CUSTOMIZE && <pre>{i18n("custom_api_help")}</pre>} */}
     </Stack>
@@ -1483,27 +1554,17 @@ function ApiFields({
 function ApiListItem({
   api,
   selected,
-  bulkMode,
-  checked,
+  isDefault,
   dragging,
   dragOver,
   reorderEnabled,
   onSelect,
-  onCheck,
   onDragStart,
   onDragOver,
   onDrop,
   onDragEnd,
 }) {
   const i18n = useI18n();
-  const handleContentClick = (event) => {
-    if (bulkMode) {
-      onCheck(event, api.apiSlug);
-      return;
-    }
-
-    onSelect();
-  };
 
   return (
     <ListItem
@@ -1513,9 +1574,7 @@ function ApiListItem({
       onDrop={reorderEnabled ? onDrop : undefined}
       sx={(theme) => ({
         display: "grid",
-        gridTemplateColumns: bulkMode
-          ? `${API_LIST_CONTROL_SIZE}px minmax(0, 1fr)`
-          : "minmax(0, 1fr)",
+        gridTemplateColumns: "minmax(0, 1fr)",
         columnGap: API_LIST_CONTROL_GAP,
         alignItems: "center",
         minHeight: 44,
@@ -1526,26 +1585,10 @@ function ApiListItem({
           : "2px solid transparent",
       })}
     >
-      {bulkMode && (
-        <Checkbox
-          size="small"
-          checked={checked}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(event) => onCheck(event, api.apiSlug)}
-          inputProps={{
-            "aria-label": api.apiName || api.apiType,
-          }}
-          sx={{
-            ...apiListControlSx,
-            p: 0,
-            alignSelf: "center",
-          }}
-        />
-      )}
       <ListItemButton
         data-api-slug={api.apiSlug}
-        selected={bulkMode ? checked : selected}
-        onClick={handleContentClick}
+        selected={selected}
+        onClick={onSelect}
         sx={{
           gap: 1,
           minWidth: 0,
@@ -1599,6 +1642,7 @@ function ApiListItem({
             {api.apiName || api.apiType}
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
+            {isDefault && `${i18n("page_default", "Page default")} · `}
             {API_SPE_TYPES.ai.has(api.apiType)
               ? api.model || i18n("model_not_selected", "No model selected")
               : api.apiType}
@@ -1623,24 +1667,11 @@ export default function Apis() {
   const i18n = useI18n();
   const outletContext = useOutletContext();
   const { setting = {} } = useSetting();
-  const {
-    transApis,
-    addApi,
-    deleteApi,
-    deleteApis,
-    pinApis,
-    disableApis,
-    enableApis,
-    copyApi,
-    alphaSortApis,
-    reorderApis,
-  } = useApiList();
+  const { transApis, addApi, deleteApi, copyApi, reorderApis } = useApiList();
   const rules = useRules();
   const confirm = useConfirm();
   const alerts = useAlert();
 
-  const [alphaSortDir, setAlphaSortDir] = useState("asc");
-  const [detailKey, setDetailKey] = useState(0);
   const [selectedApiSlug, setSelectedApiSlug] = useState(() => {
     const query = window.location.hash.split("?")[1] || "";
     return new URLSearchParams(query).get("service") || "";
@@ -1648,8 +1679,7 @@ export default function Apis() {
   const [searchQuery, setSearchQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [bulkMode, setBulkMode] = useState(false);
-  const [checkedApiSlugs, setCheckedApiSlugs] = useState([]);
+  const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [draggingApiSlug, setDraggingApiSlug] = useState("");
   const [dragOverApiSlug, setDragOverApiSlug] = useState("");
   const detailPanelRef = useRef(null);
@@ -1668,24 +1698,6 @@ export default function Apis() {
     [rules.list]
   );
   const defaultApiSlug = globalRule?.apiSlug || "";
-  const enabledApis = useMemo(
-    () => transApis.filter((api) => !api.isDisabled),
-    [transApis]
-  );
-  const defaultApi = useMemo(
-    () => transApis.find((api) => api.apiSlug === defaultApiSlug),
-    [defaultApiSlug, transApis]
-  );
-  const defaultApiOptions = useMemo(
-    () =>
-      defaultApi?.isDisabled
-        ? [
-            defaultApi,
-            ...enabledApis.filter((api) => api.apiSlug !== defaultApi.apiSlug),
-          ]
-        : enabledApis,
-    [defaultApi, enabledApis]
-  );
   const referencedRulesByApi = useMemo(() => {
     const references = new Map();
     const addReference = (apiSlug, label) => {
@@ -1744,22 +1756,6 @@ export default function Apis() {
     });
   }, [allApiItems, searchQuery, serviceFilter]);
 
-  const apiSlugList = useMemo(
-    () => apiItems.map(({ api }) => api.apiSlug),
-    [apiItems]
-  );
-
-  const checkedApiSlugSet = useMemo(
-    () => new Set(checkedApiSlugs),
-    [checkedApiSlugs]
-  );
-
-  const checkedApiCount = checkedApiSlugs.length;
-  const hasCheckedApis = checkedApiCount > 0;
-  const allApisChecked =
-    apiItems.length > 0 &&
-    apiSlugList.every((apiSlug) => checkedApiSlugSet.has(apiSlug));
-
   useEffect(() => {
     if (allApiItems.length === 0) {
       setSelectedApiSlug("");
@@ -1780,19 +1776,6 @@ export default function Apis() {
     }
   }, [allApiItems, defaultApiSlug, selectedApiSlug]);
 
-  useEffect(() => {
-    setCheckedApiSlugs((prev) => {
-      if (prev.length === 0) {
-        return prev;
-      }
-
-      const apiSlugSet = new Set(apiSlugList);
-      const next = prev.filter((apiSlug) => apiSlugSet.has(apiSlug));
-
-      return next.length === prev.length ? prev : next;
-    });
-  }, [apiSlugList]);
-
   const selectedApiItem = useMemo(
     () => allApiItems.find(({ api }) => api.apiSlug === selectedApiSlug),
     [allApiItems, selectedApiSlug]
@@ -1801,6 +1784,17 @@ export default function Apis() {
   useLayoutEffect(() => {
     detailPanelRef.current?.scrollTo({ top: 0 });
   }, [selectedApiSlug]);
+
+  useEffect(() => {
+    if (
+      mobileEditorOpen &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 1199.95px)").matches
+    ) {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [mobileEditorOpen]);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -1879,6 +1873,7 @@ export default function Apis() {
   const handleSelectApi = useCallback(
     async (apiSlug) => {
       if (apiSlug === selectedApiSlug) {
+        setMobileEditorOpen(true);
         return;
       }
       if (!(await confirmDiscardChanges())) {
@@ -1887,6 +1882,7 @@ export default function Apis() {
 
       setHasUnsavedChanges(false);
       setSelectedApiSlug(apiSlug);
+      setMobileEditorOpen(true);
     },
     [confirmDiscardChanges, selectedApiSlug]
   );
@@ -1896,6 +1892,7 @@ export default function Apis() {
     setSelectedApiSlug(apiSlug);
     setServiceFilter("all");
     setSearchQuery("");
+    setMobileEditorOpen(true);
   }, []);
 
   const handleMenuItemClick = async (apiType) => {
@@ -1909,98 +1906,6 @@ export default function Apis() {
     }
     handleClose();
   };
-
-  const handleDefaultApiChange = async (event) => {
-    const apiSlug = event.target.value;
-    if (!(await confirmDiscardChanges())) {
-      return;
-    }
-
-    rules.put(GLOBAL_KEY, { apiSlug });
-    setHasUnsavedChanges(false);
-    setSelectedApiSlug(apiSlug);
-  };
-
-  const handleCheckApi = useCallback((event, apiSlug) => {
-    event.stopPropagation();
-    setCheckedApiSlugs((prev) =>
-      prev.includes(apiSlug)
-        ? prev.filter((item) => item !== apiSlug)
-        : [...prev, apiSlug]
-    );
-  }, []);
-
-  const handleToggleAllApis = useCallback(() => {
-    setCheckedApiSlugs((prev) => {
-      const previous = new Set(prev);
-      const everyVisibleChecked =
-        apiSlugList.length > 0 &&
-        apiSlugList.every((apiSlug) => previous.has(apiSlug));
-
-      if (everyVisibleChecked) {
-        return prev.filter((apiSlug) => !apiSlugList.includes(apiSlug));
-      }
-
-      return Array.from(new Set([...prev, ...apiSlugList]));
-    });
-  }, [apiSlugList]);
-
-  const handleToggleBulkMode = useCallback(() => {
-    setBulkMode((prev) => {
-      if (prev) {
-        setCheckedApiSlugs([]);
-      }
-
-      return !prev;
-    });
-  }, []);
-
-  const handlePinCheckedApis = useCallback(() => {
-    pinApis(checkedApiSlugs);
-    setDetailKey((key) => key + 1);
-  }, [checkedApiSlugs, pinApis]);
-
-  const handleEnableCheckedApis = useCallback(() => {
-    enableApis(checkedApiSlugs);
-    setDetailKey((key) => key + 1);
-  }, [checkedApiSlugs, enableApis]);
-
-  const handleDisableCheckedApis = useCallback(() => {
-    if (warnIfServicesReferenced(checkedApiSlugs)) {
-      return;
-    }
-
-    disableApis(checkedApiSlugs);
-    setDetailKey((key) => key + 1);
-  }, [checkedApiSlugs, disableApis, warnIfServicesReferenced]);
-
-  const handleDeleteCheckedApis = useCallback(async () => {
-    if (warnIfServicesReferenced(checkedApiSlugs)) {
-      return;
-    }
-
-    const isConfirmed = await confirm({
-      message: i18n(
-        "delete_selected_apis_confirm",
-        "Delete {count} selected interfaces?"
-      ).replace("{count}", checkedApiCount),
-      confirmText: i18n("delete"),
-      cancelText: i18n("cancel"),
-    });
-
-    if (isConfirmed) {
-      deleteApis(checkedApiSlugs);
-      setCheckedApiSlugs([]);
-      setDetailKey((key) => key + 1);
-    }
-  }, [
-    checkedApiCount,
-    checkedApiSlugs,
-    confirm,
-    deleteApis,
-    i18n,
-    warnIfServicesReferenced,
-  ]);
 
   const handleDragStart = useCallback((event, apiSlug) => {
     event.dataTransfer.effectAllowed = "move";
@@ -2039,93 +1944,28 @@ export default function Apis() {
     setDragOverApiSlug("");
   }, []);
 
+  const handleMobileBack = useCallback(async () => {
+    if (!(await confirmDiscardChanges())) {
+      return;
+    }
+
+    setHasUnsavedChanges(false);
+    setMobileEditorOpen(false);
+  }, [confirmDiscardChanges]);
+
   return (
     <Box>
-      <Stack spacing={3}>
-        <Paper variant="outlined" sx={editorSectionSx}>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            alignItems={{ xs: "stretch", md: "center" }}
-            justifyContent="space-between"
-            gap={2}
-          >
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                {i18n("default_translation_service", "Default page service")}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {i18n(
-                  "default_translation_service_helper",
-                  "Used for page translation unless a website rule explicitly chooses another service."
-                )}
-              </Typography>
-            </Box>
-            <TextField
-              select
-              size="small"
-              name="defaultApiSlug"
-              label={i18n(
-                "default_translation_service",
-                "Default page service"
-              )}
-              value={defaultApi ? defaultApiSlug : ""}
-              onChange={(event) => void handleDefaultApiChange(event)}
-              helperText={
-                defaultApiSlug && !defaultApi
-                  ? i18n(
-                      "default_service_missing",
-                      "The referenced service is missing. Choose a new default."
-                    )
-                  : defaultApi && API_SPE_TYPES.ai.has(defaultApi.apiType)
-                    ? `${i18n("model", "Model")}: ${
-                        defaultApi.model ||
-                        i18n("model_not_selected", "No model selected")
-                      }`
-                    : " "
-              }
-              sx={{ width: { xs: "100%", md: 360 }, flex: "0 0 auto" }}
-            >
-              <MenuItem value="" disabled>
-                {i18n("select_service", "Select a service")}
-              </MenuItem>
-              {defaultApiOptions.map((api) => (
-                <MenuItem
-                  key={api.apiSlug}
-                  value={api.apiSlug}
-                  disabled={api.isDisabled}
-                >
-                  {api.apiName || api.apiType}
-                  {API_SPE_TYPES.ai.has(api.apiType) && api.model
-                    ? ` · ${api.model}`
-                    : ""}
-                  {api.isDisabled ? ` (${i18n("disabled")})` : ""}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-        </Paper>
-
-        <Alert severity="info" variant="outlined">
-          {i18n(
-            "translation_profile_explanation",
-            "Each AI service combines one provider connection with one model. Duplicate a service to use another model from the same provider."
-          )}{" "}
-          <Link
-            href="https://github.com/fishjar/kiss-translator/blob/master/custom-api_v2.md"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {i18n("goto_custom_api_example")}
-          </Link>
-        </Alert>
-
-        <Paper variant="outlined" sx={{ ...editorSectionSx, p: 2 }}>
-          <Stack spacing={1.5}>
-            <Stack
-              direction={{ xs: "column", lg: "row" }}
-              alignItems={{ xs: "stretch", lg: "center" }}
-              spacing={1.5}
-            >
+      <Stack spacing={1.5}>
+        <Paper
+          variant="outlined"
+          sx={{
+            ...editorSectionSx,
+            p: 2,
+            display: { xs: mobileEditorOpen ? "none" : "block", lg: "block" },
+          }}
+        >
+          <Stack spacing={1}>
+            <Stack direction="row" alignItems="center" spacing={1}>
               <TextField
                 size="small"
                 value={searchQuery}
@@ -2147,15 +1987,36 @@ export default function Apis() {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ flex: 1, minWidth: { lg: 280 } }}
+                sx={{ flex: 1, minWidth: 0 }}
               />
+              <Button
+                size="small"
+                id="add-api-button"
+                variant="contained"
+                onClick={handleClick}
+                aria-controls={open ? "add-api-menu" : undefined}
+                aria-haspopup="true"
+                aria-expanded={open ? "true" : undefined}
+                endIcon={<KeyboardArrowDownIcon />}
+                startIcon={<AddIcon />}
+                sx={{ flex: "0 0 auto" }}
+              >
+                {i18n("add")}
+              </Button>
+            </Stack>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={1}
+            >
               <ToggleButtonGroup
                 size="small"
                 exclusive
                 value={serviceFilter}
                 onChange={(_event, value) => value && setServiceFilter(value)}
                 aria-label={i18n("filter_services", "Filter services")}
-                sx={{ alignSelf: { xs: "stretch", lg: "center" } }}
+                sx={{ flex: { xs: 1, sm: "0 0 auto" } }}
               >
                 <ToggleButton value="all" sx={{ flex: { xs: 1, lg: "none" } }}>
                   {i18n("all", "All")}
@@ -2170,99 +2031,15 @@ export default function Apis() {
                   {i18n("ai_services", "AI models")}
                 </ToggleButton>
               </ToggleButtonGroup>
-            </Stack>
-
-            <Divider />
-            <Stack
-              direction="row"
-              alignItems="center"
-              spacing={1}
-              useFlexGap
-              flexWrap="wrap"
-            >
-              <Button
-                size="small"
-                id="add-api-button"
-                variant="contained"
-                onClick={handleClick}
-                aria-controls={open ? "add-api-menu" : undefined}
-                aria-haspopup="true"
-                aria-expanded={open ? "true" : undefined}
-                endIcon={<KeyboardArrowDownIcon />}
-                startIcon={<AddIcon />}
+              <Link
+                href="https://github.com/fishjar/kiss-translator/blob/master/custom-api_v2.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="caption"
+                sx={{ display: { xs: "none", sm: "inline" } }}
               >
-                {i18n("add")}
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={hasUnsavedChanges}
-                onClick={() => {
-                  const newDir = alphaSortDir === "asc" ? "desc" : "asc";
-                  setAlphaSortDir(newDir);
-                  setDetailKey((k) => k + 1);
-                  alphaSortApis(newDir);
-                }}
-                startIcon={<SwapVertIcon />}
-              >
-                {i18n("sort_alphabetically")}
-              </Button>
-              <Button
-                size="small"
-                variant={bulkMode ? "contained" : "outlined"}
-                onClick={handleToggleBulkMode}
-              >
-                {i18n("bulk_actions")}
-              </Button>
-              {bulkMode && (
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={apiItems.length === 0}
-                    onClick={handleToggleAllApis}
-                  >
-                    {allApisChecked ? i18n("deselect_all") : i18n("select_all")}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={!hasCheckedApis || hasUnsavedChanges}
-                    onClick={handlePinCheckedApis}
-                    startIcon={<PushPinIcon />}
-                  >
-                    {i18n("pin_to_top")}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={!hasCheckedApis || hasUnsavedChanges}
-                    onClick={handleEnableCheckedApis}
-                    startIcon={<CheckCircleOutlineIcon />}
-                  >
-                    {i18n("enable")}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={!hasCheckedApis || hasUnsavedChanges}
-                    onClick={handleDisableCheckedApis}
-                    startIcon={<BlockIcon />}
-                  >
-                    {i18n("disable")}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    disabled={!hasCheckedApis || hasUnsavedChanges}
-                    onClick={handleDeleteCheckedApis}
-                    startIcon={<DeleteIcon />}
-                  >
-                    {i18n("delete")}
-                  </Button>
-                </Stack>
-              )}
+                {i18n("goto_custom_api_example")}
+              </Link>
             </Stack>
           </Stack>
           <Menu
@@ -2295,22 +2072,25 @@ export default function Apis() {
         <Box
           sx={{
             display: "flex",
-            flexDirection: { xs: "column", lg: "row" },
+            flexDirection: "row",
             border: 1,
             borderColor: "divider",
-            borderRadius: 3,
-            overflow: { xs: "visible", lg: "hidden" },
-            minHeight: { lg: 560 },
-            height: { lg: "calc(100vh - 360px)" },
+            borderRadius: 2,
+            overflow: "hidden",
+            minHeight: { xs: 480, lg: 560 },
+            height: { lg: "calc(100dvh - 250px)" },
             backgroundColor: "background.paper",
           }}
         >
           <Box
             sx={(theme) => ({
+              display: {
+                xs: mobileEditorOpen ? "none" : "block",
+                lg: "block",
+              },
               width: { xs: "100%", lg: 320 },
               flex: { xs: "0 0 auto", lg: "0 0 320px" },
-              height: { lg: "100%" },
-              maxHeight: { xs: 320, lg: "none" },
+              height: "100%",
               overflowY: "auto",
               borderRight: {
                 xs: 0,
@@ -2329,13 +2109,11 @@ export default function Apis() {
                   key={api.apiSlug}
                   api={api}
                   selected={api.apiSlug === selectedApiSlug}
-                  bulkMode={bulkMode}
-                  checked={checkedApiSlugSet.has(api.apiSlug)}
+                  isDefault={api.apiSlug === defaultApiSlug}
                   dragging={api.apiSlug === draggingApiSlug}
                   dragOver={api.apiSlug === dragOverApiSlug}
                   reorderEnabled={!hasUnsavedChanges}
                   onSelect={() => void handleSelectApi(api.apiSlug)}
-                  onCheck={handleCheckApi}
                   onDragStart={(event) => handleDragStart(event, api.apiSlug)}
                   onDragOver={(event) => handleDragOver(event, api.apiSlug)}
                   onDrop={(event) => handleDrop(event, api.apiSlug)}
@@ -2354,6 +2132,10 @@ export default function Apis() {
           <Box
             ref={detailPanelRef}
             sx={{
+              display: {
+                xs: mobileEditorOpen ? "block" : "none",
+                lg: "block",
+              },
               flex: 1,
               minWidth: 0,
               p: 2,
@@ -2370,7 +2152,7 @@ export default function Apis() {
           >
             {selectedApiItem && (
               <ApiFields
-                key={detailKey}
+                key={selectedApiItem.api.apiSlug}
                 apiSlug={selectedApiItem.api.apiSlug}
                 deleteApi={handleDeleteApi}
                 copyApi={copyApi}
@@ -2380,6 +2162,13 @@ export default function Apis() {
                   selectedApiItem.api.apiSlug
                 )}
                 onReferencedMutation={warnIfServicesReferenced}
+                onBack={() => void handleMobileBack()}
+                isDefault={selectedApiItem.api.apiSlug === defaultApiSlug}
+                onSetDefault={() =>
+                  rules.put(GLOBAL_KEY, {
+                    apiSlug: selectedApiItem.api.apiSlug,
+                  })
+                }
               />
             )}
           </Box>

@@ -7,39 +7,50 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import { alpha } from "@mui/material/styles";
+
+function FlowValue({ label, value, color }) {
+  return (
+    <Box sx={{ minWidth: 0, flex: 1 }}>
+      <Typography
+        variant="caption"
+        sx={{ color: "text.secondary", fontSize: "0.64rem" }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{ color, fontWeight: 700, overflowWrap: "anywhere", mt: 0.15 }}
+      >
+        {value || "—"}
+      </Typography>
+    </Box>
+  );
+}
 
 function ReadingContext({ source, target, engine }) {
   return (
-    <Box
+    <Paper
       aria-label="Default translation context"
+      variant="outlined"
       sx={(theme) => ({
-        minWidth: { sm: 260 },
-        maxWidth: { xs: "100%", sm: 320 },
-        borderLeft: `3px solid ${theme.palette.primary.main}`,
-        pl: 1.75,
-        py: 0.35,
+        mt: 1.75,
+        px: { xs: 1.5, sm: 2 },
+        py: 1.15,
+        display: "flex",
+        alignItems: "center",
+        gap: { xs: 1, sm: 1.5 },
+        borderColor: alpha(theme.palette.primary.main, 0.28),
+        backgroundColor: alpha(theme.palette.primary.main, 0.045),
       })}
     >
-      <Stack direction="row" alignItems="baseline" spacing={1}>
-        <Typography variant="overline" color="secondary.main">
-          {source}
-        </Typography>
-        <Typography aria-hidden="true" color="text.disabled">
-          →
-        </Typography>
-        <Typography variant="overline" color="primary.main">
-          {target}
-        </Typography>
-      </Stack>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: "block", mt: 0.1, overflowWrap: "anywhere" }}
-      >
-        {engine || "—"}
-      </Typography>
-    </Box>
+      <FlowValue label="SOURCE" value={source} color="secondary.main" />
+      <ArrowForwardRoundedIcon sx={{ color: "text.disabled", fontSize: 18 }} />
+      <FlowValue label="ENGINE" value={engine} color="text.primary" />
+      <ArrowForwardRoundedIcon sx={{ color: "text.disabled", fontSize: 18 }} />
+      <FlowValue label="OUTPUT" value={target} color="primary.main" />
+    </Paper>
   );
 }
 
@@ -51,80 +62,48 @@ export function SettingsPageHeader({
   readingContext,
 }) {
   return (
-    <Stack
-      component="header"
-      direction={{ xs: "column", sm: "row" }}
-      alignItems={{ xs: "flex-start", sm: "flex-end" }}
-      justifyContent="space-between"
-      spacing={2}
-      sx={{ mb: { xs: 2.5, md: 4 } }}
-    >
-      <Box sx={{ minWidth: 0, maxWidth: 820 }}>
-        {eyebrow && (
+    <Box component="header" sx={{ mb: { xs: 2, md: 2.5 } }}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        justifyContent="space-between"
+        spacing={1.5}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          {eyebrow && (
+            <Typography variant="overline" color="primary.main">
+              {eyebrow}
+            </Typography>
+          )}
           <Typography
-            variant="overline"
-            color="primary.main"
-            sx={{ fontWeight: 650 }}
+            component="h1"
+            variant="h4"
+            sx={{ fontSize: { xs: "1.65rem", sm: "1.95rem" }, mt: -0.15 }}
           >
-            {eyebrow}
+            {title}
           </Typography>
-        )}
-        <Typography
-          component="h1"
-          variant="h3"
-          sx={{
-            fontSize: { xs: "2.05rem", sm: "2.65rem" },
-            overflowWrap: "anywhere",
-          }}
-        >
-          {title}
-        </Typography>
-        {description && (
-          <Typography
-            variant="body1"
-            color="text.secondary"
-            sx={{ mt: 0.75, lineHeight: 1.65, maxWidth: 680 }}
-          >
-            {description}
-          </Typography>
-        )}
-      </Box>
-      {(readingContext || actions) && (
-        <Stack
-          spacing={1.5}
-          sx={{ flexShrink: 0, width: { xs: "100%", sm: "auto" } }}
-        >
-          {readingContext && <ReadingContext {...readingContext} />}
-          {actions && <Box>{actions}</Box>}
-        </Stack>
-      )}
-    </Stack>
+          {description && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 0.35, maxWidth: 720, lineHeight: 1.5 }}
+            >
+              {description}
+            </Typography>
+          )}
+        </Box>
+        {actions && <Box sx={{ flexShrink: 0 }}>{actions}</Box>}
+      </Stack>
+      {readingContext && <ReadingContext {...readingContext} />}
+    </Box>
   );
 }
 
 const sectionSx = (theme) => ({
-  borderColor: alpha(
-    theme.palette.divider,
-    theme.palette.mode === "dark" ? 0.8 : 1
-  ),
+  borderColor: alpha(theme.palette.divider, 0.95),
   borderRadius: 1.5,
-  backgroundImage: "none",
-  backgroundColor:
-    theme.palette.mode === "dark"
-      ? alpha(theme.palette.background.paper, 0.78)
-      : theme.palette.background.paper,
+  backgroundColor: theme.palette.background.paper,
   boxShadow: "none",
-  position: "relative",
-  "&::before": {
-    content: '""',
-    position: "absolute",
-    left: -1,
-    top: 22,
-    width: 3,
-    height: 34,
-    borderRadius: 3,
-    backgroundColor: theme.palette.primary.main,
-  },
 });
 
 function SectionHeading({ title, description, action }) {
@@ -133,17 +112,17 @@ function SectionHeading({ title, description, action }) {
       direction={{ xs: "column", sm: "row" }}
       alignItems={{ xs: "flex-start", sm: "center" }}
       justifyContent="space-between"
-      spacing={1.5}
+      spacing={1.25}
     >
       <Box sx={{ minWidth: 0 }}>
-        <Typography component="h2" variant="h5" sx={{ fontWeight: 570 }}>
+        <Typography component="h2" variant="h6">
           {title}
         </Typography>
         {description && (
           <Typography
             variant="body2"
             color="text.secondary"
-            sx={{ mt: 0.4, lineHeight: 1.6 }}
+            sx={{ mt: 0.25, lineHeight: 1.5 }}
           >
             {description}
           </Typography>
@@ -161,12 +140,12 @@ export function SettingsSection({ title, description, action, children, sx }) {
       variant="outlined"
       sx={(theme) => ({
         ...sectionSx(theme),
-        p: { xs: 2, sm: 2.5, md: 3 },
+        p: { xs: 1.75, sm: 2.25 },
         ...(typeof sx === "function" ? sx(theme) : sx),
       })}
     >
       <SectionHeading title={title} description={description} action={action} />
-      <Box sx={{ mt: 2.5 }}>{children}</Box>
+      <Box sx={{ mt: 2 }}>{children}</Box>
     </Paper>
   );
 }
@@ -192,15 +171,15 @@ export function SettingsAccordionSection({
       <AccordionSummary
         expandIcon={<ExpandMoreIcon />}
         sx={{
-          px: { xs: 2, sm: 2.5, md: 3 },
-          py: 0.75,
-          minHeight: 72,
-          "& .MuiAccordionSummary-content": { my: 1.25 },
+          px: { xs: 1.75, sm: 2.25 },
+          py: 0.35,
+          minHeight: 64,
+          "& .MuiAccordionSummary-content": { my: 1 },
         }}
       >
         <SectionHeading title={title} description={description} />
       </AccordionSummary>
-      <AccordionDetails sx={{ px: { xs: 2, sm: 2.5, md: 3 }, pb: 3 }}>
+      <AccordionDetails sx={{ px: { xs: 1.75, sm: 2.25 }, pb: 2.25 }}>
         {children}
       </AccordionDetails>
     </Accordion>
@@ -213,7 +192,7 @@ export function SettingsGrid({ children, minColumnWidth = 230, sx }) {
       sx={{
         display: "grid",
         gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${minColumnWidth}px), 1fr))`,
-        gap: 2,
+        gap: 1.5,
         alignItems: "start",
         ...sx,
       }}
@@ -229,7 +208,7 @@ export function SettingsToggle({ label, description, control, sx }) {
       labelPlacement="start"
       control={control}
       label={
-        <Box sx={{ pr: 2 }}>
+        <Box sx={{ pr: 1.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 650 }}>
             {label}
           </Typography>
@@ -238,7 +217,7 @@ export function SettingsToggle({ label, description, control, sx }) {
               component="span"
               variant="caption"
               color="text.secondary"
-              sx={{ display: "block", mt: 0.35, lineHeight: 1.45 }}
+              sx={{ display: "block", mt: 0.2, lineHeight: 1.4 }}
             >
               {description}
             </Typography>
@@ -248,12 +227,13 @@ export function SettingsToggle({ label, description, control, sx }) {
       sx={(theme) => ({
         m: 0,
         px: 1.5,
-        py: 0.75,
-        minHeight: 56,
+        py: 0.65,
+        minHeight: 58,
         width: "100%",
         justifyContent: "space-between",
         border: `1px solid ${theme.palette.divider}`,
-        borderRadius: 1,
+        borderRadius: 1.25,
+        backgroundColor: theme.translationTokens?.surfaceRaised,
         ...(typeof sx === "function" ? sx(theme) : sx),
       })}
     />

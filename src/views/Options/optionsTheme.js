@@ -1,53 +1,52 @@
 const LIGHT_TOKENS = {
-  ink: "#17211D",
-  paper: "#EEF3F1",
-  sheet: "#F9FBFA",
-  muted: "#5D6B65",
-  source: "#425B6B",
-  translation: "#08775C",
-  proof: "#D7694E",
-  rule: "#BECBC5",
+  canvas: "#F3F5F9",
+  rail: "#E9EDF4",
+  surface: "#FFFFFF",
+  surfaceRaised: "#F7F9FC",
+  ink: "#141824",
+  muted: "#667085",
+  source: "#9A642B",
+  translation: "#536FD7",
+  success: "#14845F",
+  danger: "#D54862",
+  rule: "#D6DBE6",
 };
 
 const DARK_TOKENS = {
-  ink: "#ECF3EF",
-  paper: "#101713",
-  sheet: "#18231E",
-  muted: "#9EADA6",
-  source: "#A9BBB3",
-  translation: "#55CDAA",
-  proof: "#F08B72",
-  rule: "#34483F",
+  canvas: "#0B0D12",
+  rail: "#0F131B",
+  surface: "#151A24",
+  surfaceRaised: "#1B2230",
+  ink: "#F2F4F8",
+  muted: "#98A2B3",
+  source: "#D6A96F",
+  translation: "#7C9CFF",
+  success: "#5DD6A3",
+  danger: "#FF7A90",
+  rule: "#293142",
 };
 
-const DISPLAY_FONT =
-  "Newsreader, Iowan Old Style, Palatino Linotype, Noto Serif SC, serif";
 const BODY_FONT =
-  "Noto Sans SC, Microsoft YaHei UI, Aptos, Segoe UI, sans-serif";
-const UTILITY_FONT = "IBM Plex Mono, Cascadia Mono, Consolas, monospace";
+  '"Segoe UI Variable", Aptos, "Noto Sans SC", "Microsoft YaHei UI", sans-serif';
+const UTILITY_FONT = '"JetBrains Mono", "Cascadia Mono", Consolas, monospace';
 
 export const OPTIONS_THEME_OPTIONS = ({ mode }) => {
   const token = mode === "dark" ? DARK_TOKENS : LIGHT_TOKENS;
 
   return {
     translationTokens: token,
-    shape: {
-      borderRadius: 10,
-    },
+    shape: { borderRadius: 12 },
     palette: {
       primary: {
         main: token.translation,
-        contrastText: mode === "dark" ? "#102019" : "#FFFFFF",
+        contrastText: mode === "dark" ? "#0B0D12" : "#FFFFFF",
       },
-      secondary: {
-        main: token.source,
-      },
-      error: {
-        main: token.proof,
-      },
+      secondary: { main: token.source },
+      success: { main: token.success },
+      error: { main: token.danger },
       background: {
-        default: token.paper,
-        paper: token.sheet,
+        default: token.canvas,
+        paper: token.surface,
       },
       text: {
         primary: token.ink,
@@ -57,48 +56,38 @@ export const OPTIONS_THEME_OPTIONS = ({ mode }) => {
     },
     typography: {
       fontFamily: BODY_FONT,
-      h1: {
-        fontFamily: DISPLAY_FONT,
-        fontWeight: 570,
-        letterSpacing: "-0.035em",
-      },
-      h2: {
-        fontFamily: DISPLAY_FONT,
-        fontWeight: 570,
-        letterSpacing: "-0.028em",
-      },
-      h3: {
-        fontFamily: DISPLAY_FONT,
-        fontWeight: 570,
-        letterSpacing: "-0.02em",
-      },
-      h4: {
-        fontFamily: DISPLAY_FONT,
-        fontWeight: 570,
-        letterSpacing: "-0.015em",
-      },
+      h1: { fontWeight: 720, letterSpacing: "-0.035em" },
+      h2: { fontWeight: 700, letterSpacing: "-0.03em" },
+      h3: { fontWeight: 700, letterSpacing: "-0.025em" },
+      h4: { fontWeight: 680, letterSpacing: "-0.02em" },
+      h5: { fontWeight: 670, letterSpacing: "-0.015em" },
+      h6: { fontWeight: 660, letterSpacing: "-0.01em" },
       button: {
         fontWeight: 680,
-        letterSpacing: "-0.01em",
+        letterSpacing: "-0.005em",
         textTransform: "none",
       },
       overline: {
         fontFamily: UTILITY_FONT,
-        fontWeight: 650,
-        letterSpacing: "0.085em",
+        fontWeight: 700,
+        letterSpacing: "0.08em",
       },
-      caption: { fontFamily: UTILITY_FONT, letterSpacing: "0.015em" },
+      caption: { fontFamily: UTILITY_FONT, letterSpacing: "0.01em" },
     },
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          html: { backgroundColor: token.canvas },
           body: {
-            backgroundColor: token.paper,
-            backgroundImage: `radial-gradient(circle at 1px 1px, ${token.rule}55 1px, transparent 0)`,
-            backgroundSize: "22px 22px",
+            backgroundColor: token.canvas,
+            backgroundImage:
+              mode === "dark"
+                ? `radial-gradient(circle at 72% -20%, ${token.translation}18, transparent 38%)`
+                : "none",
           },
+          "*": { scrollbarColor: `${token.rule} transparent` },
           "*:focus-visible": {
-            outline: `3px solid ${token.proof}66`,
+            outline: `3px solid ${token.translation}66`,
             outlineOffset: 2,
           },
           "@media (prefers-reduced-motion: reduce)": {
@@ -110,59 +99,35 @@ export const OPTIONS_THEME_OPTIONS = ({ mode }) => {
           },
         },
       },
-      MuiPaper: {
-        styleOverrides: {
-          root: {
-            backgroundImage: "none",
-          },
-        },
-      },
+      MuiPaper: { styleOverrides: { root: { backgroundImage: "none" } } },
       MuiButton: {
-        defaultProps: {
-          disableElevation: true,
-        },
+        defaultProps: { disableElevation: true },
         styleOverrides: {
-          root: {
-            minHeight: 42,
-            borderRadius: 8,
-            paddingInline: 16,
-          },
+          root: { minHeight: 42, borderRadius: 10, paddingInline: 16 },
         },
       },
       MuiIconButton: {
         styleOverrides: {
-          root: {
-            borderRadius: 8,
-          },
+          root: { borderRadius: 10, minWidth: 42, minHeight: 42 },
         },
       },
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            borderRadius: 8,
-            backgroundColor: `${token.sheet}E8`,
+            borderRadius: 10,
+            backgroundColor: token.surfaceRaised,
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: token.muted,
+            },
           },
         },
       },
-      MuiAlert: {
-        styleOverrides: {
-          root: {
-            borderRadius: 8,
-          },
-        },
-      },
+      MuiAlert: { styleOverrides: { root: { borderRadius: 10 } } },
       MuiAccordion: {
-        styleOverrides: {
-          root: {
-            backgroundImage: "none",
-          },
-        },
+        styleOverrides: { root: { backgroundImage: "none" } },
       },
-      MuiTooltip: {
-        defaultProps: {
-          arrow: true,
-        },
-      },
+      MuiTooltip: { defaultProps: { arrow: true } },
+      MuiChip: { styleOverrides: { root: { borderRadius: 8 } } },
     },
   };
 };

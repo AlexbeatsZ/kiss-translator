@@ -12,10 +12,11 @@ export function getSettingsNavigation(i18n) {
       items: [
         {
           id: "page_translation",
-          title: i18n("page_translation", "Page translation"),
+          title: i18n("page_setup", "Page setup"),
+          mobileTitle: i18n("page", "Page"),
           description: i18n(
             "page_translation_description",
-            "Choose the default languages, presentation, and page behaviour."
+            "Choose the default flow and what appears on translated pages."
           ),
           url: "/",
           icon: TranslateIcon,
@@ -23,6 +24,7 @@ export function getSettingsNavigation(i18n) {
         {
           id: "website_rules",
           title: i18n("website_translation_rules", "Website rules"),
+          mobileTitle: i18n("rules", "Rules"),
           description: i18n(
             "website_translation_rules_description",
             "Decide which websites and page regions are translated."
@@ -33,6 +35,7 @@ export function getSettingsNavigation(i18n) {
         {
           id: "subtitle_translate",
           title: i18n("subtitle_translate", "Subtitles"),
+          mobileTitle: i18n("subtitles", "Subtitles"),
           description: i18n(
             "subtitle_translate_description",
             "Translate and present synchronized bilingual video captions."
@@ -42,10 +45,11 @@ export function getSettingsNavigation(i18n) {
         },
         {
           id: "translation_engines",
-          title: i18n("translation_engines", "Translation engines"),
+          title: i18n("translation_engines", "Engines"),
+          mobileTitle: i18n("engines", "Engines"),
           description: i18n(
             "translation_engines_description",
-            "Connect providers, local CLIs, and the model used for translation."
+            "Connect, test, and choose the model used for translation."
           ),
           url: "/apis",
           icon: HubIcon,

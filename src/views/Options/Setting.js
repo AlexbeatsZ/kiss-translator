@@ -7,10 +7,11 @@ import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import EditIcon from "@mui/icons-material/Edit";
 import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
-import { alpha } from "@mui/material/styles";
 import { useSetting } from "../../hooks/Setting";
 import { useRules } from "../../hooks/Rules";
 import { useI18n } from "../../hooks/I18n";
@@ -181,71 +182,24 @@ export default function Settings() {
   return (
     <Stack spacing={3}>
       <SettingsSection
-        title={i18n("default_translation_pass", "Default translation pass")}
+        title={i18n("default_page_flow", "Default page flow")}
         description={i18n(
           "default_translation_pass_description",
-          "The languages, engine, and reading layout used when a website has no override."
+          "Set the path used on every website without its own rule."
         )}
-      >
-        <Stack spacing={2.5}>
-          <Box
-            sx={(theme) => ({
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr auto 1fr" },
-              alignItems: "stretch",
-              gap: { xs: 1, md: 0 },
-              overflow: "hidden",
-              border: `1px solid ${theme.palette.divider}`,
-              borderRadius: 1,
-              backgroundColor: alpha(theme.palette.background.default, 0.45),
-            })}
+        action={
+          <Button
+            component={Link}
+            href="#/apis"
+            variant="text"
+            size="small"
+            startIcon={<HubOutlinedIcon />}
           >
-            <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-              <Typography variant="overline" color="secondary.main">
-                {i18n("source_text", "Source")}
-              </Typography>
-              <Typography variant="h5" sx={{ mt: 0.8 }}>
-                The page keeps its voice.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.8 }}
-              >
-                {i18n(
-                  "source_preview",
-                  "Original paragraphs stay beside their translation."
-                )}
-              </Typography>
-            </Box>
-            <Box
-              aria-hidden="true"
-              sx={(theme) => ({
-                width: { xs: "100%", md: 1 },
-                height: { xs: 1, md: "100%" },
-                backgroundColor: theme.palette.divider,
-              })}
-            />
-            <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-              <Typography variant="overline" color="primary.main">
-                {i18n("translation", "Translation")}
-              </Typography>
-              <Typography variant="h5" sx={{ mt: 0.8, color: "primary.main" }}>
-                页面保留原来的语气。
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.8 }}
-              >
-                {i18n(
-                  "translation_preview",
-                  "A clean bilingual reading pass, without study tools."
-                )}
-              </Typography>
-            </Box>
-          </Box>
-
+            {i18n("manage_translation_engines", "Manage engines")}
+          </Button>
+        }
+      >
+        <Stack spacing={2}>
           <SettingsGrid minColumnWidth={250}>
             <TextField
               select
@@ -301,68 +255,87 @@ export default function Settings() {
               ))}
             </TextField>
           </SettingsGrid>
-
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={1.5}
-            alignItems={{ sm: "center" }}
-          >
-            <Button
-              component={Link}
-              href="#/apis"
-              variant="outlined"
-              startIcon={<HubOutlinedIcon />}
-            >
-              {i18n("manage_translation_engines", "Manage translation engines")}
-            </Button>
-            <Typography variant="caption" color="text.secondary">
-              {i18n("saved_automatically", "Changes are saved automatically.")}
-            </Typography>
-          </Stack>
+          <SettingsGrid minColumnWidth={260}>
+            <SettingsToggle
+              label={i18n("auto_translate_pages", "Translate automatically")}
+              description={i18n(
+                "auto_translate_pages_description",
+                "Begin when a matching page is ready."
+              )}
+              control={
+                <Switch
+                  checked={globalRule.transOpen === "true"}
+                  onChange={updateRuleToggle("transOpen")}
+                />
+              }
+            />
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                {i18n("reading_mode", "Reading mode")}
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                fullWidth
+                size="small"
+                value={
+                  globalRule.transOnly === "true" ? "translation" : "bilingual"
+                }
+                onChange={(_event, value) => {
+                  if (value) {
+                    rules.put(GLOBAL_KEY, {
+                      transOnly: String(value === "translation"),
+                    });
+                  }
+                }}
+                sx={{ mt: 0.55 }}
+              >
+                <ToggleButton value="bilingual">
+                  {i18n("bilingual", "Bilingual")}
+                </ToggleButton>
+                <ToggleButton value="translation">
+                  {i18n("translation_only", "Translation only")}
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            {globalRule.transOnly !== "true" && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {i18n("trans_order", "Reading order")}
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  fullWidth
+                  size="small"
+                  value={globalRule.transOrder}
+                  onChange={(_event, value) =>
+                    value && rules.put(GLOBAL_KEY, { transOrder: value })
+                  }
+                  sx={{ mt: 0.55 }}
+                >
+                  <ToggleButton value="original-first">
+                    {i18n("original_first")}
+                  </ToggleButton>
+                  <ToggleButton value="translation-first">
+                    {i18n("translation_first")}
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            )}
+          </SettingsGrid>
+          <Typography variant="caption" color="text.secondary">
+            {i18n("saved_automatically", "Saved automatically")}
+          </Typography>
         </Stack>
       </SettingsSection>
 
       <SettingsSection
-        title={i18n("reading_layout", "Reading layout")}
+        title={i18n("page_controls", "Page controls")}
         description={i18n(
           "reading_layout_description",
-          "Choose what the translated page shows and how it starts."
+          "Adjust the controls and styling shown on translated pages."
         )}
       >
         <SettingsGrid>
-          <SettingsToggle
-            label={i18n(
-              "auto_translate_pages",
-              "Translate pages automatically"
-            )}
-            description={i18n(
-              "auto_translate_pages_description",
-              "Start translation as soon as a matching page is ready."
-            )}
-            control={
-              <Switch
-                checked={globalRule.transOpen === "true"}
-                onChange={updateRuleToggle("transOpen")}
-              />
-            }
-          />
-          <SettingsToggle
-            label={i18n("bilingual_reading", "Bilingual reading")}
-            description={i18n(
-              "bilingual_reading_description",
-              "Keep the source text visible with its translation."
-            )}
-            control={
-              <Switch
-                checked={globalRule.transOnly !== "true"}
-                onChange={(event) =>
-                  rules.put(GLOBAL_KEY, {
-                    transOnly: String(!event.target.checked),
-                  })
-                }
-              />
-            }
-          />
           <SettingsToggle
             label={i18n("translate_page_title")}
             description={i18n(
@@ -376,21 +349,6 @@ export default function Settings() {
               />
             }
           />
-          <TextField
-            select
-            fullWidth
-            size="small"
-            name="transOrder"
-            value={globalRule.transOrder}
-            label={i18n("trans_order")}
-            onChange={updateGlobalRule}
-            disabled={globalRule.transOnly === "true"}
-          >
-            <MenuItem value="original-first">{i18n("original_first")}</MenuItem>
-            <MenuItem value="translation-first">
-              {i18n("translation_first")}
-            </MenuItem>
-          </TextField>
           <TextField
             select
             fullWidth
@@ -695,7 +653,7 @@ export default function Settings() {
         </Stack>
       </SettingsAccordionSection>
 
-      <SettingsSection
+      <SettingsAccordionSection
         title={i18n("settings_backup_section", "Local settings backup")}
         description={i18n(
           "settings_backup_section_description",
@@ -710,7 +668,7 @@ export default function Settings() {
             fileName={`kiss-setting_v2_${Date.now()}.json`}
           />
         </Stack>
-      </SettingsSection>
+      </SettingsAccordionSection>
     </Stack>
   );
 }

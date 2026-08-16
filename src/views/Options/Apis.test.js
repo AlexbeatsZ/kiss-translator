@@ -232,6 +232,15 @@ function getSaveButton(container) {
   );
 }
 
+async function openAdvanced(container) {
+  const button = Array.from(container.querySelectorAll("button")).find(
+    (item) => item.textContent === "Advanced"
+  );
+  await act(async () => {
+    Simulate.click(button);
+  });
+}
+
 describe("Apis model list", () => {
   beforeEach(() => {
     mockConfirm.mockResolvedValue(true);
@@ -346,6 +355,7 @@ describe("Apis model list", () => {
       createApi({ model: "custom-before-reset" }),
       update
     );
+    await openAdvanced(view.container);
     const restoreButton = Array.from(
       view.container.querySelectorAll("button")
     ).find((button) => button.textContent === "restore_default");
@@ -355,6 +365,12 @@ describe("Apis model list", () => {
     });
 
     expect(update).not.toHaveBeenCalled();
+    const connectionButton = Array.from(
+      view.container.querySelectorAll("button")
+    ).find((button) => button.textContent === "Connection");
+    await act(async () => {
+      Simulate.click(connectionButton);
+    });
     expect(getInput(view.container, "model").value).toBe("gpt-4");
 
     await act(async () => {
@@ -475,13 +491,18 @@ describe("Apis model list", () => {
       model: "gpt-4.1",
     });
     const view = await renderApis([firstApi, secondApi]);
-    const defaultServiceInput = getInput(view.container, "defaultApiSlug");
-
     await act(async () => {
-      Simulate.change(defaultServiceInput, {
-        target: { name: "defaultApiSlug", value: secondApi.apiSlug },
-      });
+      Simulate.click(
+        view.container.querySelector(`[data-api-slug="${secondApi.apiSlug}"]`)
+      );
       await Promise.resolve();
+    });
+
+    const useForPagesButton = Array.from(
+      view.container.querySelectorAll("button")
+    ).find((button) => button.textContent === "Use for pages");
+    await act(async () => {
+      Simulate.click(useForPagesButton);
     });
 
     expect(view.putRule).toHaveBeenCalledWith("*", {
@@ -551,6 +572,7 @@ describe("Apis model list", () => {
 
   test("blocks deleting a service that is referenced by website rules", async () => {
     const view = await renderApis();
+    await openAdvanced(view.container);
     const deleteButton = Array.from(
       view.container.querySelectorAll("button")
     ).find((button) => button.textContent === "delete");
@@ -578,6 +600,7 @@ describe("Apis model list", () => {
       },
     };
     const view = await renderApis(createApi(), jest.fn(), { rulesList: [] });
+    await openAdvanced(view.container);
     const deleteButton = Array.from(
       view.container.querySelectorAll("button")
     ).find((button) => button.textContent === "delete");

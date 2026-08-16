@@ -62,6 +62,7 @@ Removing only navigation is not sufficient acceptance.
 
 - The shell always shows the current page language direction and active translation engine.
 - Frequent controls precede advanced controls.
+- Mobile uses a fixed four-destination bottom bar; the engine list and editor are separate narrow-screen views with an explicit Back action.
 - Saving, discarding, route changes, browser Back/Forward, profile switching, and rule switching cannot silently discard a draft.
 - Model discovery reports working, empty, offline, authentication, and malformed-response states explicitly.
 - A local CLI engine explains that the bridge must be running and provides a direct connection test.
@@ -80,6 +81,6 @@ Removing only navigation is not sufficient acceptance.
 
 - Chrome and web production builds completed successfully.
 - All 32 Jest suites (218 tests) and all 5 local-bridge unit tests passed.
-- The actual Options UI was inspected on desktop and at 390x844. The page itself had no horizontal overflow; the destination strip scrolls independently on mobile.
+- The actual Options UI was inspected on desktop and at 390x844. Page setup, editable website defaults, subtitle essentials and advanced disclosure, and both engine list/editor views had no horizontal overflow. Mobile uses a fixed four-item bottom bar rather than a scrolling destination strip.
 - The LocalCodex form exposed the expected loopback URL, bearer token, model endpoint, and `gpt-5.6-sol` model. A real Codex completion returned the requested marker.
 - LocalAgy executable detection and live model discovery succeeded. A completion reached the CLI but the current Agy account/network was rejected upstream because its location is unsupported; this is reported as a provider error rather than bridge availability.
