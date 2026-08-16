@@ -12,7 +12,7 @@ export default function Loading() {
       <Divider>
         <Link
           href={process.env.REACT_APP_HOMEPAGE}
-        >{`KISS Translator v${process.env.REACT_APP_VERSION}`}</Link>
+        >{`翻译 v${process.env.REACT_APP_VERSION}`}</Link>
       </Divider>
       <CircularProgress />
     </center>

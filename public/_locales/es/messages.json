@@ -1,9 +1,9 @@
 {
   "app_name": {
-    "message": "KISS Traductor"
+    "message": "翻译"
   },
   "app_description": {
-    "message": "Una extensión de traducción bilingüe minimalista que admite la traducción de páginas web, selección de texto y subtítulos de video."
+    "message": "网页翻译与字幕翻译扩展"
   },
   "translate_selection": {
     "message": "Traducir \"%s\""

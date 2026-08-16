@@ -11,11 +11,11 @@ const mockRouter = { dispose: jest.fn() };
 jest.mock("react-router-dom", () => ({
   createHashRouter: jest.fn(() => mockRouter),
   RouterProvider: () => <div data-testid="focused-router" />,
+  Navigate: () => null,
 }));
 
 jest.mock("./Layout", () => () => <div />);
 jest.mock("./Setting", () => () => <div />);
-jest.mock("./Rules", () => () => <div />);
 jest.mock("./Subtitle", () => () => <div />);
 jest.mock("./Apis", () => () => <div />);
 jest.mock("../../hooks/Setting", () => ({
@@ -84,16 +84,17 @@ describe("focused options startup", () => {
     await act(async () => root.unmount());
   });
 
-  test("exposes only page translation, site rules, subtitles, and services", async () => {
+  test("exposes translation options, page translation, and subtitles", async () => {
     const { root } = await renderOptions();
     await act(async () => Promise.resolve());
 
     const routes = createHashRouter.mock.calls[0][0][0].children;
     expect(routes.map((route) => route.path || "index")).toEqual([
       "index",
-      "rules",
-      "subtitle",
       "apis",
+      "page",
+      "subtitle",
+      "rules",
     ]);
     await act(async () => root.unmount());
   });

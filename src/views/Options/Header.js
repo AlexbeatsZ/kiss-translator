@@ -56,7 +56,7 @@ function Header() {
               variant="subtitle1"
               sx={{ fontWeight: 720, lineHeight: 1, letterSpacing: "-0.02em" }}
             >
-              {i18n("app_name", "KISS Translator")}
+              {i18n("app_name", "翻译")}
             </Typography>
           </Stack>
         </Link>

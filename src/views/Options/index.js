@@ -1,5 +1,4 @@
-import { createHashRouter, RouterProvider } from "react-router-dom";
-import Rules from "./Rules";
+import { createHashRouter, Navigate, RouterProvider } from "react-router-dom";
 import Setting from "./Setting";
 import Layout from "./Layout";
 import { SettingProvider } from "../../hooks/Setting";
@@ -29,10 +28,11 @@ function OptionsRouter() {
           path: "/",
           element: <Layout />,
           children: [
-            { index: true, element: <Setting /> },
-            { path: "rules", element: <Rules /> },
-            { path: "subtitle", element: <SubtitleSetting /> },
+            { index: true, element: <Navigate to="/apis" replace /> },
             { path: "apis", element: <Apis /> },
+            { path: "page", element: <Setting /> },
+            { path: "subtitle", element: <SubtitleSetting /> },
+            { path: "rules", element: <Navigate to="/page" replace /> },
           ],
         },
       ]),
@@ -95,7 +95,7 @@ export default function Options() {
           // 循环轮询 8 次 (共 8 秒) 后判定为连接油猴后台超时
           if (++i > 8) {
             setError(
-              "Time out. Please confirm whether to install or enable KISS Translator GreaseMonkey script? 连接超时，请检查是否安装或启用简约翻译油猴脚本。"
+              "连接超时，请检查是否安装或启用翻译油猴脚本。Time out. Please confirm whether to install or enable the Translate userscript."
             );
             return;
           }
@@ -116,7 +116,7 @@ export default function Options() {
         <Divider>
           <Link
             href={process.env.REACT_APP_HOMEPAGE}
-          >{`KISS Translator v${process.env.REACT_APP_VERSION}`}</Link>
+          >{`翻译 v${process.env.REACT_APP_VERSION}`}</Link>
         </Divider>
         <Alert severity="error">{error}</Alert>
         <Stack spacing={2}>

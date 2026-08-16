@@ -1,6 +1,6 @@
 # Goal
 
-Rebuild KISS Translator as a focused browser tool for page translation and subtitle translation. Remove unrelated dictionary, vocabulary, selection, input, hover, standalone-text, playground, and cloud-sync slices; preserve retained stored configuration; add local Agy and Codex adapters through a controlled companion; and ship a distinctive bilingual-reading UI based on Anthropic's official `frontend-design` skill.
+Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page translation and subtitle translation. Remove unrelated dictionary, vocabulary, selection, input, hover, standalone-text, playground, and cloud-sync slices; preserve retained stored configuration; add local Agy and Codex adapters through a controlled companion; and ship a distinctive bilingual-reading UI based on Anthropic's official `frontend-design` skill.
 
 # Current State
 
@@ -9,11 +9,11 @@ Rebuild KISS Translator as a focused browser tool for page translation and subti
 - Baseline commit: `daa82b6`
 - UI stack: React 18, Material UI 5, React Router 6.
 - Settings UI lives under `src/views/Options/`; runtime configuration lives under `src/config/` and `src/hooks/`.
-- Settings uses the default-dark Nocturne reading console: a compact desktop rail, fixed four-item mobile bar, source-to-engine-to-output context, and progressive disclosure for advanced controls.
-- `/apis` is the canonical translation-service/model manager; `/rules` owns website scope and optional per-site service overrides. Retained storage fields and `apiSlug` references are unchanged.
-- The visible product has four settings routes: page translation, website rules, subtitles, and translation engines. Popup and content startup expose only page translation controls plus subtitle runtime support.
+- Settings uses the default-dark Nocturne reading console: a compact desktop rail, fixed three-item mobile bar, source-to-engine-to-output context, and progressive disclosure for advanced controls.
+- `/apis` is the canonical translation-service/model manager and the first settings destination; `/page` owns page translation defaults plus a simple no-auto-translate website list; `/rules` now redirects to `/page`. The full website-rule editor (`Rules.js`) has been removed rather than hidden. Retained storage fields and `apiSlug` references are unchanged.
+- The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles use the authenticated loopback companion under `tools/local-bridge/`; browser code never launches a process itself.
-- Verification on 2026-08-16: 32 Jest suites/218 tests and 5 bridge tests pass; Chrome, web, and direct webcheck builds pass. Page setup, editable website defaults, subtitle essentials/advanced disclosure, and the engine list/editor were visually checked on desktop and at 390px with no horizontal overflow.
+- Verification on 2026-08-16: 31 Jest suites/209 tests and 5 bridge tests pass; Chrome and web builds pass. The simplified settings IA (translation options first, page translation with no-auto-translate site list, subtitles) builds cleanly; the old rules editor suite was deleted with the removed route.
 - Live bridge verification on 2026-08-16: Codex completed a real request; Agy executable/model discovery succeeded, while completion reached Agy and was rejected upstream with `FAILED_PRECONDITION: User location is not supported for API use` for the current account/network region.
 - Settings information architecture: `docs/design/settings-information-architecture.md` (read before changing Options navigation, Rules, Apis, or their persisted responsibilities).
 - Product/domain vocabulary: `CONTEXT.md`.
@@ -25,6 +25,8 @@ Rebuild KISS Translator as a focused browser tool for page translation and subti
 - [x] Audit the rejected proof-desk UI against the actual first viewport and task paths.
 - [x] Replace the UI contract with the default-dark Nocturne reading console and progressive-disclosure interaction model.
 - [x] Rewrite the shell, page setup, rules, subtitles, engines, and Popup around task completion rather than long settings forms.
+- [x] Delete the website-rule editor route and merge its only retained job (no-auto-translate site list) into page translation.
+- [x] Reorder settings navigation to translation options -> page translation -> subtitles; rename the product to 翻译 and replace extension icons with the translate glyph.
 - [x] Add interaction coverage, rebuild, and visually verify desktop and 390px workflows.
 
 # Build / Run / Test
@@ -34,7 +36,7 @@ Rebuild KISS Translator as a focused browser tool for page translation and subti
 - Unit tests: `pnpm test -- --watchAll=false`
 - Web build: `pnpm build:web`
 - Chrome extension build: `pnpm build:chrome`
-- Focused settings tests can be run directly with the project runtime: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand src/views/Options/index.test.js src/views/Options/Layout.test.js src/views/Options/Apis.test.js src/views/Options/Rules.test.js src/views/Options/ReusableAutocomplete.test.js src/libs/modelList.test.js`
+- Focused settings tests can be run directly with the project runtime: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand src/views/Options/index.test.js src/views/Options/Layout.test.js src/views/Options/Apis.test.js src/views/Options/ReusableAutocomplete.test.js src/libs/modelList.test.js`
 - If the active pnpm wrapper is not the repository-pinned version, run local binaries directly rather than rewriting workspace/package-manager configuration.
 
 # Durable Lessons

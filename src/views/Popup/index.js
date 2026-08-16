@@ -162,7 +162,7 @@ export default function Popup() {
             <Typography
               sx={{ fontFamily: displayFont, fontSize: 20, lineHeight: 1.05 }}
             >
-              KISS Translator
+              {i18n("app_name", "翻译")}
             </Typography>
             <Typography
               sx={{

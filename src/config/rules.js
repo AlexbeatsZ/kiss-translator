@@ -125,7 +125,7 @@ export const GLOBLA_RULE = {
   fromLang: "auto", // 默认自动识别原文语言
   toLang: "zh-CN", // 默认翻译为简体中文
   textStyle: OPT_STYLE_NONE, // 默认译文不加额外线条/高亮背景
-  transOpen: "false", // 默认不自动开始翻译网页 (需要手动点击或快捷键)
+  transOpen: "true", // 默认自动开始翻译网页；在设置中保存的网站除外
   // bgColor: DEFAULT_COLOR, // 译文颜色 (作废)
   // textDiyStyle: DEFAULT_DIY_STYLE, // 自定义译文样式 (作废)
   textExtStyle: "",

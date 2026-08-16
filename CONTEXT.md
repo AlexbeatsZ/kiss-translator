@@ -2,7 +2,7 @@
 
 ## Product
 
-KISS Translator is a focused browser translation tool for people reading foreign-language web pages and video subtitles. Its product surface has two outcomes: translate a page in place and display translated subtitles.
+翻译 is a focused browser translation tool for people reading foreign-language web pages and video subtitles. Its product surface has two outcomes: translate a page in place and display translated subtitles.
 
 ## Terms
 
@@ -20,7 +20,7 @@ One persisted `transApis[]` item containing a provider adapter type, stable `api
 
 ### Website rule
 
-A persisted rule describing where page translation applies and how translated page content is scanned and presented. The global `*` rule owns the default page translation profile; a site rule may inherit it or override it by `apiSlug`.
+A persisted rule describing where page translation applies and how translated page content is scanned and presented. The global `*` rule owns the default page translation profile; the settings UI now only writes site rules that opt a site out of auto-translation (`transOpen: "false"`). Legacy rule fields are preserved in storage but no longer editable.
 
 ### Translation engine
 
@@ -32,7 +32,7 @@ A loopback-only companion process that runs an authenticated local Agy or Codex 
 
 ## Product boundaries
 
-The focused product includes page translation, website rules, subtitle translation, translation engines, essential appearance, cache clearing, logging, and core shortcuts.
+The focused product includes translation engines, page translation (with a simple no-auto-translate site list), subtitle translation, cache clearing, logging, and core shortcuts.
 
 It does not include selection translation, dictionaries, AI dictionary, vocabulary collection or highlighting, input-field translation, hover translation, standalone text translation, a playground, cloud sync, subtitle word lookup, or vocabulary export.
 

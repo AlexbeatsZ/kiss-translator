@@ -23,7 +23,7 @@ const baseContent = {
     title:
       "Minimalist. Open-source. An all-scenario geek-style translation tool.",
     subtitle:
-      "KISS Translator brings page translation, selection lookup, input-box translation, and YouTube subtitles into one lightweight browser extension and userscript.",
+      "翻译 brings page translation, selection lookup, input-box translation, and YouTube subtitles into one lightweight browser extension and userscript.",
     installExtension: "Install Extension",
     installUserscript: "Install Userscript",
     openOptions: "Open Options",
@@ -134,7 +134,7 @@ const translations = {
     eyebrow: "开源翻译工具箱",
     title: "简约。开源。全场景极客式翻译工具。",
     subtitle:
-      "KISS Translator 将网页翻译、划词查询、输入框翻译和 YouTube 字幕整合到一个轻量的浏览器扩展与油猴脚本中。",
+      "翻译 将网页翻译、划词查询、输入框翻译和 YouTube 字幕整合到一个轻量的浏览器扩展与油猴脚本中。",
     installExtension: "安装扩展",
     installUserscript: "安装脚本",
     openOptions: "打开设置",
@@ -196,7 +196,7 @@ const translations = {
     eyebrow: "開源翻譯工具箱",
     title: "簡約。開源。全場景極客式翻譯工具。",
     subtitle:
-      "KISS Translator 將網頁翻譯、劃詞查詢、輸入框翻譯和 YouTube 字幕整合到輕量的瀏覽器擴充套件與使用者腳本中。",
+      "翻译 將網頁翻譯、劃詞查詢、輸入框翻譯和 YouTube 字幕整合到輕量的瀏覽器擴充套件與使用者腳本中。",
     installExtension: "安裝擴充套件",
     installUserscript: "安裝腳本",
     openOptions: "開啟設定",
@@ -257,7 +257,7 @@ const translations = {
     eyebrow: "オープンソース翻訳ツールキット",
     title: "ミニマル。オープンソース。全シーン対応のギークスタイル翻訳ツール。",
     subtitle:
-      "KISS Translator はページ翻訳、選択テキスト翻訳、入力欄翻訳、YouTube 字幕翻訳を軽量な拡張機能とユーザースクリプトにまとめます。",
+      "翻译 はページ翻訳、選択テキスト翻訳、入力欄翻訳、YouTube 字幕翻訳を軽量な拡張機能とユーザースクリプトにまとめます。",
     installExtension: "拡張機能を入手",
     installUserscript: "スクリプトを入手",
     openOptions: "設定を開く",
@@ -319,7 +319,7 @@ const translations = {
     eyebrow: "오픈 소스 번역 도구",
     title: "미니멀. 오픈 소스. 모든 상황을 위한 긱(Geek) 스타일 번역 도구.",
     subtitle:
-      "KISS Translator는 웹페이지 번역, 선택 번역, 입력창 번역, YouTube 자막 번역을 가벼운 브라우저 확장과 유저스크립트로 제공합니다.",
+      "翻译는 웹페이지 번역, 선택 번역, 입력창 번역, YouTube 자막 번역을 가벼운 브라우저 확장과 유저스크립트로 제공합니다.",
     installExtension: "확장 설치",
     installUserscript: "스크립트 설치",
     openOptions: "설정 열기",
@@ -382,7 +382,7 @@ const translations = {
     title:
       "Minimaliste. Open source. Un outil de traduction style geek tout-terrain.",
     subtitle:
-      "KISS Translator regroupe traduction de pages, selection de texte, champs de saisie et sous-titres YouTube dans une extension et un userscript legers.",
+      "翻译 regroupe traduction de pages, selection de texte, champs de saisie et sous-titres YouTube dans une extension et un userscript legers.",
     installExtension: "Installer l'extension",
     installUserscript: "Installer le script",
     openOptions: "Ouvrir les options",
@@ -446,7 +446,7 @@ const translations = {
     title:
       "Minimalistisch. Open-Source. Ein Allround-Geek-Style-Ubersetzungstool.",
     subtitle:
-      "KISS Translator bundelt Seitenubersetzung, Auswahlubersetzung, Eingabefeld-Ubersetzung und YouTube-Untertitel in einer schlanken Erweiterung und einem Userscript.",
+      "翻译 bundelt Seitenubersetzung, Auswahlubersetzung, Eingabefeld-Ubersetzung und YouTube-Untertitel in einer schlanken Erweiterung und einem Userscript.",
     installExtension: "Erweiterung installieren",
     installUserscript: "Script installieren",
     openOptions: "Optionen offnen",
@@ -510,7 +510,7 @@ const translations = {
     title:
       "Minimalista. Codigo abierto. Una herramienta de traduccion estilo geek para cualquier situacion.",
     subtitle:
-      "KISS Translator une traduccion de paginas, seleccion de texto, campos de entrada y subtitulos de YouTube en una extension y un userscript ligeros.",
+      "翻译 une traduccion de paginas, seleccion de texto, campos de entrada y subtitulos de YouTube en una extension y un userscript ligeros.",
     installExtension: "Instalar extension",
     installUserscript: "Instalar script",
     openOptions: "Abrir opciones",
@@ -571,7 +571,7 @@ const focusedContent = {
     eyebrow: "Focused bilingual translation",
     title: "Read the web in two languages, without the study-tool clutter.",
     subtitle:
-      "KISS Translator now concentrates on webpage translation, website rules, and synchronized YouTube subtitles—with hosted models or local Agy and Codex CLIs.",
+      "翻译 now concentrates on webpage translation, website rules, and synchronized YouTube subtitles—with hosted models or local Agy and Codex CLIs.",
     status: [
       "Extension",
       "Userscript",
@@ -630,7 +630,7 @@ const focusedContent = {
     eyebrow: "专注双语翻译",
     title: "专注网页与字幕，不再堆叠学习工具。",
     subtitle:
-      "KISS Translator 现在聚焦网页翻译、网站规则与同步 YouTube 字幕，并可使用在线模型或本机 Agy、Codex CLI。",
+      "翻译 现在聚焦网页翻译、网站规则与同步 YouTube 字幕，并可使用在线模型或本机 Agy、Codex CLI。",
     status: ["浏览器扩展", "油猴脚本", "网页翻译", "双语字幕", "本地 CLI"],
     featureTitle: "清晰的翻译校对台",
     featureSubtitle:

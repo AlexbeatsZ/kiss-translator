@@ -163,7 +163,7 @@ export default function Navigator({
           color="text.secondary"
           sx={{ display: "block", px: 2.25, pb: 0.8, fontSize: "0.65rem" }}
         >
-          {i18n("settings_group_reading", "Translation")}
+          {i18n("settings_group_translation", "翻译")}
         </Typography>
         <List disablePadding>
           {items.map((item) => (
@@ -174,7 +174,7 @@ export default function Navigator({
       <Divider />
       <Box sx={{ px: 2, py: 1.25 }}>
         <Typography variant="caption" color="text.disabled" fontSize="0.64rem">
-          {`KISS · v${process.env.REACT_APP_VERSION}`}
+          {`${i18n("app_name", "翻译")} · v${process.env.REACT_APP_VERSION}`}
         </Typography>
       </Box>
     </Drawer>

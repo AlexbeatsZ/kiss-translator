@@ -8,22 +8,22 @@ KISS Translator has two outcomes: translate the page being read and translate th
 
 The default path answers four questions in this order:
 
-1. What should be translated: page or subtitles?
-2. From which language to which language?
-3. Which translation engine should do it?
+1. Which translation engine should do the work?
+2. What should be translated: page or subtitles?
+3. From which language to which language?
 4. How should the source and translation be shown?
 
 Everything else is troubleshooting, tuning, or site-specific customization and must be progressively disclosed.
 
 ## Interaction model
 
-### Page setup
+### Translation options
 
-The first viewport contains the default source language, target language, engine, automatic-start choice, and bilingual/translation-only presentation. It must not open with a decorative preview, version warning, or maintenance controls.
+The first navigation destination and landing view is the engine list and selected editor. Search and Add belong to the list. The selected engine can be made the page default from its own header.
 
-### Website rules
+### Page translation
 
-The default rule opens ready to edit; it does not require an extra Edit click. Site overrides and subscriptions remain separate destinations inside the page. Basic scope and reading behavior appear before CSS selectors, hooks, and compatibility fields.
+The page translation view contains only the default source language, target language, engine, automatic-start choice, bilingual/translation-only presentation, and the no-auto-translate website list. Advanced tuning, shortcuts, diagnostics, and backup remain collapsed accordions. The old website-rule editor with CSS selectors, hooks, and page-scope fields is removed rather than hidden.
 
 ### Subtitles
 

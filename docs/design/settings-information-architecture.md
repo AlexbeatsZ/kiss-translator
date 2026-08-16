@@ -6,20 +6,20 @@ Make the extension read as one bilingual reading tool, not a collection of unrel
 
 ## Navigation
 
-The settings shell has four primary destinations:
+The settings shell has three primary destinations, in this order:
 
-- `/`: page translation defaults, language direction, appearance, performance, cache, and essential shortcuts;
-- `/rules`: website scope and per-site page behaviour;
-- `/subtitle`: caption acquisition, segmentation, translation, and bilingual rendering;
-- `/apis`: translation engines, credentials, models, request behaviour, and local CLI bridge status.
+- `/apis`: translation engines, credentials, models, request behaviour, and local CLI bridge status;
+- `/page`: page translation defaults, language direction, engine choice, reading mode, and the no-auto-translate website list;
+- `/subtitle`: caption acquisition, segmentation, translation, and bilingual rendering.
 
-Project/version information lives in the shell footer instead of a separate About destination. Removed routes do not remain as empty compatibility pages.
+`/` redirects to `/apis`. `/rules` redirects to `/page` for compatibility with older bookmarks; the full rule editor route is removed. Project/version information lives in the shell footer instead of a separate About destination.
 
 ## Responsibilities
 
 ### Page translation
 
-- The global `*` website rule remains the persisted default for page languages, profile, display mode, and scanning behaviour.
+- The global `*` website rule remains the persisted default for page languages, profile, and display mode.
+- The only website-rule surface is a simple list of sites that must not auto-translate; each entry writes a personal site rule with only `pattern` and `transOpen: "false"`, and deleting it removes that rule.
 - General settings own only cross-site runtime controls such as cache, limits, logging, and the small set of retained shortcuts.
 - Website rules never edit credentials or model configuration.
 
@@ -32,7 +32,7 @@ Project/version information lives in the shell footer instead of a separate Abou
 ### Translation engines
 
 - `transApis[]` remains the compatible persisted representation of translation profiles.
-- `/apis` owns profile creation, duplication, ordering, enabling, credentials, model discovery, test requests, and advanced request behaviour.
+- `/apis` is the first destination and owns profile creation, duplication, ordering, enabling, credentials, model discovery, test requests, advanced request behaviour, and the page-default action.
 - Profile deletion and disabling must enforce references from global/site rules and the retained subtitle roles.
 - HTTP providers and the Agy/Codex local bridge are adapters behind the shared translation execution seam.
 

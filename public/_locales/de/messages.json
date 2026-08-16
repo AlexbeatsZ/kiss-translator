@@ -1,9 +1,9 @@
 {
   "app_name": {
-    "message": "KISS Übersetzer"
+    "message": "翻译"
   },
   "app_description": {
-    "message": "Eine minimalistische zweisprachige Übersetzungserweiterung, die Webseiten-, Textauswahl- und Videountertitel-Übersetzung unterstützt."
+    "message": "网页翻译与字幕翻译扩展"
   },
   "translate_selection": {
     "message": "\"%s\" übersetzen"
