@@ -938,7 +938,10 @@ const defaultApiOpts = {
     ...defaultApi,
     url: "http://127.0.0.1:17891/v1/agy/chat/completions",
     modelListUrl: "http://127.0.0.1:17891/v1/agy/models",
-    model: "gemini-3.7-flash-high",
+    // GPT-OSS has no region restriction, while the current Agy account is
+    // region-blocked for Gemini models (FAILED_PRECONDITION: User location
+    // is not supported for the API use).
+    model: "gpt-oss-120b-medium",
     ...defaultAiApiOpts,
     useStream: false,
     streamRenderMode: "disabled",
