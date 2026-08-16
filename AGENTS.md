@@ -13,15 +13,15 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - `/apis` is the canonical translation-service/model manager and the first settings destination; `/page` owns page translation defaults plus a simple no-auto-translate website list; `/rules` now redirects to `/page`. The full website-rule editor (`Rules.js`) has been removed rather than hidden. Retained storage fields and `apiSlug` references are unchanged.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
-- Verification on 2026-08-16: 31 Jest suites/209 tests and 5 bridge tests pass; Chrome and web builds pass. The simplified settings IA (translation options first, page translation with no-auto-translate site list, subtitles) builds cleanly; the old rules editor suite was deleted with the removed route.
-- Live bridge verification on 2026-08-16: Codex completed a real request; Agy executable/model discovery succeeded, while completion reached Agy and was rejected upstream with `FAILED_PRECONDITION: User location is not supported for API use` for the current account/network region. The same failure is visible in `C:\Users\Meta\.gemini\antigravity-cli\log\cli-*.log`; the CLI prints only the generic `Agent execution terminated due to error.`
+- Verification on 2026-08-16: 31 Jest suites/209 tests pass; Chrome and web builds pass. The standalone `cli2api` service is verified separately through `/health`, `/v1/agy/models`, and a real Agy GPT-OSS completion. The simplified settings IA (translation options first, page translation with no-auto-translate site list, subtitles) builds cleanly; the old rules editor suite was deleted with the removed route.
+- Live `cli2api` verification on 2026-08-16: Codex completed a real request; Agy executable/model discovery succeeded, while completion reached Agy and was rejected upstream with `FAILED_PRECONDITION: User location is not supported for API use` for the current account/network region. The same failure is visible in `C:\Users\Meta\.gemini\antigravity-cli\log\cli-*.log`; the CLI prints only the generic `Agent execution terminated due to error.`
 - Settings information architecture: `docs/design/settings-information-architecture.md` (read before changing Options navigation, Rules, Apis, or their persisted responsibilities).
 - Product/domain vocabulary: `CONTEXT.md`.
 - Focused UI contract: `docs/design/focused-translator-ui.md` (read before changing Options, Popup, or shared visual tokens).
 
 # Active Work
 
-- [x] Remove non-core feature slices and implement the local Agy/Codex bridge.
+- [x] Remove non-core feature slices and move the local Agy/Codex bridge out to the standalone `cli2api` service.
 - [x] Audit the rejected proof-desk UI against the actual first viewport and task paths.
 - [x] Replace the UI contract with the default-dark Nocturne reading console and progressive-disclosure interaction model.
 - [x] Rewrite the shell, page setup, rules, subtitles, engines, and Popup around task completion rather than long settings forms.
@@ -49,7 +49,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Unsaved settings drafts need route-level protection, including hash-history Back/Forward, not only click handlers on the visible navigation.
 - Hiding a route is not feature removal. A removed slice must also leave runtime composition, messages, storage/sync work, prompts, permissions, and production bundles.
 - Browser code cannot spawn Agy or Codex directly. Keep process execution, argv construction, timeouts, cancellation, output limits, and error classification in a loopback-only local companion.
-- A successful bridge health/model response proves executable discovery, not provider-account viability. Classify CLI upstream errors separately; the current Agy account can enumerate models but is region-blocked at completion time.
+- A successful `cli2api` health/model response proves executable discovery, not provider-account viability. Classify CLI upstream errors separately; the current Agy account can enumerate models but is region-blocked at completion time.
 - When LocalAgy reports “无法链接”, check `cli2api` first: nothing listening on `127.0.0.1:17891` means the service is not running. Start it with `uv run cli2api.py` in `C:/Users/Meta/Project/Workspaces/cli2api`, or use the installed Startup-folder VBS for silent auto-start. Auth is disabled by default; a 401 means cli2api was started with a token that is not saved in the extension profile.
 - Agy hides upstream failures behind `Agent execution terminated due to error.`; read `~/.gemini/antigravity-cli/log/cli-*.log` to find the real cause. The current account is region-blocked for Gemini models (`FAILED_PRECONDITION: User location is not supported for the API use`) but **GPT-OSS works**, so LocalAgy defaults to `gpt-oss-120b-medium`.
 - Windows build tasks must invoke the repository-local `react-app-rewired` entrypoint rather than assuming its shim is globally available on `PATH`.
