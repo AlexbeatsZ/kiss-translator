@@ -589,10 +589,10 @@ export default function SubtitleSetting() {
     <Box>
       <Stack spacing={3}>
         <SettingsSection
-          title={i18n("subtitle_essentials", "Subtitle essentials")}
+          title={i18n("subtitle_essentials", "字幕基础设置")}
           description={i18n(
             "subtitle_essentials_description",
-            "Choose the engine, language, and how captions appear on YouTube."
+            "选择翻译引擎、目标语言以及字幕呈现方式。"
           )}
           action={
             <FormControlLabel
@@ -770,13 +770,13 @@ export default function SubtitleSetting() {
                     onClick={() => setShowAdvanced((current) => !current)}
                   >
                     {showAdvanced
-                      ? i18n("hide_advanced", "Hide advanced controls")
-                      : i18n("show_advanced", "Sentence flow & playback")}
+                      ? i18n("hide_advanced", "收起进阶设置")
+                      : i18n("show_advanced", "断句节奏与播放控制")}
                   </Button>
                   <Typography variant="caption" color="text.secondary">
                     {i18n(
                       "subtitle_support_note",
-                      "Currently available on the YouTube desktop site."
+                      "目前支持 YouTube 桌面网页端。"
                     )}
                   </Typography>
                 </Stack>
@@ -976,10 +976,10 @@ export default function SubtitleSetting() {
 
         {/* 字幕外观样式设计及预览器板块 */}
         <SettingsSection
-          title={i18n("subtitle_appearance", "Subtitle appearance")}
+          title={i18n("subtitle_appearance", "字幕外观样式")}
           description={i18n(
             "subtitle_appearance_description",
-            "Preview and adjust the two caption lines before watching."
+            "预览并调整播放器双语字幕的显示样式。"
           )}
         >
           <Stack spacing={2}>

@@ -12,7 +12,7 @@ export default function DarkModeButton() {
   // 获取全局深色模式状态及其切换方法
   const { darkMode, toggleDarkMode } = useDarkMode();
   const i18n = useI18n();
-  const label = `${i18n("theme_mode", "Theme mode")}: ${darkMode}`;
+  const label = `${i18n("theme_mode", "主题模式")}: ${darkMode}`;
 
   return (
     <IconButton

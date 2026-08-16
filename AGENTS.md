@@ -16,6 +16,8 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Completely removed browser right-click context menus (`contextMenus` permission, background listener/methods, `MSG_CONTEXT_MENUS`, and settings toggle) and floating action button (`ContentFab.js`, `Draggable.js`, `fabManager.js`, `Fab.js`, `STOKEY_FAB`, and runtime hooks).
 - Removed YouTube subtitle sidebar list (`YouTubeSubtitleList.js`, `modes.js`), on-player toggle button injection, and floating quick menu (`Menus.js`).
 - Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
+- Native YouTube subtitles are reliably hidden using injected `!important` `<style>` sheet and inline offset; CC observer re-binds across SPA navigation without injecting player buttons.
+- Global UI defaults and fallbacks are strictly simplified to Chinese (`zh` / `zh_CN`).
 - Verification: 31 Jest suites/212 tests pass; Chrome production build passes.
 
 # Active Work
@@ -32,6 +34,8 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Remove right-click context menu and floating ball components, permissions, options, and runtime logic.
 - [x] Completely remove YouTube subtitle sidebar list (`YouTubeSubtitleList.js`), floating menu popup (`Menus.js`), and on-player injected buttons.
 - [x] Expose AI smart segmentation and AI enhanced context directly in the main Subtitle options settings page.
+- [x] Enforce Chinese-only default UI language and fallbacks across manifest, settings, popup, and components.
+- [x] Strengthen YouTube native caption hiding via injected style sheet and fix CC observer re-binding across page navigation.
 - [x] Run full test suite and rebuild Chrome extension.
 
 # Build / Run / Test

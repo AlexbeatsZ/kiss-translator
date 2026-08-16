@@ -58,23 +58,47 @@ export class YouTubePlayerUi {
   }
 
   /**
-   * 将 YouTube 原生字幕窗口移出屏幕，避免与双语字幕重叠。
+   * 将 YouTube 原生字幕窗口隐藏，避免与双语字幕重叠。
+   * 结合 DOM inline style 与带 !important 的全局样式标签，防止 YouTube 内部渲染器重绘时覆盖。
    *
    * @returns {void}
    */
   hideYtCaption() {
     const ytCaption = document.querySelector(YT_CAPTION_SELECTOR);
-    if (ytCaption) ytCaption.style.top = "-10000px";
+    if (ytCaption) {
+      ytCaption.style.top = "-10000px";
+    }
+    const styleId = "kiss-hide-yt-caption-style";
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      styleEl.textContent = `
+        ${YT_CAPTION_SELECTOR} {
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+          top: -10000px !important;
+        }
+      `;
+      (document.head || document.documentElement).appendChild(styleEl);
+    }
   }
 
   /**
-   * 恢复 YouTube 原生字幕窗口的位置。
+   * 恢复 YouTube 原生字幕窗口的位置与可见性。
    *
    * @returns {void}
    */
   showYtCaption() {
     const ytCaption = document.querySelector(YT_CAPTION_SELECTOR);
-    if (ytCaption) ytCaption.style.top = "0";
+    if (ytCaption) {
+      ytCaption.style.top = "0";
+    }
+    const styleEl = document.getElementById("kiss-hide-yt-caption-style");
+    if (styleEl) {
+      styleEl.remove();
+    }
   }
 
   /**

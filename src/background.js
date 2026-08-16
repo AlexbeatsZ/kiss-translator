@@ -233,16 +233,14 @@ async function getUiLanguage() {
 
     if (lang === "zh-TW") {
       return "zh_TW";
-    } else if (lang.startsWith("zh")) {
+    } else if (lang && lang.startsWith("zh")) {
       return "zh";
-    } else if (["ja", "ko"].includes(lang.substring(0, 2))) {
-      return lang.substring(0, 2);
     } else {
-      return "en";
+      return "zh";
     }
   } catch (err) {
     kissLog("get UI language error", err);
-    return "en";
+    return "zh";
   }
 }
 

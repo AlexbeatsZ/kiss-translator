@@ -109,7 +109,7 @@ export default function Navigator({
     return (
       <Box
         component="nav"
-        aria-label={i18n("settings_navigation", "Settings navigation")}
+        aria-label={i18n("settings_navigation", "设置导航")}
         sx={(theme) => ({
           position: "fixed",
           zIndex: theme.zIndex.appBar + 1,
@@ -155,7 +155,7 @@ export default function Navigator({
     >
       <Box
         component="nav"
-        aria-label={i18n("settings_navigation", "Settings navigation")}
+        aria-label={i18n("settings_navigation", "设置导航")}
         sx={{ flex: 1, minHeight: 0, overflowY: "auto", pt: 1.5 }}
       >
         <Typography

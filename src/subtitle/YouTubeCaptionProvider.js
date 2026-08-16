@@ -162,14 +162,26 @@ class YouTubeCaptionProvider {
       this.#aiChunkScheduler = null;
       this.#subtitleAbortController?.abort();
       this.#subtitleAbortController = null;
+
+      this.#bindYtSubtitleButton();
     });
 
-    waitForElement(YT_SUBTITLE_BUTTON_SELECTOR, (ytSubtitleBtn) => {
-      this.#observeYtSubtitleState(ytSubtitleBtn);
-    });
+    this.#bindYtSubtitleButton();
 
     waitForElement(YT_AD_SELECTOR, (adContainer) => {
       this.#moAds(adContainer);
+    });
+  }
+
+  /**
+   * 查找并绑定 YouTube 原生字幕切换按钮状态。
+   *
+   * @private
+   * @returns {void}
+   */
+  #bindYtSubtitleButton() {
+    waitForElement(YT_SUBTITLE_BUTTON_SELECTOR, (ytSubtitleBtn) => {
+      this.#observeYtSubtitleState(ytSubtitleBtn);
     });
   }
 

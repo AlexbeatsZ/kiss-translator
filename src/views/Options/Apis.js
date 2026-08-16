@@ -281,7 +281,7 @@ function TestButton({ api }) {
       onClick={handleApiTest}
       loading={loading}
     >
-      {i18n("test_connection", "Test connection")}
+      {i18n("test_connection", "测试连接")}
     </LoadingButton>
   );
 }
@@ -679,7 +679,7 @@ function ApiFields({
                 startIcon={<ArrowBackRoundedIcon />}
                 sx={{ display: { xs: "inline-flex", lg: "none" }, px: 0.75 }}
               >
-                {i18n("back", "Back")}
+                {i18n("back", "返回")}
               </Button>
             )}
             <Typography variant="h6" noWrap sx={{ flex: 1, minWidth: 0 }}>
@@ -697,14 +697,14 @@ function ApiFields({
                 size="small"
                 color="primary"
                 variant="outlined"
-                label={i18n("page_default", "Page default")}
+                label={i18n("page_default", "网页默认")}
               />
             )}
           </Stack>
           <Typography variant="body2" color="text.secondary" noWrap>
             {API_SPE_TYPES.ai.has(apiType)
-              ? model || i18n("model_not_selected", "No model selected")
-              : i18n("model_not_required", "This service does not use a model")}
+              ? model || i18n("model_not_selected", "未选择模型")
+              : i18n("model_not_required", "该服务无需选择模型")}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -715,7 +715,7 @@ function ApiFields({
               onClick={onSetDefault}
               disabled={isDisabled}
             >
-              {i18n("use_for_page_translation", "Use for pages")}
+              {i18n("use_for_page_translation", "设为网页默认")}
             </Button>
           )}
           <Button
@@ -732,7 +732,7 @@ function ApiFields({
             onClick={handleDiscard}
             disabled={!isModified}
           >
-            {i18n("discard_changes", "Discard changes")}
+            {i18n("discard_changes", "放弃更改")}
           </Button>
           <TestButton api={activeFormData} />
         </Stack>
@@ -744,16 +744,16 @@ function ApiFields({
         size="small"
         value={editorSection}
         onChange={(_event, value) => value && setEditorSection(value)}
-        aria-label={i18n("engine_editor_sections", "Engine editor sections")}
+        aria-label={i18n("engine_editor_sections", "引擎编辑分区")}
       >
         <ToggleButton value="connection">
-          {i18n("connection", "Connection")}
+          {i18n("connection", "连接与模型")}
         </ToggleButton>
         <ToggleButton value="behavior">
-          {i18n("translation_behavior", "Behavior")}
+          {i18n("translation_behavior", "翻译行为")}
         </ToggleButton>
         <ToggleButton value="maintenance">
-          {i18n("advanced", "Advanced")}
+          {i18n("advanced", "高级设置")}
         </ToggleButton>
       </ToggleButtonGroup>
 
@@ -761,12 +761,12 @@ function ApiFields({
         <Paper variant="outlined" sx={editorSectionSx}>
           <Stack spacing={0.5} sx={{ mb: 2 }}>
             <Typography variant="subtitle1" fontWeight={700}>
-              {i18n("connection_and_model", "Connection and model")}
+              {i18n("connection_and_model", "连接与模型")}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {i18n(
                 "connection_and_model_description",
-                "Configure the provider connection and the exact model used by this translation service."
+                "配置此翻译服务所使用的提供商连接和具体模型。"
               )}
             </Typography>
           </Stack>
@@ -790,7 +790,7 @@ function ApiFields({
                   <TextField
                     size="small"
                     fullWidth
-                    label={i18n("translation_service_name", "Service name")}
+                    label={i18n("translation_service_name", "服务名称")}
                     name="apiName"
                     value={apiName}
                     onChange={handleChange}
@@ -868,7 +868,7 @@ function ApiFields({
                             fullWidth
                             options={allModelOptions}
                             name="model"
-                            label={i18n("model", "Model")}
+                            label={i18n("model", "模型")}
                             value={model}
                             onChange={handleChange}
                             onFocus={() => void handleLoadModelList()}
@@ -892,7 +892,7 @@ function ApiFields({
                             alignSelf: { xs: "stretch", sm: "flex-start" },
                           }}
                         >
-                          {i18n("refresh_models", "Refresh models")}
+                          {i18n("refresh_models", "刷新模型")}
                         </LoadingButton>
                       </Stack>
                     </Grid>
@@ -957,12 +957,12 @@ function ApiFields({
           >
             <Stack spacing={0.5}>
               <Typography variant="subtitle1" fontWeight={700}>
-                {i18n("translation_behavior", "Translation behavior")}
+                {i18n("translation_behavior", "翻译行为")}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {i18n(
                   "translation_behavior_description",
-                  "Tune batching, streaming, prompts, and request performance for this service."
+                  "调整此服务的批处理、流式输出、提示词及请求性能。"
                 )}
               </Typography>
             </Stack>
@@ -1502,7 +1502,7 @@ function ApiFields({
             </Button>
             <Button size="small" variant="outlined" onClick={handleCopy}>
               {API_SPE_TYPES.ai.has(apiType)
-                ? i18n("duplicate_model_profile", "Duplicate for another model")
+                ? i18n("duplicate_model_profile", "为其他模型创建副本")
                 : i18n("copy_api")}
             </Button>
             <Button
@@ -1604,8 +1604,8 @@ function ApiListItem({
               ? "drag_to_reorder"
               : "save_or_discard_before_reorder",
             reorderEnabled
-              ? "Drag to reorder"
-              : "Save or discard changes before reordering"
+              ? "拖动调整顺序"
+              : "请先保存或放弃更改后再调整顺序"
           )}
         >
           <Box
@@ -1642,9 +1642,9 @@ function ApiListItem({
             {api.apiName || api.apiType}
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
-            {isDefault && `${i18n("page_default", "Page default")} · `}
+            {isDefault && `${i18n("page_default", "网页默认")} · `}
             {API_SPE_TYPES.ai.has(api.apiType)
-              ? api.model || i18n("model_not_selected", "No model selected")
+              ? api.model || i18n("model_not_selected", "未选择模型")
               : api.apiType}
           </Typography>
         </Box>
@@ -1714,7 +1714,7 @@ export default function Apis() {
       addReference(
         rule.apiSlug,
         rule.pattern === GLOBAL_KEY
-          ? i18n("website_defaults", "Website defaults")
+          ? i18n("website_defaults", "网站默认")
           : rule.pattern
       );
     });
@@ -1724,7 +1724,7 @@ export default function Apis() {
       setting.subtitleSetting?.segSlug,
       setting.subtitleSetting?.aiContextSlug,
     ].forEach((apiSlug) => {
-      addReference(apiSlug, i18n("subtitle_translate", "Video subtitles"));
+      addReference(apiSlug, i18n("subtitle_translate", "视频字幕"));
     });
 
     return references;
@@ -1815,10 +1815,10 @@ export default function Apis() {
     return confirm({
       message: i18n(
         "unsaved_service_changes",
-        "This service has unsaved changes. Discard them and continue?"
+        "当前服务有尚未保存的更改。确定要放弃并继续吗？"
       ),
-      confirmText: i18n("discard_changes", "Discard changes"),
-      cancelText: i18n("keep_editing", "Keep editing"),
+      confirmText: i18n("discard_changes", "放弃更改"),
+      cancelText: i18n("keep_editing", "继续编辑"),
     });
   }, [confirm, hasUnsavedChanges, i18n]);
 
@@ -2015,20 +2015,20 @@ export default function Apis() {
                 exclusive
                 value={serviceFilter}
                 onChange={(_event, value) => value && setServiceFilter(value)}
-                aria-label={i18n("filter_services", "Filter services")}
+                aria-label={i18n("filter_services", "过滤服务")}
                 sx={{ flex: { xs: 1, sm: "0 0 auto" } }}
               >
                 <ToggleButton value="all" sx={{ flex: { xs: 1, lg: "none" } }}>
-                  {i18n("all", "All")}
+                  {i18n("all", "全部")}
                 </ToggleButton>
                 <ToggleButton
                   value="enabled"
                   sx={{ flex: { xs: 1, lg: "none" } }}
                 >
-                  {i18n("enabled", "Enabled")}
+                  {i18n("enabled", "已启用")}
                 </ToggleButton>
                 <ToggleButton value="ai" sx={{ flex: { xs: 1, lg: "none" } }}>
-                  {i18n("ai_services", "AI models")}
+                  {i18n("ai_services", "AI 模型")}
                 </ToggleButton>
               </ToggleButtonGroup>
               <Link
@@ -2123,7 +2123,7 @@ export default function Apis() {
               {apiItems.length === 0 && (
                 <Box sx={{ px: 2, py: 5, textAlign: "center" }}>
                   <Typography variant="body2" color="text.secondary">
-                    {i18n("no_services_found", "No matching services")}
+                    {i18n("no_services_found", "未找到匹配的服务")}
                   </Typography>
                 </Box>
               )}

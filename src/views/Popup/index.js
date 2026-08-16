@@ -239,13 +239,13 @@ export default function Popup() {
               }}
             >
               {engine?.apiName ||
-                i18n("translation_engine", "Translation engine")}
+                i18n("translation_engine", "翻译引擎")}
             </Typography>
           </Box>
         </Stack>
         <IconButton
           onClick={openOptions}
-          aria-label={i18n("open_setting", "Open settings")}
+          aria-label={i18n("open_setting", "打开设置")}
           sx={{ color: TOKENS.ink }}
           size="small"
         >
@@ -362,11 +362,11 @@ export default function Popup() {
           {!tabAvailable
             ? i18n(
                 "page_translation_unavailable",
-                "Page translation unavailable in this tab"
+                "当前标签页不支持网页翻译"
               )
             : pageEnabled
-            ? i18n("stop_page_translation", "Stop translating this page")
-            : i18n("translate_this_page", "Translate this page")}
+            ? i18n("stop_page_translation", "停止翻译此页面")
+            : i18n("translate_this_page", "翻译此页面")}
         </Button>
 
         <Stack direction="row" spacing={1.25}>
@@ -374,7 +374,7 @@ export default function Popup() {
             select
             size="small"
             fullWidth
-            label={i18n("from_lang", "Source language")}
+            label={i18n("from_lang", "源语言")}
             value={activeRule?.fromLang || "auto"}
             onChange={(event) => updateRule({ fromLang: event.target.value })}
             SelectProps={{
@@ -392,7 +392,7 @@ export default function Popup() {
             select
             size="small"
             fullWidth
-            label={i18n("to_lang", "Target language")}
+            label={i18n("to_lang", "目标语言")}
             value={activeRule?.toLang || "zh-CN"}
             onChange={(event) => updateRule({ toLang: event.target.value })}
             SelectProps={{
@@ -411,7 +411,7 @@ export default function Popup() {
         <Stack direction="row" spacing={1}>
           <Chip
             clickable
-            label={i18n("bilingual", "Bilingual")}
+            label={i18n("bilingual", "双语对照")}
             color={activeRule?.transOnly === "true" ? "default" : "success"}
             onClick={() =>
               updateRule({
@@ -430,11 +430,12 @@ export default function Popup() {
               border: `1px solid ${TOKENS.rule}`,
               borderRadius: 1.5,
               bgcolor: TOKENS.sheet,
+              justifyContent: "space-between",
             }}
             control={
               <Switch
                 size="small"
-                checked={subtitleEnabled}
+                checked={Boolean(subtitleEnabled)}
                 onChange={toggleSubtitles}
                 sx={{
                   "& .MuiSwitch-switchBase.Mui-checked": {
@@ -449,7 +450,7 @@ export default function Popup() {
                   sx={{ fontSize: 16, color: TOKENS.source }}
                 />
                 <Typography sx={{ fontSize: 12 }}>
-                  {i18n("subtitle_translate", "Subtitles")}
+                  {i18n("subtitle_translate", "字幕翻译")}
                 </Typography>
               </Stack>
             }
@@ -554,7 +555,7 @@ export default function Popup() {
             minWidth: 0,
           }}
         >
-          {i18n("open_setting", "Open settings")}
+          {i18n("open_setting", "打开设置")}
         </Button>
       </Stack>
     </Box>

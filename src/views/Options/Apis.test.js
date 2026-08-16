@@ -234,7 +234,10 @@ function getSaveButton(container) {
 
 async function openAdvanced(container) {
   const button = Array.from(container.querySelectorAll("button")).find(
-    (item) => item.textContent === "Advanced"
+    (item) =>
+      item.textContent === "高级设置" ||
+      item.textContent === "Advanced" ||
+      item.value === "maintenance"
   );
   await act(async () => {
     Simulate.click(button);
@@ -367,7 +370,12 @@ describe("Apis model list", () => {
     expect(update).not.toHaveBeenCalled();
     const connectionButton = Array.from(
       view.container.querySelectorAll("button")
-    ).find((button) => button.textContent === "Connection");
+    ).find(
+      (button) =>
+        button.textContent === "连接与模型" ||
+        button.textContent === "Connection" ||
+        button.value === "connection"
+    );
     await act(async () => {
       Simulate.click(connectionButton);
     });
@@ -459,7 +467,11 @@ describe("Apis model list", () => {
 
     const refreshButton = Array.from(
       view.container.querySelectorAll("button")
-    ).find((button) => button.textContent === "Refresh models");
+    ).find(
+      (button) =>
+        button.textContent === "刷新模型" ||
+        button.textContent === "Refresh models"
+    );
     await act(async () => {
       Simulate.click(refreshButton);
       await Promise.resolve();
@@ -500,7 +512,11 @@ describe("Apis model list", () => {
 
     const useForPagesButton = Array.from(
       view.container.querySelectorAll("button")
-    ).find((button) => button.textContent === "Use for pages");
+    ).find(
+      (button) =>
+        button.textContent === "设为网页默认" ||
+        button.textContent === "Use for pages"
+    );
     await act(async () => {
       Simulate.click(useForPagesButton);
     });
@@ -564,7 +580,9 @@ describe("Apis model list", () => {
     mockConfirm.mockResolvedValueOnce(false);
     await expect(guard()).resolves.toBe(false);
     expect(mockConfirm).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining("unsaved") })
+      expect.objectContaining({
+        message: expect.stringMatching(/unsaved|未保存/),
+      })
     );
 
     view.unmount();
@@ -582,7 +600,7 @@ describe("Apis model list", () => {
     });
 
     expect(mockWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Website defaults")
+      expect.stringMatching(/Website defaults|网站默认/)
     );
     expect(view.deleteApi).not.toHaveBeenCalled();
     expect(mockConfirm).not.toHaveBeenCalled();
@@ -610,7 +628,7 @@ describe("Apis model list", () => {
     });
 
     expect(mockWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Video subtitles")
+      expect.stringMatching(/Video subtitles|视频字幕/)
     );
     expect(mockWarning.mock.calls[0][0]).not.toContain("Input translation");
     expect(mockWarning.mock.calls[0][0]).not.toContain("Selection translation");

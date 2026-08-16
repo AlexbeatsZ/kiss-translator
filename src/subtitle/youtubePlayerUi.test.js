@@ -32,9 +32,11 @@ describe("YouTubePlayerUi", () => {
 
     ui.hideYtCaption();
     expect(captionContainer.style.top).toBe("-10000px");
+    expect(document.getElementById("kiss-hide-yt-caption-style")).not.toBeNull();
 
     ui.showYtCaption();
     expect(captionContainer.style.top).toBe("0px");
+    expect(document.getElementById("kiss-hide-yt-caption-style")).toBeNull();
   });
 
   test("shows and hides notification toast correctly", () => {

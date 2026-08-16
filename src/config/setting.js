@@ -91,7 +91,7 @@ export const DEFAULT_SUBRULES_LIST = [
 export const DEFAULT_SETTING = {
   version: CURRENT_SETTINGS_VERSION,
   darkMode: "dark",
-  uiLang: "en",
+  uiLang: "zh",
   minLength: TRANS_MIN_LENGTH,
   maxLength: TRANS_MAX_LENGTH,
   newlineLength: TRANS_NEWLINE_LENGTH,
