@@ -34,7 +34,7 @@ The settings shell has three primary destinations, in this order:
 - `transApis[]` remains the compatible persisted representation of translation profiles.
 - `/apis` is the first destination and owns profile creation, duplication, ordering, enabling, credentials, model discovery, test requests, advanced request behaviour, and the page-default action.
 - Profile deletion and disabling must enforce references from global/site rules and the retained subtitle roles.
-- HTTP providers and the Agy/Codex local bridge are adapters behind the shared translation execution seam.
+- HTTP providers and the Agy/Codex `cli2api` loopback service are adapters behind the shared translation execution seam.
 
 ## Removed slices
 
@@ -74,13 +74,13 @@ Removing only navigation is not sufficient acceptance.
 - Removed slices are absent from content startup and production bundles except inert legacy-key compatibility code.
 - A first-time user can configure page translation, a site rule, subtitles, and a translation engine without learning storage terminology.
 - Page and subtitle translation continue to use stable profiles and existing stored core configuration.
-- Agy and Codex use the local bridge and the same normalized translation result path as HTTP adapters. Acceptance separates bridge/adapter correctness from an upstream CLI account or region rejection.
+- Agy and Codex use `cli2api` and the same normalized translation result path as HTTP adapters. Acceptance separates `cli2api`/adapter correctness from an upstream CLI account or region rejection.
 - The Chrome extension build passes and the actual options and popup pages are visually verified at desktop and narrow widths.
 
 ## Verification snapshot (2026-08-16)
 
 - Chrome and web production builds completed successfully.
-- All 32 Jest suites (218 tests) and all 5 local-bridge unit tests passed.
+- Jest suites and Chrome/web builds pass; `cli2api` is verified separately through `/health`, `/v1/agy/models`, and a real Agy GPT-OSS completion.
 - The actual Options UI was inspected on desktop and at 390x844. Page setup, editable website defaults, subtitle essentials and advanced disclosure, and both engine list/editor views had no horizontal overflow. Mobile uses a fixed four-item bottom bar rather than a scrolling destination strip.
 - The LocalCodex form exposed the expected loopback URL, bearer token, model endpoint, and `gpt-5.6-sol` model. A real Codex completion returned the requested marker.
 - LocalAgy executable detection and live model discovery succeeded. A completion reached the CLI but the current Agy account/network was rejected upstream because its location is unsupported; this is reported as a provider error rather than bridge availability.

@@ -582,7 +582,7 @@ function ApiFields({
     if (isLocalBridge) {
       return i18n(
         "local_bridge_token_help",
-        "Use the one-time token printed when the local bridge starts."
+        "本机 cli2api 服务默认无需 token；仅当 cli2api 配置了 token 时才填写。"
       );
     }
     return API_SPE_TYPES.mulkeys.has(apiType) ? i18n("mulkeys_help") : "";
@@ -773,12 +773,12 @@ function ApiFields({
           {isLocalBridge && (
             <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
               <Typography variant="body2" fontWeight={700}>
-                {i18n("local_bridge_required", "Local bridge required")}
+                {i18n("local_bridge_required", "本机 CLI 服务")}
               </Typography>
               <Typography variant="body2" sx={{ mt: 0.5 }}>
                 {i18n(
                   "local_bridge_start_help",
-                  "Start tools/local-bridge/kiss_cli_bridge.py on this computer, then paste its token below. The bridge listens only on 127.0.0.1 and never uses a shell."
+                  "LocalAgy/LocalCodex 通过本机 cli2api 服务调用（默认 http://127.0.0.1:17891，已配置开机静默自启）。如未运行，请在 C:/Users/Meta/Project/Workspaces/cli2api 执行 uv run cli2api.py。"
                 )}
               </Typography>
             </Alert>
@@ -818,7 +818,7 @@ function ApiFields({
                     size="small"
                     label={
                       isLocalBridge
-                        ? i18n("bridge_token", "Bridge token")
+                        ? i18n("bridge_token", "Token（可选）")
                         : "Key"
                     }
                     name="key"
