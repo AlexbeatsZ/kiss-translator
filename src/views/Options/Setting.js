@@ -125,15 +125,18 @@ function SiteExclusions() {
     const nextPattern = pattern.trim();
     if (!nextPattern) return;
 
-    const exists = (rules.list || []).some(
+    const existing = (rules.list || []).find(
       (rule) => rule.pattern === nextPattern
     );
-    if (exists) {
-      alert.error(i18n("website_already_saved", "这个网站已经在列表里了。"));
-      return;
+    if (existing) {
+      if (existing.transOpen === "false") {
+        alert.error(i18n("website_already_saved", "这个网站已经在列表里了。"));
+        return;
+      }
+      rules.put(existing.pattern, { transOpen: "false" });
+    } else {
+      rules.add({ ...DEFAULT_RULE, pattern: nextPattern, transOpen: "false" });
     }
-
-    rules.add({ ...DEFAULT_RULE, pattern: nextPattern, transOpen: "false" });
     setPattern("");
   };
 
