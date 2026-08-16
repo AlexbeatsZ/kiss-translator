@@ -98,14 +98,14 @@ export function createRetrySVG() {
  * @param {Object} [options]
  * @param {string} [options.width] - 宽度 (默认 "100%")
  * @param {string} [options.height] - 高度 (默认 "100%")
- * @param {string} [options.viewBox] - viewBox (默认 "-7 -7 38 38"，适配原生播放器控制栏图标比例)
+ * @param {string} [options.viewBox] - viewBox (默认 "0 0 36 36"，标准 YouTube 原生控制栏视口)
  * @param {boolean} [options.isSelected] - 是否处于选中/激活状态
  * @returns {SVGElement}
  */
 export function createLogoSVG({
   width = "100%",
   height = "100%",
-  viewBox = "-7 -7 38 38",
+  viewBox = "0 0 36 36",
   isSelected = false,
 } = {}) {
   const svg = createSVGElement("svg", {
@@ -114,16 +114,18 @@ export function createLogoSVG({
     height,
     viewBox,
     version: "1.1",
+    style: "display: block; width: 100%; height: 100%; pointer-events: none;",
   });
 
   const activeColor = "#7C9CFF";
   const defaultColor = "#FFFFFF";
   const fillColor = isSelected ? activeColor : defaultColor;
 
-  // "文 / A" 翻译与双语字幕标准矢量字形路径 (尺寸约 22x20，居中于 38x38 画布)
+  // "文 / A" 翻译与双语字幕标准矢量字形路径 (尺寸 22x20，平移 (6,6) 后在 36x36 画布内完美正中居中)
   const path = createSVGElement("path", {
     d: "M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
     fill: fillColor,
+    transform: "translate(6, 6)",
   });
 
   svg.appendChild(path);

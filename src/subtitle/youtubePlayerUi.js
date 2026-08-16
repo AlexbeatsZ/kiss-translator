@@ -98,13 +98,29 @@ export class YouTubePlayerUi {
     const kissControls = document.createElement("div");
     kissControls.className = "notranslate kiss-subtitle-controls";
     Object.assign(kissControls.style, {
+      display: "inline-block",
       height: "100%",
+      verticalAlign: "top",
       position: "relative",
     });
 
     const toggleButton = document.createElement("button");
     toggleButton.className = "ytp-button kiss-subtitle-button";
     toggleButton.title = APP_NAME;
+    toggleButton.setAttribute("aria-label", APP_NAME);
+    Object.assign(toggleButton.style, {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      height: "100%",
+      padding: "0",
+      border: "0",
+      background: "transparent",
+      cursor: "pointer",
+      verticalAlign: "top",
+      outline: "none",
+    });
 
     toggleButton.appendChild(createLogoSVG());
     kissControls.appendChild(toggleButton);
