@@ -100,8 +100,6 @@ export const DEFAULT_SETTING = {
   httpTimeout: DEFAULT_HTTP_TIMEOUT,
   clearCache: false,
   injectRules: true,
-  contextMenusEnabled: true,
-  contextMenuType: 1,
   subrulesList: DEFAULT_SUBRULES_LIST,
   transApis: DEFAULT_API_LIST,
   prompts: [],

@@ -7,7 +7,6 @@ jest.mock("./config", () => ({
 
 jest.mock("./libs/storage", () => ({
   getSettingWithDefault: jest.fn(),
-  getFabWithDefault: jest.fn(),
   getWordsWithDefault: jest.fn(),
   runDataMigration: jest.fn(),
 }));
@@ -59,7 +58,6 @@ jest.mock("./libs/translatorManager", () => ({
 
 const {
   getSettingWithDefault,
-  getFabWithDefault,
   getWordsWithDefault,
   runDataMigration,
 } = require("./libs/storage");
@@ -118,7 +116,6 @@ describe("common iframe startup", () => {
       mouseHoverSetting: { blacklist: "", useMouseHover: true },
       logLevel: 1,
     });
-    getFabWithDefault.mockResolvedValue({ isHide: false });
     getWordsWithDefault.mockResolvedValue({});
     runDataMigration.mockResolvedValue();
     matchRule.mockResolvedValue({

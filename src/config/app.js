@@ -12,7 +12,6 @@ export const APP_UPNAME = APP_NAME.toUpperCase(); // 应用名称大写
 
 // 注入到网页 DOM 中的特定元素 ID，通过小写应用名防冲突
 export const APP_CONSTS = {
-  fabID: `${APP_LCNAME}-fab`, // 悬浮翻译球元素的 ID
   boxID: `${APP_LCNAME}-box`, // 划词/查词翻译面板元素的 ID
   popupID: `${APP_LCNAME}-popup`, // 弹出页/提示框的 ID
 };

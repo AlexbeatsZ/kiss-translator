@@ -295,7 +295,6 @@ export class Translator {
 
   // 内置忽略元素
   static KISS_IGNORE_SELECTOR = `.${Translator.KISS_CLASS.warpper}, .kiss-caption-container, .kiss-subtitle-controls, #kiss-youtube-subtitle-list-container,
-  #${APP_CONSTS.fabID}, .${APP_CONSTS.fabID}_warpper,
   #${APP_CONSTS.boxID}, .${APP_CONSTS.boxID}_warpper,
   #${APP_CONSTS.popupID}, .${APP_CONSTS.popupID}_warpper`;
 
@@ -1169,7 +1168,7 @@ export class Translator {
 
   // 监控shadowroot
   #startObserveShadowRoot(shadowRoot) {
-    if (shadowRoot.host.matches(`#${APP_CONSTS.fabID}, #${APP_CONSTS.boxID}`)) {
+    if (shadowRoot.host.matches(`#${APP_CONSTS.boxID}`)) {
       return;
     }
     this.#startObserveRoot(shadowRoot);

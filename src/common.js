@@ -1,4 +1,4 @@
-import { getFabWithDefault, getSettingWithDefault } from "./libs/storage";
+import { getSettingWithDefault } from "./libs/storage";
 import { isIframe } from "./libs/iframe";
 import { genEventName } from "./libs/utils";
 import { handlePing, injectScript } from "./libs/gm";
@@ -249,13 +249,11 @@ export async function run(isUserscript = false) {
 
     // 6. 匹配当前网页专用的规则 (三级规则合并：个人 > 订阅 > 内置全局)
     const rule = await matchRule(href, setting);
-    const fabConfig = await getFabWithDefault();
 
     // 7. 创建网页翻译生命周期管理器并启动
     const translatorManager = new TranslatorManager({
       setting,
       rule,
-      fabConfig,
       isIframe,
       isUserscript,
     });

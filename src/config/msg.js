@@ -24,7 +24,6 @@ export const MSG_TRANS_TOGGLE_NEVER_TRANSLATE = "trans_toggle_never_translate"; 
 export const MSG_TRANS_GETRULE = "trans_getrule"; // 获取网页匹配的特定规则
 export const MSG_TRANS_PUTRULE = "trans_putrule"; // 保存或应用网页翻译规则
 export const MSG_TRANS_CURRULE = "trans_currule"; // 发送当前页面所适配的有效规则
-export const MSG_CONTEXT_MENUS = "context_menus"; // 更新或创建右键上下文菜单
 export const MSG_COMMAND_SHORTCUTS = "command_shortcuts"; // 获取扩展注册的全局快捷键
 export const MSG_INJECT_JS = "inject_js"; // 在主文档环境中注入并运行 inline JS
 export const MSG_INJECT_CSS = "inject_css"; // 在主文档或 Shadow Root 中注入自定义 CSS

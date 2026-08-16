@@ -63,7 +63,6 @@
   "permissions": [
     "<all_urls>",
     "storage",
-    "contextMenus",
     "scripting",
     "declarativeNetRequest"
   ],

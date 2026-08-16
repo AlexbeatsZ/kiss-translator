@@ -4,7 +4,6 @@ import {
   STOKEY_SETTING_OLD,
   STOKEY_RULES,
   STOKEY_RULES_OLD,
-  STOKEY_FAB,
   STOKEY_SYNC,
   STOKEY_MSAUTH,
   STOKEY_BDAUTH,
@@ -270,12 +269,6 @@ export const removeDisabledSubRules = async (url) => {
     await setObj(STOKEY_DISABLED_SUB_RULES, raw);
   }
 };
-
-// --- 悬浮球 (Fab Button) 位置及偏好存取 ---
-export const getFab = () => getObj(STOKEY_FAB);
-export const getFabWithDefault = async () => (await getFab()) || {};
-export const setFab = (obj) => setObj(STOKEY_FAB, obj);
-export const putFab = (obj) => putObj(STOKEY_FAB, obj);
 
 // --- Site-rule subscription cache metadata ---
 export const getSync = () => getObj(STOKEY_SYNC);

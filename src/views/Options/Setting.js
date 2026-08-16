@@ -31,7 +31,6 @@ import {
   DEFAULT_RULE,
   GLOBLA_RULE,
   GLOBAL_KEY,
-  MSG_CONTEXT_MENUS,
   MSG_UPDATE_CSP,
   OPT_LANGDETECTOR_ALL,
   OPT_LANGS_FROM_REVERSED as OPT_LANGS_FROM,
@@ -283,7 +282,6 @@ export default function Settings() {
     clearCache,
     newlineLength = TRANS_NEWLINE_LENGTH,
     httpTimeout = DEFAULT_HTTP_TIMEOUT,
-    contextMenusEnabled = true,
     csplist = DEFAULT_CSPLIST.join(",\n"),
     orilist = DEFAULT_ORILIST.join(",\n"),
     transInterval = 100,
@@ -448,7 +446,7 @@ export default function Settings() {
         title={i18n("page_translation_tuning", "翻译调优")}
         description={i18n(
           "page_translation_tuning_description",
-          "语言检测、文本长度、请求节奏和右键菜单。"
+          "语言检测、文本长度和请求节奏。"
         )}
       >
         <Stack spacing={2.5}>
@@ -550,26 +548,6 @@ export default function Settings() {
               onChange={handleSettingChange}
               min={1}
               max={600}
-            />
-            <SettingsToggle
-              label={i18n("context_menus")}
-              description={i18n(
-                "context_menus_description",
-                "在浏览器右键菜单中加入翻译操作。"
-              )}
-              control={
-                <Switch
-                  checked={contextMenusEnabled !== false}
-                  onChange={(event) => {
-                    const enabled = event.target.checked;
-                    isExt && sendBgMsg(MSG_CONTEXT_MENUS, enabled ? 1 : 0);
-                    updateSetting({
-                      contextMenusEnabled: enabled,
-                      contextMenuType: 1,
-                    });
-                  }}
-                />
-              }
             />
             {isExt && (
               <TextField

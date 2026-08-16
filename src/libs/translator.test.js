@@ -350,7 +350,7 @@ describe("Translator rule styles", () => {
     document.body.innerHTML = `
       <main id="root">
         <div id="page-host">Page content</div>
-        <div id="kiss-translator-fab">
+        <div id="kiss-translator-box">
           <div id="plugin-child">Plugin content</div>
         </div>
       </main>

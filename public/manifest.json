@@ -75,7 +75,6 @@
   },
   "permissions": [
     "storage",
-    "contextMenus",
     "scripting",
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess"

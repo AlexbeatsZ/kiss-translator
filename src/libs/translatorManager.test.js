@@ -1,5 +1,4 @@
 const mockTranslatorInstances = [];
-const mockFabInstances = [];
 
 jest.mock("../config", () => ({
   EVENT_KISS_TRANSLATOR: "kiss-translator",
@@ -56,14 +55,6 @@ jest.mock("./translator", () => ({
   }),
 }));
 
-jest.mock("./fabManager", () => ({
-  FabManager: jest.fn().mockImplementation((args) => {
-    const instance = { args, destroy: jest.fn() };
-    mockFabInstances.push(instance);
-    return instance;
-  }),
-}));
-
 jest.mock("./shortcut", () => ({
   shortcutRegister: jest.fn(() => jest.fn()),
 }));
@@ -77,7 +68,6 @@ jest.mock("./log", () => ({
 
 const { browser } = require("./browser");
 const { Translator } = require("./translator");
-const { FabManager } = require("./fabManager");
 const { sendIframeMsg } = require("./iframe");
 const { sendBgMsg } = require("./msg");
 const { toggleSiteExclusion } = require("./rules");
@@ -100,18 +90,12 @@ function setupRuntimeMocks() {
     mockTranslatorInstances.push(instance);
     return instance;
   });
-  FabManager.mockImplementation((args) => {
-    const instance = { args, destroy: jest.fn() };
-    mockFabInstances.push(instance);
-    return instance;
-  });
 }
 
 function createManager(overrides = {}) {
   return new TranslatorManager({
-    setting: { touchModes: [], shortcuts: {}, contextMenusEnabled: true },
+    setting: { touchModes: [], shortcuts: {} },
     rule: { transOpen: "true", transOnly: "false" },
-    fabConfig: { isHide: false },
     isIframe: false,
     isUserscript: false,
     ...overrides,
@@ -123,7 +107,6 @@ describe("TranslatorManager focused page runtime", () => {
     jest.useFakeTimers();
     document.documentElement.innerHTML = "<head></head><body></body>";
     mockTranslatorInstances.length = 0;
-    mockFabInstances.length = 0;
     jest.clearAllMocks();
     setupRuntimeMocks();
   });
@@ -133,12 +116,11 @@ describe("TranslatorManager focused page runtime", () => {
     jest.useRealTimers();
   });
 
-  test("starts only the page translator and floating translation control", () => {
+  test("starts only the page translator runtime", () => {
     const manager = createManager();
     manager.start();
 
     expect(Translator).toHaveBeenCalledTimes(1);
-    expect(FabManager).toHaveBeenCalledTimes(1);
     expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
     manager.stop();
   });
@@ -208,7 +190,6 @@ describe("TranslatorManager focused page runtime", () => {
     const manager = createManager();
     manager.start();
     const firstTranslator = mockTranslatorInstances[0];
-    const firstFab = mockFabInstances[0];
 
     document.body.replaceWith(document.createElement("body"));
     await Promise.resolve();
@@ -216,7 +197,6 @@ describe("TranslatorManager focused page runtime", () => {
 
     expect(Translator).toHaveBeenCalledTimes(2);
     expect(firstTranslator.stop).toHaveBeenCalledTimes(1);
-    expect(firstFab.destroy).toHaveBeenCalledTimes(1);
     manager.stop();
   });
 
@@ -227,7 +207,6 @@ describe("TranslatorManager focused page runtime", () => {
     manager.stop();
 
     expect(mockTranslatorInstances[0].stop).toHaveBeenCalledTimes(1);
-    expect(mockFabInstances[0].destroy).toHaveBeenCalledTimes(1);
     expect(browser.runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
   });
 });

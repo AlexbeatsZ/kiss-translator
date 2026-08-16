@@ -8,7 +8,6 @@ import {
   MSG_OPEN_OPTIONS,
   MSG_SAVE_RULE,
   MSG_TRANS_TOGGLE_STYLE,
-  MSG_CONTEXT_MENUS,
   MSG_COMMAND_SHORTCUTS,
   MSG_INJECT_JS,
   MSG_INJECT_CSS,
@@ -104,70 +103,6 @@ const CSP_REMOVE_HEADERS = [
   `x-webkit-csp`,
   `x-content-security-policy`,
 ];
-
-/**
- * 动态增删及配置右键快捷菜单。
- * @param {number} contextMenuType 菜单类型标识 (1: 简易模式, 2: 完整模式)
- */
-async function addContextMenus(contextMenuType = 1) {
-  try {
-    // 添加右键菜单前，务必先全部清空，防止因为重复添加相同 ID 菜单导致插件崩溃
-    await browser.contextMenus.removeAll();
-  } catch (err) {
-    kissLog("remove contextMenus", err);
-  }
-
-  switch (contextMenuType) {
-    case 1:
-      // 简易模式：只切换当前页面的双语翻译。
-      browser.contextMenus.create({
-        id: CMD_TOGGLE_TRANSLATE,
-        title: browser.i18n.getMessage("toggle_translate"),
-        contexts: ["page"],
-      });
-      break;
-    case 2:
-      // 完整模式：额外提供“仅显示翻译”、样式切换、打开独立翻译面板以及进入选项设置页
-      browser.contextMenus.create({
-        id: CMD_TOGGLE_TRANSLATE,
-        title: browser.i18n.getMessage("toggle_translate"),
-        contexts: ["page"],
-      });
-      browser.contextMenus.create({
-        id: CMD_TOGGLE_TRANSLATE_ONLY,
-        title: browser.i18n.getMessage("toggle_translate_only"),
-        contexts: ["page"],
-      });
-      browser.contextMenus.create({
-        id: CMD_TOGGLE_STYLE,
-        title: browser.i18n.getMessage("toggle_style"),
-        contexts: ["page"],
-      });
-      browser.contextMenus.create({
-        id: "options_separator",
-        type: "separator",
-        contexts: ["page"],
-      });
-      browser.contextMenus.create({
-        id: CMD_OPEN_OPTIONS,
-        title: browser.i18n.getMessage("open_options"),
-        contexts: ["page"],
-      });
-      break;
-    default:
-  }
-}
-
-function getEffectiveContextMenuType({
-  contextMenusEnabled = true,
-  contextMenuType = 1,
-} = {}) {
-  const menuType = Number(contextMenuType);
-  if (contextMenusEnabled === false || ![1, 2].includes(menuType)) {
-    return 0;
-  }
-  return menuType;
-}
 
 /**
  * 动态更新浏览器的 CSP (Content Security Policy) 和跨域 Origin 修改策略。
@@ -327,30 +262,19 @@ browser.runtime.onInstalled.addListener(async (details) => {
     registerMsgDisplayScript();
   }
 
-  const {
-    contextMenusEnabled,
-    contextMenuType,
-    csplist,
-    orilist,
-    subrulesList,
-  } = await getSettingWithDefault();
+  const { csplist, orilist, subrulesList } = await getSettingWithDefault();
 
-  addContextMenus(
-    getEffectiveContextMenuType({ contextMenusEnabled, contextMenuType })
-  );
   updateCspRules({ csplist, orilist });
   trySyncAllSubRules({ subrulesList });
 });
 
 /**
  * 监听浏览器/扩展启动事件 (onStartup)。
- * 此时从本地恢复日志级别、清空不需要的翻译长缓存、重建右键菜单，并与云端同步设置、本地规则与订阅规则。
+ * 此时从本地恢复日志级别、清空不需要的翻译长缓存，并与云端同步设置、本地规则与订阅规则。
  */
 browser.runtime.onStartup.addListener(async () => {
   const {
     clearCache,
-    contextMenusEnabled,
-    contextMenuType,
     subrulesList,
     csplist,
     orilist,
@@ -366,11 +290,6 @@ browser.runtime.onStartup.addListener(async () => {
   if (process.env.REACT_APP_CLIENT === CLIENT_THUNDERBIRD) {
     registerMsgDisplayScript();
   }
-
-  // REVIEW: 针对“Firefox 重启后菜单消失”的系统 Bug，此处在启动时必须重新添加一次 addContextMenus
-  addContextMenus(
-    getEffectiveContextMenuType({ contextMenusEnabled, contextMenuType })
-  );
 
   updateCspRules({ csplist, orilist });
   trySyncAllSubRules({ subrulesList });
@@ -404,7 +323,6 @@ const messageHandlers = {
   [MSG_INJECT_JS]: (args) => injectToCurrentTab(injectInlineJsBg, args), // 注入 JS 代码到前台
   [MSG_INJECT_CSS]: (args) => injectToCurrentTab(injectInternalCss, args), // 注入 CSS 样式到前台
   [MSG_UPDATE_CSP]: (args) => updateCspRules(args), // 触发 CSP 重写规则变更
-  [MSG_CONTEXT_MENUS]: (args) => addContextMenus(args), // 切换右键菜单样式
   [MSG_COMMAND_SHORTCUTS]: () => browser.commands.getAll(), // 获取 manifest 注册的所有快捷键
   [MSG_BUILTINAI_DETECT]: (args) => chromeDetect(args), // 触发 Chrome 127+ 内置 Gemini AI 语言检测
   [MSG_BUILTINAI_TRANSLATE]: (args) => chromeTranslate(args), // 触发 Chrome 内置 AI 翻译接口
@@ -443,28 +361,6 @@ browser.commands?.onCommand?.addListener?.((command) => {
       break;
     case CMD_TOGGLE_NEVER_TRANSLATE:
       sendTabMsg(MSG_TRANS_TOGGLE_NEVER_TRANSLATE);
-      break;
-    case CMD_OPEN_OPTIONS:
-      browser.runtime.openOptionsPage();
-      break;
-    default:
-  }
-});
-
-/**
- * 监听全局右键菜单的点击项。
- * 触发时，通过 Chrome 消息管道将对应指令转发给用户所点击页面的前台 Content Script。
- */
-browser?.contextMenus?.onClicked?.addListener?.(({ menuItemId }) => {
-  switch (menuItemId) {
-    case CMD_TOGGLE_TRANSLATE:
-      sendTabMsg(MSG_TRANS_TOGGLE);
-      break;
-    case CMD_TOGGLE_TRANSLATE_ONLY:
-      sendTabMsg(MSG_TRANS_TOGGLE_ONLY);
-      break;
-    case CMD_TOGGLE_STYLE:
-      sendTabMsg(MSG_TRANS_TOGGLE_STYLE);
       break;
     case CMD_OPEN_OPTIONS:
       browser.runtime.openOptionsPage();

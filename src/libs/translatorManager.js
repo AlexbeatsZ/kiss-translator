@@ -4,7 +4,6 @@ import { shortcutRegister } from "./shortcut";
 import { sendIframeMsg } from "./iframe";
 import { sendBgMsg } from "./msg";
 import { touchTapListener } from "./touch";
-import { FabManager } from "./fabManager";
 import { logger } from "./log";
 import { toggleSiteExclusion } from "./rules";
 import {
@@ -28,8 +27,8 @@ import {
  * Own the page-translation runtime lifecycle.
  *
  * Subtitle translation deliberately stays behind runSubtitle(). This module
- * only keeps the page translator, its compact floating control, retained
- * shortcuts, cross-frame actions, and SPA container recovery in one place.
+ * only keeps the page translator, retained shortcuts, cross-frame actions,
+ * and SPA container recovery in one place.
  */
 export default class TranslatorManager {
   #clearShortcuts = [];
@@ -39,7 +38,6 @@ export default class TranslatorManager {
 
   #setting;
   #rule;
-  #fabConfig;
   #isUserscript;
   #isIframe;
 
@@ -58,12 +56,10 @@ export default class TranslatorManager {
   #spaNavigationHandler;
 
   _translator = null;
-  _fabManager = null;
 
-  constructor({ setting, rule, fabConfig, isIframe, isUserscript }) {
+  constructor({ setting, rule, isIframe, isUserscript }) {
     this.#setting = this.#cloneConfig(setting);
     this.#rule = this.#cloneConfig(rule);
-    this.#fabConfig = this.#cloneConfig(fabConfig);
     this.#isIframe = isIframe;
     this.#isUserscript = isUserscript;
 
@@ -98,7 +94,6 @@ export default class TranslatorManager {
     this.#destroyRuntimeModules();
     this.#setting = state.setting;
     this.#rule = state.rule;
-    this.#fabConfig = state.fabConfig;
     this.#createRuntimeModules();
     this.#refreshDocumentElementObserver();
     logger.info(`Page translation runtime restarted: ${reason}`);
@@ -145,19 +140,10 @@ export default class TranslatorManager {
       isUserscript: this.#isUserscript,
       isIframe: this.#isIframe,
     });
-
-    if (!this.#isIframe) {
-      this._fabManager = new FabManager({
-        processActions: this.#processActions.bind(this),
-        fabConfig: this.#cloneConfig(this.#fabConfig),
-      });
-    }
   }
 
   #destroyRuntimeModules() {
-    this._fabManager?.destroy();
     this._translator?.stop();
-    this._fabManager = null;
     this._translator = null;
   }
 
@@ -177,7 +163,6 @@ export default class TranslatorManager {
     return {
       setting: this.#cloneConfig(this._translator?.setting || this.#setting),
       rule: this.#cloneConfig(this._translator?.rule || this.#rule),
-      fabConfig: this.#cloneConfig(this.#fabConfig),
     };
   }
 
@@ -413,8 +398,7 @@ export default class TranslatorManager {
 
   #registerMenus() {
     if (!globalThis.GM) return;
-    const { contextMenusEnabled = true, uiLang } = this._translator.setting;
-    if (!contextMenusEnabled) return;
+    const { uiLang } = this._translator?.setting || {};
 
     const i18n = newI18n(uiLang || "zh");
     this.#menuCommandIds = [
