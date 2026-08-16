@@ -1,12 +1,14 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import Popup from "./index";
-import { sendTabMsg } from "../../libs/msg";
+import { getCurTab, sendTabMsg } from "../../libs/msg";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 jest.mock("../../libs/msg", () => ({
   sendTabMsg: jest.fn(),
+  sendBgMsg: jest.fn(),
+  getCurTab: jest.fn(),
 }));
 
 jest.mock("../../libs/browser", () => ({
@@ -38,18 +40,24 @@ jest.mock("../../hooks/Setting", () => ({
   }),
 }));
 
+const mockRulesList = [
+  {
+    pattern: "*",
+    apiSlug: "Google2",
+    fromLang: "auto",
+    toLang: "zh-CN",
+    transOpen: "false",
+    transOnly: "false",
+  },
+  {
+    pattern: "excluded.com",
+    transOpen: "false",
+  },
+];
+
 jest.mock("../../hooks/Rules", () => ({
   useRules: () => ({
-    list: [
-      {
-        pattern: "*",
-        apiSlug: "Google2",
-        fromLang: "auto",
-        toLang: "zh-CN",
-        transOpen: "false",
-        transOnly: "false",
-      },
-    ],
+    list: mockRulesList,
     put: jest.fn(),
   }),
 }));
@@ -73,6 +81,7 @@ describe("Popup component", () => {
   });
 
   test("renders gracefully with global rule fallback when tab message fails", async () => {
+    getCurTab.mockResolvedValue({ url: "chrome://extensions" });
     sendTabMsg.mockRejectedValue(new Error("Receiving end does not exist"));
 
     await act(async () => {
@@ -88,7 +97,8 @@ describe("Popup component", () => {
     expect(container.textContent).not.toContain("Simplified Chinese - 简体中文");
   });
 
-  test("renders tab rule when sendTabMsg succeeds", async () => {
+  test("renders tab rule when sendTabMsg succeeds and displays exclusion status", async () => {
+    getCurTab.mockResolvedValue({ url: "https://example.com/page" });
     sendTabMsg.mockResolvedValue({
       rule: {
         pattern: "example.com",
@@ -105,5 +115,27 @@ describe("Popup component", () => {
 
     expect(container.textContent).toContain("English");
     expect(container.textContent).toContain("简体中文");
+    expect(container.textContent).toContain("永久不自动翻译此网站");
+    expect(container.textContent).toContain("example.com");
+  });
+
+  test("displays already excluded status when current site is in exclusion list", async () => {
+    getCurTab.mockResolvedValue({ url: "https://excluded.com/article" });
+    sendTabMsg.mockResolvedValue({
+      rule: {
+        pattern: "excluded.com",
+        apiSlug: "Google2",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        transOpen: "false",
+      },
+    });
+
+    await act(async () => {
+      root.render(<Popup />);
+    });
+
+    expect(container.textContent).toContain("已加入不自动翻译列表");
+    expect(container.textContent).toContain("excluded.com");
   });
 });

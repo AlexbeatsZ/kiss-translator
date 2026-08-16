@@ -10,6 +10,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import SubtitlesRoundedIcon from "@mui/icons-material/SubtitlesRounded";
 import TranslateRoundedIcon from "@mui/icons-material/TranslateRounded";
@@ -17,14 +18,17 @@ import { useI18n } from "../../hooks/I18n";
 import { useSetting } from "../../hooks/Setting";
 import { useRules } from "../../hooks/Rules";
 import { browser } from "../../libs/browser";
-import { sendTabMsg } from "../../libs/msg";
+import { getCurTab, sendBgMsg, sendTabMsg } from "../../libs/msg";
+import { isMatch } from "../../libs/utils";
 import { kissLog } from "../../libs/log";
 import {
   GLOBAL_KEY,
   GLOBLA_RULE,
+  MSG_TOGGLE_NEVER_TRANSLATE,
   MSG_TRANS_GETRULE,
   MSG_TRANS_PUTRULE,
   MSG_TRANS_TOGGLE,
+  MSG_TRANS_TOGGLE_NEVER_TRANSLATE,
   OPT_LANGS_FROM_REVERSED,
   OPT_LANGS_TO_REVERSED,
 } from "../../config";
@@ -56,6 +60,7 @@ export default function Popup() {
   const rules = useRules();
   const [tabRule, setTabRule] = useState(null);
   const [tabAvailable, setTabAvailable] = useState(true);
+  const [currentHostname, setCurrentHostname] = useState("");
   const [, setLoading] = useState(true);
 
   const globalRule = useMemo(
@@ -68,6 +73,20 @@ export default function Popup() {
   const loadCurrentRule = useCallback(async () => {
     setLoading(true);
     try {
+      const tab = await getCurTab();
+      if (
+        tab?.url &&
+        !tab.url.startsWith("chrome://") &&
+        !tab.url.startsWith("edge://") &&
+        !tab.url.startsWith("about:")
+      ) {
+        try {
+          const url = new URL(tab.url);
+          setCurrentHostname(url.hostname);
+        } catch {
+          // ignore URL parsing error
+        }
+      }
       const response = await sendTabMsg(MSG_TRANS_GETRULE);
       if (response?.rule) {
         setTabRule(response.rule);
@@ -97,6 +116,17 @@ export default function Popup() {
     [activeRule?.apiSlug, setting?.transApis]
   );
 
+  const isSiteExcluded = useMemo(() => {
+    if (!currentHostname) return false;
+    const match = (rules.list || []).find(
+      (rule) =>
+        rule.pattern !== GLOBAL_KEY &&
+        (rule.pattern === currentHostname ||
+          isMatch(currentHostname, rule.pattern))
+    );
+    return match ? match.transOpen === "false" : false;
+  }, [currentHostname, rules.list]);
+
   const updateRule = useCallback(
     async (patch) => {
       if (tabAvailable) {
@@ -118,6 +148,13 @@ export default function Popup() {
         (current || globalRule)?.transOpen === "true" ? "false" : "true",
     }));
   }, [globalRule, tabAvailable]);
+
+  const toggleNeverTranslateSite = useCallback(async () => {
+    if (!currentHostname) return;
+    await sendBgMsg(MSG_TOGGLE_NEVER_TRANSLATE, { hostname: currentHostname });
+    await sendTabMsg(MSG_TRANS_TOGGLE_NEVER_TRANSLATE);
+    await loadCurrentRule();
+  }, [currentHostname, loadCurrentRule]);
 
   const toggleSubtitles = useCallback(() => {
     updateSetting((current) => ({
@@ -340,7 +377,10 @@ export default function Popup() {
             label={i18n("from_lang", "Source language")}
             value={activeRule?.fromLang || "auto"}
             onChange={(event) => updateRule({ fromLang: event.target.value })}
-            SelectProps={{ MenuProps: { disablePortal: true } }}
+            SelectProps={{
+              MenuProps: { disablePortal: true },
+              renderValue: (val) => languageName(val, OPT_LANGS_FROM_REVERSED),
+            }}
           >
             {OPT_LANGS_FROM_REVERSED.map(([code, name]) => (
               <MenuItem key={code} value={code}>
@@ -355,7 +395,10 @@ export default function Popup() {
             label={i18n("to_lang", "Target language")}
             value={activeRule?.toLang || "zh-CN"}
             onChange={(event) => updateRule({ toLang: event.target.value })}
-            SelectProps={{ MenuProps: { disablePortal: true } }}
+            SelectProps={{
+              MenuProps: { disablePortal: true },
+              renderValue: (val) => languageName(val, OPT_LANGS_TO_REVERSED),
+            }}
           >
             {OPT_LANGS_TO_REVERSED.map(([code, name]) => (
               <MenuItem key={code} value={code}>
@@ -412,6 +455,80 @@ export default function Popup() {
             }
           />
         </Stack>
+
+        {/* 当前网站不自动翻译排除状态控制卡片 */}
+        {currentHostname && (
+          <Box
+            sx={{
+              p: 1.25,
+              border: `1px solid ${
+                isSiteExcluded ? "rgba(255, 122, 144, 0.4)" : TOKENS.rule
+              }`,
+              borderRadius: 2,
+              bgcolor: isSiteExcluded
+                ? "rgba(255, 122, 144, 0.08)"
+                : TOKENS.sheet,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ minWidth: 0, pr: 1 }}
+            >
+              <BlockRoundedIcon
+                sx={{
+                  fontSize: 18,
+                  color: isSiteExcluded ? TOKENS.proof : TOKENS.source,
+                  flexShrink: 0,
+                }}
+              />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  noWrap
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: isSiteExcluded ? 700 : 500,
+                    color: isSiteExcluded ? TOKENS.proof : TOKENS.ink,
+                  }}
+                >
+                  {isSiteExcluded
+                    ? i18n("site_excluded_label", "已加入不自动翻译列表")
+                    : i18n("never_translate_this_site", "永久不自动翻译此网站")}
+                </Typography>
+                <Typography
+                  noWrap
+                  sx={{
+                    fontSize: 10,
+                    fontFamily: utilityFont,
+                    color: isSiteExcluded ? TOKENS.proof : "text.secondary",
+                    opacity: 0.8,
+                  }}
+                >
+                  {currentHostname}
+                </Typography>
+              </Box>
+            </Stack>
+            <Switch
+              size="small"
+              checked={isSiteExcluded}
+              onChange={toggleNeverTranslateSite}
+              sx={{
+                flexShrink: 0,
+                "& .MuiSwitch-switchBase.Mui-checked": {
+                  color: TOKENS.proof,
+                },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                  backgroundColor: TOKENS.proof,
+                },
+              }}
+            />
+          </Box>
+        )}
       </Stack>
 
       {/* 底部信息与设置入口 */}
