@@ -47,6 +47,8 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Unit tests: `pnpm test -- --watchAll=false`
 - Web build: `pnpm build:web`
 - Chrome extension build: `pnpm build:chrome`
+- Full build for all targets: `pnpm build`
+- Archive / Zip release packages: `pnpm zip` (generates `build/chrome.zip`, `build/edge.zip`, `build/firefox.zip`, `build/thunderbird.zip`, `build/userscript.zip`)
 - Focused settings tests can be run directly with the project runtime: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand src/views/Options/index.test.js src/views/Options/Layout.test.js src/views/Options/Apis.test.js src/views/Options/ReusableAutocomplete.test.js src/libs/modelList.test.js`
 - If the active pnpm wrapper is not the repository-pinned version, run local binaries directly rather than rewriting workspace/package-manager configuration.
 
