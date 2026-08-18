@@ -56,18 +56,16 @@ export function getSettingsPageMeta(pathname, i18n) {
   const normalizedPath = pathname === "/" ? "/" : pathname.replace(/\/$/, "");
 
   for (const group of groups) {
-    const item = group.items.find(({ url }) =>
-      normalizedPath === url || normalizedPath.startsWith(`${url}/`)
+    const item = group.items.find(
+      ({ url }) =>
+        normalizedPath === url || normalizedPath.startsWith(`${url}/`)
     );
     if (item) return { ...item, groupLabel: group.label };
   }
 
   return {
     title: i18n("settings", "设置"),
-    description: i18n(
-      "settings_description",
-      "根据需要配置翻译。"
-    ),
+    description: i18n("settings_description", "根据需要配置翻译。"),
     groupLabel: i18n("settings_group_translation", "翻译"),
   };
 }

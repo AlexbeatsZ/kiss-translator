@@ -418,7 +418,10 @@ export default class TranslatorManager {
         "C"
       ),
       GM.registerMenuCommand?.(
-        i18n("toggle_never_translate_shortcut", "切换当前网站是否永久不自动翻译"),
+        i18n(
+          "toggle_never_translate_shortcut",
+          "切换当前网站是否永久不自动翻译"
+        ),
         () => this.toggleNeverTranslate(),
         "T"
       ),

@@ -39,6 +39,7 @@
     "build:safari": "node src/scripts/build-safari.mjs",
     "build:userscript-ios": "zx src/scripts/build-ios.mjs",
     "build:rules": "babel-node src/rules.js",
+    "deploy:gh-pages": "zx src/scripts/deploy-ghpages.mjs",
     "format": "prettier --write \"**/*.{js,json,html}\"",
     "build": "pnpm sync-version && pnpm format && pnpm build:chrome && pnpm build:edge && pnpm build:thunderbird && pnpm build:firefox && pnpm build:web && pnpm build:userscript-ios && pnpm build:rules",
     "zip": "zx src/scripts/archive.mjs",

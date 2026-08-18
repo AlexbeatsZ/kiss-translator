@@ -5,7 +5,7 @@
   "version": "2.0.28",
   "default_locale": "zh_CN",
   "author": "Gabe<yugang2002@gmail.com>",
-  "homepage_url": "https://github.com/fishjar/kiss-translator",
+  "homepage_url": "https://github.com/AlexbeatsZ/kiss-translator",
   "background": {
     "service_worker": "background.js",
     "type": "module"

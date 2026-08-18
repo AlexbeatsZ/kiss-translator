@@ -22,4 +22,3 @@ export const isExt =
 export const isGm = client === CLIENT_USERSCRIPT; // 是否为油猴脚本运行环境
 export const isWeb = client === CLIENT_WEB; // 是否为纯 Web 演示网页环境
 export const isFirefox = client === CLIENT_FIREFOX; // 是否在 Firefox 浏览器扩展环境中运行
-

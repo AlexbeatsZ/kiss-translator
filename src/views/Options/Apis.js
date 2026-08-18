@@ -1603,9 +1603,7 @@ function ApiListItem({
             reorderEnabled
               ? "drag_to_reorder"
               : "save_or_discard_before_reorder",
-            reorderEnabled
-              ? "拖动调整顺序"
-              : "请先保存或放弃更改后再调整顺序"
+            reorderEnabled ? "拖动调整顺序" : "请先保存或放弃更改后再调整顺序"
           )}
         >
           <Box

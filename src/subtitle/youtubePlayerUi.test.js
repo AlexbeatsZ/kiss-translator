@@ -1,7 +1,4 @@
-import {
-  YouTubePlayerUi,
-  YT_CAPTION_SELECTOR,
-} from "./youtubePlayerUi.js";
+import { YouTubePlayerUi, YT_CAPTION_SELECTOR } from "./youtubePlayerUi.js";
 
 describe("YouTubePlayerUi", () => {
   let setting;
@@ -32,7 +29,9 @@ describe("YouTubePlayerUi", () => {
 
     ui.hideYtCaption();
     expect(captionContainer.style.top).toBe("-10000px");
-    expect(document.getElementById("kiss-hide-yt-caption-style")).not.toBeNull();
+    expect(
+      document.getElementById("kiss-hide-yt-caption-style")
+    ).not.toBeNull();
 
     ui.showYtCaption();
     expect(captionContainer.style.top).toBe("0px");
@@ -61,4 +60,3 @@ describe("YouTubePlayerUi", () => {
     expect(document.querySelector(".kiss-notification")).toBeNull();
   });
 });
-

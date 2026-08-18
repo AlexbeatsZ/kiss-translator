@@ -142,9 +142,7 @@ describe("toggleSiteExclusion", () => {
   });
 
   test("adds a site to never-translate when not in list", async () => {
-    getRulesWithDefault.mockResolvedValue([
-      { pattern: "*", selector: "p" },
-    ]);
+    getRulesWithDefault.mockResolvedValue([{ pattern: "*", selector: "p" }]);
 
     const result = await toggleSiteExclusion("github.com");
 

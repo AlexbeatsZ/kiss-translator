@@ -997,7 +997,8 @@ export function fillDefaultApiModelListUrl(apiSetting) {
   // 只有 undefined 才代表旧数据缺字段；空字符串或自定义 URL 都应原样保留。
   if (apiSetting.modelListUrl === undefined) {
     const defaultApiOpt =
-      DEFAULT_API_LIST.find((item) => item.apiType === apiSetting.apiType) || {};
+      DEFAULT_API_LIST.find((item) => item.apiType === apiSetting.apiType) ||
+      {};
     next.modelListUrl = defaultApiOpt.modelListUrl || "";
     modified = true;
   }

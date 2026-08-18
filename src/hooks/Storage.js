@@ -93,8 +93,8 @@ export function useStorage(key, defaultVal = null) {
               raw === undefined || raw === null
                 ? defaultVal
                 : typeof raw === "string"
-                ? JSON.parse(raw)
-                : raw;
+                  ? JSON.parse(raw)
+                  : raw;
             setData((prev) => {
               if (isSameStorageValue(prev, nextVal)) {
                 return prev;

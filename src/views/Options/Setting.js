@@ -621,7 +621,10 @@ export default function Settings() {
             />
             <ShortcutItem
               action={OPT_SHORTCUT_NEVER_TRANSLATE}
-              label={i18n("toggle_never_translate_shortcut", "切换当前网站是否永久不自动翻译")}
+              label={i18n(
+                "toggle_never_translate_shortcut",
+                "切换当前网站是否永久不自动翻译"
+              )}
             />
             <ShortcutItem
               action={OPT_SHORTCUT_SETTING}

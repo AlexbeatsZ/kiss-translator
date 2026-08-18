@@ -257,8 +257,7 @@ export default function Popup() {
                 textTransform: "uppercase",
               }}
             >
-              {engine?.apiName ||
-                i18n("translation_engine", "翻译引擎")}
+              {engine?.apiName || i18n("translation_engine", "翻译引擎")}
             </Typography>
           </Box>
         </Stack>
@@ -355,19 +354,19 @@ export default function Popup() {
             bgcolor: !tabAvailable
               ? TOKENS.raised
               : pageEnabled
-              ? TOKENS.raised
-              : TOKENS.translation,
+                ? TOKENS.raised
+                : TOKENS.translation,
             color: !tabAvailable
               ? "rgba(242, 244, 248, 0.4)"
               : pageEnabled
-              ? TOKENS.ink
-              : TOKENS.paper,
+                ? TOKENS.ink
+                : TOKENS.paper,
             border: `1px solid ${
               !tabAvailable
                 ? TOKENS.rule
                 : pageEnabled
-                ? TOKENS.rule
-                : TOKENS.translation
+                  ? TOKENS.rule
+                  : TOKENS.translation
             }`,
             boxShadow: "none",
             textTransform: "none",
@@ -379,13 +378,10 @@ export default function Popup() {
           }}
         >
           {!tabAvailable
-            ? i18n(
-                "page_translation_unavailable",
-                "当前标签页不支持网页翻译"
-              )
+            ? i18n("page_translation_unavailable", "当前标签页不支持网页翻译")
             : pageEnabled
-            ? i18n("stop_page_translation", "停止翻译此页面")
-            : i18n("translate_this_page", "翻译此页面")}
+              ? i18n("stop_page_translation", "停止翻译此页面")
+              : i18n("translate_this_page", "翻译此页面")}
         </Button>
 
         <Stack direction="row" spacing={1.25}>
@@ -434,8 +430,7 @@ export default function Popup() {
             color={activeRule?.transOnly === "true" ? "default" : "success"}
             onClick={() =>
               updateRule({
-                transOnly:
-                  activeRule?.transOnly === "true" ? "false" : "true",
+                transOnly: activeRule?.transOnly === "true" ? "false" : "true",
               })
             }
             sx={{ flex: 1, minHeight: 36, borderRadius: 1.5 }}

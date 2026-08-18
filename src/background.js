@@ -271,13 +271,8 @@ browser.runtime.onInstalled.addListener(async (details) => {
  * 此时从本地恢复日志级别、清空不需要的翻译长缓存，并与云端同步设置、本地规则与订阅规则。
  */
 browser.runtime.onStartup.addListener(async () => {
-  const {
-    clearCache,
-    subrulesList,
-    csplist,
-    orilist,
-    logLevel,
-  } = await getSettingWithDefault();
+  const { clearCache, subrulesList, csplist, orilist, logLevel } =
+    await getSettingWithDefault();
 
   logger.setLevel(logLevel);
 

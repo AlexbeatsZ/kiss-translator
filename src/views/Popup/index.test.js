@@ -97,7 +97,9 @@ describe("Popup component", () => {
     expect(container.textContent).toContain("自动检测");
     expect(container.textContent).toContain("简体中文");
     expect(container.textContent).not.toContain("AutoDetect - AutoDetect");
-    expect(container.textContent).not.toContain("Simplified Chinese - 简体中文");
+    expect(container.textContent).not.toContain(
+      "Simplified Chinese - 简体中文"
+    );
   });
 
   test("renders tab rule when sendTabMsg succeeds and displays exclusion status", async () => {
