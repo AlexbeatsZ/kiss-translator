@@ -4,7 +4,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 
 # Current State
 
-- Version: `2.0.29` (pending build and publication)
+- Version: `2.0.29`
 - Branch: `feat/settings-menu-switches`
 - Baseline commit: `daa82b6`
 - UI stack: React 18, Material UI 5, React Router 6.
@@ -12,6 +12,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Settings uses the default-dark Nocturne reading console: a compact desktop rail, fixed three-item mobile bar, source-to-engine-to-output context, and progressive disclosure for advanced controls.
 - `/apis` is the canonical translation-service/model manager and the first settings destination; `/page` owns page translation defaults plus a simple no-auto-translate website list; `/rules` now redirects to `/page`. The full website-rule editor (`Rules.js`) has been removed rather than hidden. Retained storage fields and `apiSlug` references are unchanged.
 - `/page` now has a visible encrypted GitHub Gist sync card immediately below the no-auto-translate website list. Only patterns with `transOpen: "false"` are synchronized; all languages, engines, credentials, shortcuts, tuning, subtitles, and unrelated rule fields remain local-only.
+- Source commit `77806d8` is pushed to `origin/feat/settings-menu-switches`; GitHub Pages commit `d63193f` publishes the userscript, options UI, and `version.txt`. Public endpoints were verified at v2.0.29 with the sync card present.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
 - Completely removed browser right-click context menus (`contextMenus` permission, background listener/methods, `MSG_CONTEXT_MENUS`, and settings toggle) and floating action button (`ContentFab.js`, `Draggable.js`, `fabManager.js`, `Fab.js`, `STOKEY_FAB`, and runtime hooks).
@@ -40,7 +41,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Strengthen YouTube native caption hiding via injected style sheet and fix CC observer re-binding across page navigation.
 - [x] Fix settings page tab favicon to use local extension icon assets instead of remote upstream URL.
 - [x] Run full test suite and rebuild Chrome extension.
-- [ ] Complete and publish v2.0.29 narrow no-auto-translate website synchronization.
+- [x] Complete and publish v2.0.29 narrow no-auto-translate website synchronization.
 
 # Build / Run / Test
 
