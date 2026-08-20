@@ -23,7 +23,7 @@ The first navigation destination and landing view is the engine list and selecte
 
 ### Page translation
 
-The page translation view contains only the default source language, target language, engine, automatic-start choice, bilingual/translation-only presentation, and the no-auto-translate website list. Advanced tuning, shortcuts, diagnostics, and backup remain collapsed accordions. The old website-rule editor with CSS selectors, hooks, and page-scope fields is removed rather than hidden.
+The page translation view contains only the default source language, target language, engine, automatic-start choice, bilingual/translation-only presentation, and the no-auto-translate website list. A visible device-sync card follows that list and explicitly synchronizes only its domain patterns. Advanced tuning, shortcuts, diagnostics, and backup remain collapsed accordions. The old website-rule editor with CSS selectors, hooks, and page-scope fields is removed rather than hidden.
 
 ### Subtitles
 

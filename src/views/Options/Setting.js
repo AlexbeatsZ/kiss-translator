@@ -24,6 +24,13 @@ import { browser } from "../../libs/browser";
 import { sendBgMsg } from "../../libs/msg";
 import { kissLog, LogLevel } from "../../libs/log";
 import {
+  configureSiteExclusionSync,
+  disconnectSiteExclusionSync,
+  getSiteExclusionSyncSummary,
+  markSiteExclusionSyncDirty,
+  syncSiteExclusionsNow,
+} from "../../libs/siteExclusionSync";
+import {
   CACHE_NAME,
   DEFAULT_CSPLIST,
   DEFAULT_HTTP_TIMEOUT,
@@ -111,9 +118,8 @@ function ExtCommands() {
   );
 }
 
-function SiteExclusions() {
+function SiteExclusions({ rules }) {
   const i18n = useI18n();
-  const rules = useRules();
   const alert = useAlert();
   const [pattern, setPattern] = useState("");
   const sites = (rules.list || []).filter(
@@ -137,11 +143,17 @@ function SiteExclusions() {
     } else {
       rules.add({ ...DEFAULT_RULE, pattern: nextPattern, transOpen: "false" });
     }
+    markSiteExclusionSyncDirty().catch((error) =>
+      kissLog("mark site exclusion sync dirty", error)
+    );
     setPattern("");
   };
 
   const handleDelete = (sitePattern) => {
     rules.del(sitePattern);
+    markSiteExclusionSyncDirty().catch((error) =>
+      kissLog("mark site exclusion sync dirty", error)
+    );
   };
 
   return (
@@ -224,6 +236,142 @@ function SiteExclusions() {
             ))}
           </Stack>
         )}
+      </Stack>
+    </SettingsSection>
+  );
+}
+
+function SiteExclusionSync({ rules }) {
+  const [githubToken, setGithubToken] = useState("");
+  const [encryptionKey, setEncryptionKey] = useState("");
+  const [gistId, setGistId] = useState("");
+  const [status, setStatus] = useState("正在读取同步状态…");
+  const [busy, setBusy] = useState(false);
+
+  const refreshSummary = async () => {
+    setStatus(await getSiteExclusionSyncSummary());
+  };
+
+  useEffect(() => {
+    refreshSummary().catch((error) => setStatus(`读取失败：${error.message}`));
+  }, []);
+
+  const handleConnect = async () => {
+    setBusy(true);
+    setStatus("正在连接并合并网站列表…");
+    try {
+      await configureSiteExclusionSync({
+        githubToken,
+        encryptionKey,
+        gistId,
+      });
+      await syncSiteExclusionsNow(true);
+      await rules.reload();
+      setGithubToken("");
+      setEncryptionKey("");
+      await refreshSummary();
+    } catch (error) {
+      setStatus(`连接失败：${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setBusy(true);
+    setStatus("正在同步网站列表…");
+    try {
+      await syncSiteExclusionsNow(true);
+      await rules.reload();
+      await refreshSummary();
+    } catch (error) {
+      setStatus(`同步失败：${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setBusy(true);
+    try {
+      await disconnectSiteExclusionSync();
+      setGithubToken("");
+      setEncryptionKey("");
+      setGistId("");
+      setStatus("已删除本机同步凭据；网站列表仍保留在本机。");
+    } catch (error) {
+      setStatus(`断开失败：${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SettingsSection
+      title="不自动翻译网站 · 设备同步"
+      description="仅同步上面的域名列表；语言、翻译引擎、API、快捷键和调优参数都不会上传。"
+    >
+      <Stack spacing={2}>
+        <Typography variant="body2" color="text.secondary">
+          使用 GitHub Secret
+          Gist，每天自动拉取一次，本机修改会尽快上传。域名列表先用独立口令加密；令牌和口令只保存在当前设备。
+        </Typography>
+        <SettingsGrid minColumnWidth={260}>
+          <TextField
+            fullWidth
+            size="small"
+            type="password"
+            autoComplete="new-password"
+            label="GitHub Gist 专用令牌"
+            value={githubToken}
+            onChange={(event) => setGithubToken(event.target.value)}
+            helperText="只授予 gist 权限；已连接时留空会保留原令牌。"
+          />
+          <TextField
+            fullWidth
+            size="small"
+            type="password"
+            autoComplete="new-password"
+            label="同步加密口令"
+            value={encryptionKey}
+            onChange={(event) => setEncryptionKey(event.target.value)}
+            helperText="至少 6 个字符；其他设备必须填写同一个口令。"
+          />
+          <TextField
+            fullWidth
+            size="small"
+            label="Gist ID（可选）"
+            value={gistId}
+            onChange={(event) => setGistId(event.target.value)}
+            helperText="可粘贴 Gist ID 或网址；留空会自动查找或创建。"
+          />
+        </SettingsGrid>
+        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Button variant="contained" disabled={busy} onClick={handleConnect}>
+            {busy ? "处理中…" : "连接并同步"}
+          </Button>
+          <Button variant="outlined" disabled={busy} onClick={handleSyncNow}>
+            立即同步
+          </Button>
+          <Button color="error" disabled={busy} onClick={handleDisconnect}>
+            断开并删除本机凭据
+          </Button>
+          <Button
+            component={Link}
+            href="https://github.com/settings/tokens/new?scopes=gist&description=Translator%20site%20sync"
+            target="_blank"
+            rel="noreferrer"
+          >
+            创建 gist 专用令牌
+          </Button>
+        </Stack>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ overflowWrap: "anywhere" }}
+        >
+          {status}
+        </Typography>
       </Stack>
     </SettingsSection>
   );
@@ -440,7 +588,9 @@ export default function Settings() {
         </Stack>
       </SettingsSection>
 
-      <SiteExclusions />
+      <SiteExclusions rules={rules} />
+
+      <SiteExclusionSync rules={rules} />
 
       <SettingsAccordionSection
         title={i18n("page_translation_tuning", "翻译调优")}

@@ -9,7 +9,7 @@ Make the extension read as one bilingual reading tool, not a collection of unrel
 The settings shell has three primary destinations, in this order:
 
 - `/apis`: translation engines, credentials, models, request behaviour, and local CLI bridge status;
-- `/page`: page translation defaults, language direction, engine choice, reading mode, and the no-auto-translate website list;
+- `/page`: page translation defaults, language direction, engine choice, reading mode, the no-auto-translate website list, and narrowly scoped device sync for that list;
 - `/subtitle`: caption acquisition, segmentation, translation, and bilingual rendering.
 
 `/` redirects to `/apis`. `/rules` redirects to `/page` for compatibility with older bookmarks; the full rule editor route is removed. Project/version information lives in the shell footer instead of a separate About destination.
@@ -22,6 +22,7 @@ The settings shell has three primary destinations, in this order:
 - The only website-rule surface is a simple list of sites that must not auto-translate; each entry writes a personal site rule with only `pattern` and `transOpen: "false"`, and deleting it removes that rule.
 - General settings own only cross-site runtime controls such as cache, limits, logging, and the small set of retained shortcuts.
 - Website rules never edit credentials or model configuration.
+- Device sync derives only the no-auto-translate domain patterns. All other Translator settings and rule fields remain local-only; see `site-exclusion-sync.md`.
 
 ### Subtitle translation
 
@@ -45,7 +46,7 @@ Remove routes, runtime initialization, messages, shortcuts, storage/sync work, p
 - vocabulary saving, highlighting, lookup, and export;
 - input-field translation;
 - mouse-hover translation;
-- cloud synchronization;
+- general cloud synchronization (the narrow no-auto-translate website-list sync is the sole exception);
 - the translation playground.
 
 Removing only navigation is not sufficient acceptance.
@@ -70,7 +71,7 @@ Removing only navigation is not sufficient acceptance.
 
 ## Acceptance
 
-- No visible selection, dictionary, vocabulary, input translation, hover translation, sync, standalone translator, or playground entry remains.
+- No visible selection, dictionary, vocabulary, input translation, hover translation, general settings sync, standalone translator, or playground entry remains. The page route exposes only the explicitly scoped no-auto-translate website-list sync.
 - Removed slices are absent from content startup and production bundles except inert legacy-key compatibility code.
 - A first-time user can configure page translation, a site rule, subtitles, and a translation engine without learning storage terminology.
 - Page and subtitle translation continue to use stable profiles and existing stored core configuration.

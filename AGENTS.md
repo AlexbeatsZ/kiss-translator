@@ -1,16 +1,17 @@
 # Goal
 
-Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page translation and subtitle translation. Remove unrelated dictionary, vocabulary, selection, input, hover, standalone-text, playground, and cloud-sync slices; preserve retained stored configuration; add local Agy and Codex adapters through a controlled companion; and ship a distinctive bilingual-reading UI based on Anthropic's official `frontend-design` skill.
+Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page translation and subtitle translation. Remove unrelated dictionary, vocabulary, selection, input, hover, standalone-text, playground, and general cloud-sync slices; preserve retained stored configuration; synchronize only the no-auto-translate website list; add local Agy and Codex adapters through a controlled companion; and ship a distinctive bilingual-reading UI based on Anthropic's official `frontend-design` skill.
 
 # Current State
 
-- Version: `2.0.28`
+- Version: `2.0.29` (pending build and publication)
 - Branch: `feat/settings-menu-switches`
 - Baseline commit: `daa82b6`
 - UI stack: React 18, Material UI 5, React Router 6.
 - Settings UI lives under `src/views/Options/`; runtime configuration lives under `src/config/` and `src/hooks/`.
 - Settings uses the default-dark Nocturne reading console: a compact desktop rail, fixed three-item mobile bar, source-to-engine-to-output context, and progressive disclosure for advanced controls.
 - `/apis` is the canonical translation-service/model manager and the first settings destination; `/page` owns page translation defaults plus a simple no-auto-translate website list; `/rules` now redirects to `/page`. The full website-rule editor (`Rules.js`) has been removed rather than hidden. Retained storage fields and `apiSlug` references are unchanged.
+- `/page` now has a visible encrypted GitHub Gist sync card immediately below the no-auto-translate website list. Only patterns with `transOpen: "false"` are synchronized; all languages, engines, credentials, shortcuts, tuning, subtitles, and unrelated rule fields remain local-only.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
 - Completely removed browser right-click context menus (`contextMenus` permission, background listener/methods, `MSG_CONTEXT_MENUS`, and settings toggle) and floating action button (`ContentFab.js`, `Draggable.js`, `fabManager.js`, `Fab.js`, `STOKEY_FAB`, and runtime hooks).
@@ -39,6 +40,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Strengthen YouTube native caption hiding via injected style sheet and fix CC observer re-binding across page navigation.
 - [x] Fix settings page tab favicon to use local extension icon assets instead of remote upstream URL.
 - [x] Run full test suite and rebuild Chrome extension.
+- [ ] Complete and publish v2.0.29 narrow no-auto-translate website synchronization.
 
 # Build / Run / Test
 
@@ -57,6 +59,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Treat a successful build as an implementation check, not UI acceptance; verify the exact settings route and its visible interactions.
 - Route changes and mobile list-to-editor transitions must reset the document scroll position; otherwise a newly selected task can open below its own primary controls.
 - `transApis[]` entries are complete translation profiles (provider connection plus one model and request behavior), not independent Provider and Model entities.
+- Translator cloud synchronization is intentionally limited to the no-auto-translate domain set. Read `docs/design/site-exclusion-sync.md` before changing its UI, merge, encryption, scheduling, or storage boundary.
 - A translation service can be referenced by website rules and three subtitle roles; disabling or deleting a profile must account for every retained consumer without silently rewriting it.
 - Options storage hooks must mount after the route's required setting and rule data is current.
 - Unsaved settings drafts need route-level protection, including hash-history Back/Forward, not only click handlers on the visible navigation.

@@ -20,6 +20,7 @@ export const STOKEY_SETTING = `${APP_NAME}_setting_v${APP_VERSION[0]}`; // 当�
 export const STOKEY_SETTING_BACKUP_V1_BEFORE_V2 = `${STOKEY_SETTING}_backup_v1_before_v2`; // settings v1 升级 v2 前的完整备份
 export const STOKEY_RULES = `${APP_NAME}_rules_v${APP_VERSION[0]}`; // 当前大版本网页规则缓存键名
 export const STOKEY_SYNC = `${APP_NAME}_sync`; // 站点规则订阅缓存元数据
+export const STOKEY_SITE_EXCLUSION_SYNC = `${APP_NAME}_site_exclusion_sync_v1`; // 仅用于“不自动翻译的网站”加密同步
 export const STOKEY_RULESCACHE_PREFIX = `${APP_NAME}_rulescache_`; // 网页规则匹配缓存键名前缀
 export const STOKEY_DISABLED_SUB_RULES = `${APP_NAME}_disabled_sub_rules`; // 被用户手动禁用的订阅规则 ID 集合的缓存键名
 

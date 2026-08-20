@@ -49,6 +49,10 @@ jest.mock("./libs/injector", () => ({
   injectInlineJs: jest.fn(),
 }));
 
+jest.mock("./libs/siteExclusionSync", () => ({
+  trySyncSiteExclusions: jest.fn(() => Promise.resolve({ skipped: true })),
+}));
+
 jest.mock("./libs/translatorManager", () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({

@@ -9,6 +9,7 @@ import { runSubtitle } from "./subtitle/subtitle";
 import { logger } from "./libs/log";
 import { injectInlineJs } from "./libs/injector";
 import TranslatorManager from "./libs/translatorManager";
+import { trySyncSiteExclusions } from "./libs/siteExclusionSync";
 
 /**
  * 油猴脚本特权桥接设置。
@@ -245,6 +246,12 @@ export async function run(isUserscript = false) {
     // 5.1. iframe 空内容拦截：默认允许 iframe 翻译，但空 iframe 不继续挂载后续脚本
     if (isIframe && !(await waitForIframeTranslatableText())) {
       return;
+    }
+
+    // 仅同步“不自动翻译的网站”域名列表。语言、引擎、API、快捷键和
+    // 其他 Translator 设置始终保留在本机。
+    if (isUserscript && !isIframe) {
+      await trySyncSiteExclusions();
     }
 
     // 6. 匹配当前网页专用的规则 (三级规则合并：个人 > 订阅 > 内置全局)
