@@ -2,7 +2,7 @@
 
 ## Goal
 
-Page translation must not change the page merely to indicate work that may later be discarded. In particular, text already written in the target language must not consume a provider request or briefly show a loading/identical-text translation before being removed.
+Page translation must not change the page merely to indicate work whose source language is still unknown and may later be discarded. Clearly target-language text should be stopped before provider dispatch; ambiguous text may still require a provider result, but must not briefly show a loading/identical-text translation before being removed.
 
 ## Dispatch boundary
 
@@ -25,4 +25,3 @@ Page translation must not change the page merely to indicate work that may later
 
 - `src/libs/detect.test.js` covers conservative target-script classification.
 - `src/libs/translator.test.js` covers pre-dispatch skipping, an unchanged DOM while an ambiguous request is pending, final same-language removal, and deferred error/retry rendering.
-
