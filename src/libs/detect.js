@@ -32,6 +32,51 @@ const langdetectFns = {
   [OPT_TRANS_BUILTINAI]: apiBuiltinAIDetect,
 };
 
+const countMatches = (text, pattern) =>
+  (String(text || "").match(pattern) || []).length;
+
+/**
+ * 使用文字系统做保守的目标语言预判。
+ *
+ * 这里只处理中文、日文和韩文：这些语言可以在不请求翻译服务的情况下，
+ * 通过 Unicode 文字系统较可靠地识别。拉丁字母无法区分英语、法语、德语等，
+ * 因此故意不在这里猜测，继续交给浏览器或用户配置的检测器。
+ *
+ * @param {string} text 待判断文本
+ * @param {string} targetLang 目标语言代码
+ * @returns {boolean} 文本是否已明显以目标语言为主
+ */
+export const isLikelyTargetLanguageText = (text, targetLang) => {
+  const clean = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const target = String(targetLang || "").toLowerCase();
+  if (!clean || !target) return false;
+
+  const han = countMatches(clean, /[\u3400-\u9fff\uf900-\ufaff]/g);
+  const kana = countMatches(clean, /[\u3040-\u30ff]/g);
+  const hangul = countMatches(clean, /[\uac00-\ud7af]/g);
+  const latin = countMatches(clean, /[A-Za-z]/g);
+  const scriptTotal = han + kana + hangul + latin;
+  const isDominant = (count, minimum, ratio = 0.35) =>
+    count >= minimum && count / Math.max(1, scriptTotal) >= ratio;
+
+  if (target.startsWith("zh")) {
+    // 有假名的文本优先视为日文，避免把日文汉字误判成中文。
+    return kana < 2 && hangul < 2 && isDominant(han, 4);
+  }
+
+  if (target.startsWith("ja")) {
+    return isDominant(kana + han, 4) && kana >= 2;
+  }
+
+  if (target.startsWith("ko")) {
+    return isDominant(hangul, 4);
+  }
+
+  return false;
+};
+
 /**
  * 尝试检测给定文本的源语言代码
  * @param {string} text 待检测的文本内容

@@ -14,6 +14,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - `/page` now has a visible encrypted GitHub Gist sync card immediately below the no-auto-translate website list. Only patterns with `transOpen: "false"` are synchronized; all languages, engines, credentials, shortcuts, tuning, subtitles, and unrelated rule fields remain local-only.
 - Microsoft page translation and language detection use Edge's current no-token `translate/translatetext` endpoint; the retired `translate/auth` JWT flow and its auth module are removed.
 - Google `gtx` translation and detection fall back to the built-in Google2 batch endpoint only after explicit 429 or Google `/sorry` evidence, then keep a ten-minute cooldown; ordinary network failures remain visible. Chrome BuiltinAI same-language results are treated as a skipped translation rather than an exception.
+- Automatic page translation now performs a conservative CJK target-language preflight before provider dispatch. Translation wrappers stay detached until real translated content or an error exists, and auto-detected text with an unknown source language does not stream to the page before the final same-language decision; already-Chinese content no longer consumes AI/API requests or causes loading/identical-text flicker.
 - Provider-repair source commit `7750628` is pushed to `origin/feat/settings-menu-switches`; GitHub Pages commit `d3c429d` publishes v2.0.30. The public `version.txt` and userscript were verified at v2.0.30 with the new Microsoft endpoint, no retired auth endpoint, and the Google fallback code present.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
@@ -22,7 +23,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
 - Native YouTube subtitles are reliably hidden using injected `!important` `<style>` sheet and inline offset; CC observer re-binds across SPA navigation without injecting player buttons.
 - Global UI defaults and fallbacks are strictly simplified to Chinese (`zh` / `zh_CN`).
-- Verification: 32 Jest suites/226 tests pass; Chrome and Web/userscript production builds pass. Both outputs contain v2.0.30 and the current Microsoft endpoint, with no retired auth endpoint.
+- Verification: 33 Jest suites/233 tests pass; the Chrome production build passes. The earlier Web/userscript production outputs contain v2.0.30 and the current Microsoft endpoint, with no retired auth endpoint.
 
 # Active Work
 
@@ -46,6 +47,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Complete and publish v2.0.29 narrow no-auto-translate website synchronization.
 - [x] Repair Microsoft translation/detection after the Edge auth endpoint retirement, handle BuiltinAI same-language skips, and add bounded Google 429 verification-page fallback.
 - [x] Add `public/version.txt` to the version synchronization path so force-publishing GitHub Pages preserves update detection.
+- [x] Eliminate same-target-language request waste and visual flicker with a conservative CJK preflight plus deferred translation-wrapper insertion.
 
 # Build / Run / Test
 
@@ -76,4 +78,6 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Windows build tasks must invoke the repository-local `react-app-rewired` entrypoint rather than assuming its shim is globally available on `PATH`.
 - In MV3 Service Workers (`background.js`), `window` does not exist. Modules shared between Web/Userscript and Extension contexts (`storage.js`, `client.js`, `iframe.js`, `gm.js`, `utils.js`, `request.js`) must never access `window` or `window.localStorage` directly without guarding `typeof window !== "undefined"` and checking extension runtime `browser.storage.local`.
 - Unauthenticated vendor web endpoints are drift-prone: verify the exact live request contract before patching. Microsoft now accepts raw string arrays at `edge.microsoft.com/translate/translatetext` without a JWT; Google's legacy `gtx` endpoint may return 429 or a `/sorry` page for a shared proxy exit, so only those explicit signals may activate Google2 fallback and cooldown.
+- Provider-returned `sourceLanguage` is too late to protect quota or visual stability. For auto-detected page text, apply safe local target-script checks before dispatch and do not attach loading/partial-result DOM until the source is known not to match the target.
+- Page translation has a no-placeholder rendering and same-language dispatch contract. Read `docs/design/page-translation-rendering.md` before changing language preflight, wrapper insertion, stream visibility, same-language handling, or retry rendering.
 

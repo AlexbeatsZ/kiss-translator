@@ -23,8 +23,8 @@ import { apiTranslate } from "../apis";
 import { kissLog } from "./log";
 import { clearAllBatchQueue } from "./batchQueue";
 import { genTextClass } from "./style";
-import { createLoadingSVG, createRetrySVG } from "./svg";
-import { tryDetectLang } from "./detect";
+import { createRetrySVG } from "./svg";
+import { isLikelyTargetLanguageText, tryDetectLang } from "./detect";
 import { trustedTypesHelper } from "./trustedTypes";
 import { injectJs, INJECTOR } from "../injectors";
 import { injectInternalCss } from "./injector";
@@ -1301,6 +1301,12 @@ export class Translator {
     } = this.#rule;
     const { langDetector, skipLangs = [] } = this.#setting;
     if (fromLang === "auto") {
+      // 明显已经是目标语言的 CJK 文本在进入异步检测和翻译队列前直接跳过。
+      // 这既避免 AI/API 额度消耗，也避免先插入加载态、最后再撤回造成的视觉闪烁。
+      if (isLikelyTargetLanguageText(node.textContent, toLang)) {
+        return;
+      }
+
       // revert 529
       deLang = await tryDetectLang(node.textContent, langDetector);
       if (
@@ -1786,6 +1792,9 @@ export class Translator {
     } = this.#setting;
     const parentNode = hostNode.parentElement;
     const hideOrigin = transOnly === "true";
+    let wrapper = null;
+    let inner = null;
+    let insertWrapper = () => {};
 
     try {
       const [processedString, placeholderMap] = this.#serializeForTranslation(
@@ -1794,16 +1803,15 @@ export class Translator {
       );
       if (this.#isInvalidText(processedString)) return;
 
-      const wrapper = document.createElement(this.#translationTagName);
+      wrapper = document.createElement(this.#translationTagName);
       wrapper.className = `${Translator.KISS_CLASS.warpper} notranslate`;
 
-      const inner = document.createElement(transTag);
+      inner = document.createElement(transTag);
       inner.lang = toLang;
       inner.className = `${Translator.KISS_CLASS.inner} ${this.#textClass[textStyle] || ""}`;
       if (textExtStyle?.trim()) {
         inner.style.cssText = textExtStyle; // 附加内联样式
       }
-      inner.appendChild(createLoadingSVG());
 
       // 将 <br> 作为 wrapper 的子节点，以便 toggleTranslationOnly 统一管理
       if (processedString.length > newlineLength) {
@@ -1832,14 +1840,17 @@ export class Translator {
         }
       }
 
-      this.#withViewportAnchor(() => {
+      // 译文容器保持离线，直到真正拿到译文或需要显示错误。
+      // 这样不会先用 Loading 撑开页面，随后因同语种判定再撤回并造成布局闪烁。
+      insertWrapper = () => {
+        if (wrapper.isConnected) return;
         // 根据 transOrder 选项决定译文显示位置
         if (transOrder === "translation-first") {
           nodes[0].before(wrapper); // 译文在上
         } else {
           nodes[nodes.length - 1].after(wrapper); // 原文在上（默认）
         }
-      });
+      };
 
       const currentRunId = this.#runId;
 
@@ -1849,6 +1860,10 @@ export class Translator {
         streamRenderMode !== "disabled" &&
         this.#apiSetting.useStream &&
         API_SPE_TYPES.stream.has(this.#apiSetting.apiType);
+      // 自动检测未得到源语言时，流式片段本身还无法证明不是同语种。
+      // 暂缓上屏，等最终结果带回 sourceLanguage 后再一次性决定是否插入。
+      const canRenderStream =
+        isStreamRender && (Boolean(deLang) || this.#rule.fromLang !== "auto");
 
       // REVIEW: 极佳的性能优化设计 (RequestAnimationFrame 缓冲刷新)！
       // 大模型流式输出（onStreamChunk）返回速率极快（每秒可达几十次）。
@@ -1862,21 +1877,24 @@ export class Translator {
 
       // 异步刷新临时文本缓冲区到 DOM 中
       const flushPendingText = () => {
-        if (!hasFirstChunk) {
-          innerRef.textContent = "";
-          innerRef.appendChild(document.createTextNode(pendingText));
-          hasFirstChunk = true;
-        } else {
-          const textNode = innerRef.firstChild;
-          if (textNode) {
-            textNode.nodeValue = pendingText; // 直接修改 TextNode 的 nodeValue 避免触发表单级 Reflow
+        this.#withViewportAnchor(() => {
+          if (!hasFirstChunk) {
+            innerRef.textContent = "";
+            innerRef.appendChild(document.createTextNode(pendingText));
+            hasFirstChunk = true;
+          } else {
+            const textNode = innerRef.firstChild;
+            if (textNode) {
+              textNode.nodeValue = pendingText; // 直接修改 TextNode 的 nodeValue 避免触发表单级 Reflow
+            }
           }
-        }
+          insertWrapper();
+        });
         rafId = null;
       };
 
       // 流式 Chunk 回调函数
-      const onStreamChunk = isStreamRender
+      const onStreamChunk = canRenderStream
         ? (chunk) => {
             // 防过期控制，若本轮翻译请求已因用户点击关闭或被新请求覆盖，则立刻抛弃
             if (this.#runId !== currentRunId) return;
@@ -1914,11 +1932,14 @@ export class Translator {
         throw new Error("Request terminated");
       }
 
-      // 如果翻译文本为空，或者识别出来的源语言与目标语言一致，则移除临时的翻译 Loading 容器
+      // 如果翻译文本为空，或者识别出来的源语言与目标语言一致，则不插入译文容器；
+      // 已经显示过流式译文时再做一次兜底清理。
       if (!translatedText || isSameLang) {
-        this.#withViewportAnchor(() => {
-          wrapper.remove();
-        });
+        if (wrapper.isConnected) {
+          this.#withViewportAnchor(() => {
+            wrapper.remove();
+          });
+        }
         return;
       }
 
@@ -1935,19 +1956,17 @@ export class Translator {
       // 再安全地写入 inner.innerHTML，这完全符合现代高 CSP 标准站点的规范，非常专业。
       const trustedHTML = trustedTypesHelper.createHTML(htmlString);
 
-      this.#withViewportAnchor(() => {
-        inner.innerHTML = trustedHTML;
-      });
-
       this.#translationNodes.set(wrapper, {
         nodes,
         isHide: hideOrigin,
       });
-      if (hideOrigin) {
-        this.#withViewportAnchor(() => {
+      this.#withViewportAnchor(() => {
+        inner.innerHTML = trustedHTML;
+        insertWrapper();
+        if (hideOrigin) {
           this.#removeNodes(nodes, wrapper);
-        });
-      }
+        }
+      });
 
       // 附加样式
       this.#appendCssText(hostNode, selectStyle, "selectStyle");
@@ -1990,23 +2009,28 @@ export class Translator {
 
       // 失败重试按钮
       try {
-        const wrapper = hostNode.querySelector(
-          `:scope > .${Translator.KISS_CLASS.warpper}:last-of-type`
-        );
-        if (wrapper) {
-          const inner = wrapper.querySelector(
+        if (wrapper && !wrapper.isConnected) {
+          this.#withViewportAnchor(insertWrapper);
+        }
+        const retryWrapper = wrapper?.isConnected
+          ? wrapper
+          : hostNode.querySelector(
+              `:scope > .${Translator.KISS_CLASS.warpper}:last-of-type`
+            );
+        if (retryWrapper) {
+          const retryInner = retryWrapper.querySelector(
             `.${Translator.KISS_CLASS.inner}`
           );
-          if (inner) {
-            inner.textContent = "";
+          if (retryInner) {
+            retryInner.textContent = "";
             const retryNode = this.#createRetryErrorNode(errorText, () => {
               this.#withViewportAnchor(() => {
-                wrapper.remove();
+                retryWrapper.remove();
               });
               this.#processedNodes.delete(hostNode);
               this.#translateNodeGroup(nodes, hostNode, deLang);
             });
-            inner.appendChild(retryNode);
+            retryInner.appendChild(retryNode);
           }
         }
       } catch (retryErr) {

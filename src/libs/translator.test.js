@@ -6,11 +6,19 @@ jest.mock("./msg", () => ({
   sendBgMsg: jest.fn(),
 }));
 
+jest.mock("./detect", () => ({
+  isLikelyTargetLanguageText: jest.fn(),
+  tryDetectLang: jest.fn(),
+}));
+
 const { apiTranslate } = require("../apis");
+const { isLikelyTargetLanguageText, tryDetectLang } = require("./detect");
 const { Translator } = require("./translator");
 
 const flushAsync = async () => {
   jest.runOnlyPendingTimers();
+  await Promise.resolve();
+  await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
 };
@@ -66,6 +74,8 @@ describe("Translator rule styles", () => {
     jest.useFakeTimers();
     document.documentElement.innerHTML = "<head></head><body></body>";
     apiTranslate.mockResolvedValue({ trText: "Translated", isSame: false });
+    isLikelyTargetLanguageText.mockReturnValue(false);
+    tryDetectLang.mockResolvedValue("");
 
     originalIntersectionObserver = global.IntersectionObserver;
     global.IntersectionObserver = class {
@@ -132,6 +142,66 @@ describe("Translator rule styles", () => {
 
     expect(apiTranslate).toHaveBeenCalled();
     expect(target.style.cssText).toContain("color: red");
+  });
+
+  test("skips obvious target-language text before calling the provider", async () => {
+    isLikelyTargetLanguageText.mockReturnValue(true);
+    document.body.innerHTML =
+      '<main id="root"><p id="target">这段内容已经是中文，不需要再次翻译。</p></main>';
+
+    createTranslator({ fromLang: "auto", toLang: "zh-CN" });
+    await flushAsync();
+
+    expect(apiTranslate).not.toHaveBeenCalled();
+    expect(
+      document.querySelector(`.${Translator.KISS_CLASS.warpper}`)
+    ).toBeNull();
+  });
+
+  test("keeps the page unchanged while auto-detected translation is pending", async () => {
+    let resolveTranslation;
+    apiTranslate.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTranslation = resolve;
+      })
+    );
+    document.body.innerHTML =
+      '<main id="root"><p id="target">Ambiguous content waits for detection</p></main>';
+
+    createTranslator({ fromLang: "auto", toLang: "zh-CN" });
+    await flushAsync();
+
+    expect(apiTranslate).toHaveBeenCalledTimes(1);
+    expect(apiTranslate.mock.calls[0][0].onStreamChunk).toBeNull();
+    expect(
+      document.querySelector(`.${Translator.KISS_CLASS.warpper}`)
+    ).toBeNull();
+
+    resolveTranslation({
+      trText: "Ambiguous content waits for detection",
+      isSame: true,
+    });
+    await flushAsync();
+
+    expect(
+      document.querySelector(`.${Translator.KISS_CLASS.warpper}`)
+    ).toBeNull();
+  });
+
+  test("shows a retry control if a deferred request fails", async () => {
+    apiTranslate.mockRejectedValue(new Error("provider unavailable"));
+    document.body.innerHTML =
+      '<main id="root"><p id="target">Ambiguous content can still fail</p></main>';
+
+    createTranslator({ fromLang: "auto", toLang: "zh-CN" });
+    await flushAsync();
+    await flushAsync();
+
+    const wrapper = document.querySelector(`.${Translator.KISS_CLASS.warpper}`);
+    expect(wrapper).not.toBeNull();
+    expect(
+      wrapper.querySelector(`.${Translator.KISS_CLASS.retry}`)
+    ).not.toBeNull();
   });
 
   test("skips whitespace-only groups around block children in selected list items", async () => {
