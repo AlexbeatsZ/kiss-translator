@@ -54,13 +54,14 @@ jest.mock("./trans", () => ({
   handleMicrosoftLangdetect: jest.fn(),
 }));
 
-import { apiTranslate } from "./index";
+import { apiGoogleLangdetect, apiTranslate } from "./index";
 import { handleTranslate } from "./trans";
-import { fnPolyfill } from "../libs/fetch";
+import { fetchData, fnPolyfill } from "../libs/fetch";
 import { withTimeout } from "../libs/utils";
 import { getBatchQueue } from "../libs/batchQueue";
 import { getFetchPool } from "../libs/pool";
 import { getHttpCachePolyfill, putHttpCachePolyfill } from "../libs/cache";
+import { clearGoogleRateLimitCooldown } from "../libs/googleFallback";
 import {
   DEFAULT_API_LIST,
   OPT_TRANS_BUILTINAI,
@@ -95,6 +96,7 @@ describe("apiTranslate BuiltinAI timeout", () => {
   });
 
   afterEach(() => {
+    clearGoogleRateLimitCooldown();
     jest.clearAllMocks();
   });
 
@@ -143,6 +145,80 @@ describe("apiTranslate BuiltinAI timeout", () => {
       })
     ).rejects.toThrow(
       "apiBuiltinAITranslate got error: Automatic detection of source language failed: low confidence"
+    );
+  });
+
+  test("treats BuiltinAI same-language results as a skipped translation", async () => {
+    fnPolyfill.mockResolvedValueOnce(["", "zh-Hans", "Same lang"]);
+
+    await expect(
+      apiTranslate({
+        text: "已经是中文",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        apiSetting: getBuiltinAiApiSetting(30),
+        useCache: false,
+      })
+    ).resolves.toMatchObject({
+      trText: "已经是中文",
+      srLang: "zh-Hans",
+      isSame: true,
+    });
+  });
+});
+
+describe("Google language detection fallback", () => {
+  beforeEach(() => {
+    mockGetCacheDigest.mockResolvedValue("a".repeat(64));
+  });
+
+  afterEach(() => {
+    clearGoogleRateLimitCooldown();
+    jest.clearAllMocks();
+  });
+
+  test("uses Google2 when the legacy Google endpoint is rate limited", async () => {
+    fetchData
+      .mockRejectedValueOnce(
+        new Error(
+          JSON.stringify({
+            url: "https://www.google.com/sorry/index",
+            status: 429,
+            response: "unusual traffic",
+          })
+        )
+      )
+      .mockResolvedValueOnce([["健康检查"], ["en"]])
+      .mockResolvedValueOnce([["第二次检查"], ["en"]]);
+
+    await expect(apiGoogleLangdetect("health check")).resolves.toBe("en");
+    await expect(apiGoogleLangdetect("second check")).resolves.toBe("en");
+
+    expect(fetchData).toHaveBeenCalledTimes(3);
+    expect(fetchData.mock.calls[1][0]).toBe(
+      "https://translate-pa.googleapis.com/v1/translateHtml"
+    );
+    expect(fetchData.mock.calls[2][0]).toBe(
+      "https://translate-pa.googleapis.com/v1/translateHtml"
+    );
+    expect(JSON.parse(fetchData.mock.calls[1][1].body)).toEqual([
+      [["health check"], "auto", "zh-CN"],
+      "wt_lib",
+    ]);
+  });
+
+  test("uses Google2 when language detection returns a verification page", async () => {
+    fetchData
+      .mockResolvedValueOnce(
+        '<html><a href="https://www.google.com/sorry/index">unusual traffic</a></html>'
+      )
+      .mockResolvedValueOnce([["健康检查"], ["en"]]);
+
+    await expect(apiGoogleLangdetect("health check")).resolves.toBe("en");
+
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    expect(fetchData.mock.calls[1][0]).toBe(
+      "https://translate-pa.googleapis.com/v1/translateHtml"
     );
   });
 });

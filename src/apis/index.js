@@ -8,6 +8,7 @@ import {
   API_SPE_TYPES,
   DEFAULT_API_SETTING,
   OPT_TRANS_MICROSOFT,
+  OPT_TRANS_GOOGLE,
   MSG_BUILTINAI_DETECT,
   MSG_BUILTINAI_TRANSLATE,
   OPT_TRANS_BUILTINAI,
@@ -31,6 +32,13 @@ import { chromeDetect, chromeTranslate } from "../libs/builtinAI";
 import { fnPolyfill } from "../libs/fetch";
 import { normalizeHttpTimeout } from "../libs/request";
 import { getFetchPool } from "../libs/pool";
+import {
+  buildGoogle2Request,
+  getGoogle2FallbackSetting,
+  isGoogleRateLimited,
+  isGoogleRateLimitError,
+  markGoogleRateLimited,
+} from "../libs/googleFallback";
 
 const PROMPT_CACHE_SALT = "prompt-cache";
 const PROMPT_CACHE_SCOPE_BATCH = "batch";
@@ -86,18 +94,31 @@ export const apiFetchText = (url) =>
   fetchData(url, undefined, { expect: "text" });
 
 /**
- * 获取微软 Edge 翻译服务的授权凭证 Token。
- * @returns {Promise<string>} 微软接口所需的 Bearer Token 凭证字符串
- */
-export const apiMsAuth = async () =>
-  fetchData("https://edge.microsoft.com/translate/auth");
-
-/**
  * 谷歌语言识别 API。
  * @param {string} text 待识别的原文文本
  * @returns {Promise<string>} 识别出的 ISO 语言简写代码 (e.g. "en")
  */
 export const apiGoogleLangdetect = async (text) => {
+  const detectWithGoogle2 = async () => {
+    const apiSetting = getGoogle2FallbackSetting();
+    const { input, init } = buildGoogle2Request({
+      texts: [text],
+      from: "auto",
+      to: "zh-CN",
+      apiSetting,
+    });
+    const res = await fetchData(input, init, { useCache: true });
+    if (res?.[1]?.[0]) {
+      await putHttpCachePolyfill(input, init, res);
+      return res[1][0];
+    }
+    return "";
+  };
+
+  if (isGoogleRateLimited()) {
+    return detectWithGoogle2();
+  }
+
   const params = {
     client: "gtx",
     dt: "t",
@@ -114,7 +135,19 @@ export const apiGoogleLangdetect = async (text) => {
     },
   };
   // 语言识别通常调用频繁，此处开启 useCache: true 节省请求开销
-  const res = await fetchData(input, init, { useCache: true });
+  let res;
+  try {
+    res = await fetchData(input, init, { useCache: true });
+  } catch (error) {
+    if (!isGoogleRateLimitError(error)) throw error;
+    markGoogleRateLimited();
+    return detectWithGoogle2();
+  }
+
+  if (typeof res === "string" && isGoogleRateLimitError(new Error(res))) {
+    markGoogleRateLimited();
+    return detectWithGoogle2();
+  }
 
   if (res?.src) {
     await putHttpCachePolyfill(input, init, res);
@@ -272,6 +305,9 @@ const apiBuiltinAITranslate = async ({ text, from, to, apiSetting }) => {
   }
 
   const [trText, srLang, error] = result;
+  if (error === "Same lang") {
+    return [text, srLang, true];
+  }
   if (error) {
     throw new Error(`apiBuiltinAITranslate got error: ${error}`);
   }
@@ -437,8 +473,9 @@ export const apiTranslate = async ({
   let trText = "";
   let srLang = "";
   let srCode = "";
+  let providerIsSame = false;
   if (Array.isArray(translation)) {
-    [trText, srLang = ""] = translation;
+    [trText, srLang = "", providerIsSame = false] = translation;
     if (srLang) {
       srCode =
         (OPT_LANGS_TO_CODE[apiType] || OPT_LANGS_SPEC_DEFAULT).get(srLang) ||
@@ -453,7 +490,7 @@ export const apiTranslate = async ({
   }
 
   // 判断是否发生了“源语言与目标语言相同”的无效翻译情况 (如英文网页翻译为英文)
-  const isSame = fromLang === "auto" && srLang === to;
+  const isSame = providerIsSame || (fromLang === "auto" && srLang === to);
 
   // 4. 将成功的结果写入本地网络缓存中
   if (useCache) {

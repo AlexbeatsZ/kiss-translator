@@ -51,7 +51,6 @@ import {
   INPUT_PLACE_CONTEXT,
   THINKING_PARAM_MAP,
 } from "../config";
-import { msAuth } from "../libs/auth";
 import { genDeeplFree } from "./deepl";
 import { genBaidu } from "./baidu";
 import { interpreter } from "../libs/interpreter";
@@ -76,6 +75,12 @@ import { fetchData, fetchStream } from "../libs/fetch";
 import { getMsgHistory } from "./history";
 import { parseBilingualVtt } from "../subtitle/vtt";
 import { getDocInfo } from "../libs/docInfo";
+import {
+  getGoogle2FallbackSetting,
+  isGoogleRateLimited,
+  isGoogleRateLimitError,
+  markGoogleRateLimited,
+} from "../libs/googleFallback";
 
 const keyMap = new Map();
 const urlMap = new Map();
@@ -466,18 +471,17 @@ const genGoogle2 = ({ texts, from, to, url, key }) => {
   return { url, body, headers };
 };
 
-const genMicrosoft = ({ texts, from, to, token }) => {
+const genMicrosoft = ({ texts, from, to }) => {
   const params = queryString.stringify({
-    from,
+    from: from || "",
     to,
-    "api-version": "3.0",
+    isEnterpriseClient: false,
   });
-  const url = `https://api-edge.cognitive.microsofttranslator.com/translate?${params}`;
+  const url = `https://edge.microsoft.com/translate/translatetext?${params}`;
   const headers = {
     "Content-type": "application/json",
-    Authorization: `Bearer ${token}`,
   };
-  const body = texts.map((text) => ({ Text: text }));
+  const body = texts;
 
   return { url, body, headers };
 };
@@ -1179,6 +1183,12 @@ export const parseTransRes = async (
   // todo: 根据结果抛出实际异常信息
   switch (apiType) {
     case OPT_TRANS_GOOGLE:
+      if (
+        typeof res === "string" &&
+        /google\.com\/sorry|unusual traffic/i.test(res)
+      ) {
+        throw new Error("Google translation rate limit page received");
+      }
       return [[res?.sentences?.map((item) => item.trans).join(" "), res?.src]];
     case OPT_TRANS_GOOGLE_2:
       return res?.[0]?.map((_, i) => [res?.[0]?.[i], res?.[1]?.[i]]);
@@ -1328,17 +1338,9 @@ export async function* handleTranslate(
 
   const enableStream = useStream && API_SPE_TYPES.stream.has(apiType);
 
-  let token = "";
-  if (apiType === OPT_TRANS_MICROSOFT) {
-    token = await msAuth();
-    if (!token) {
-      throw new Error("got msauth error");
-    }
-  }
-
-  const getRequest = (requestUseStream) =>
+  const getRequest = (requestUseStream, requestApiSetting = apiSetting) =>
     genTransReq({
-      ...apiSetting,
+      ...requestApiSetting,
       texts,
       from,
       to,
@@ -1347,12 +1349,16 @@ export async function* handleTranslate(
       langMap,
       glossary,
       hisMsgs,
-      token,
       useStream: requestUseStream,
       docInfo,
     });
 
-  const runNonStream = async function* (input, init, userMsg) {
+  const runNonStream = async function* (
+    input,
+    init,
+    userMsg,
+    responseApiSetting = apiSetting
+  ) {
     const response = await fetchData(input, init, {
       useCache: false,
       usePool,
@@ -1374,7 +1380,7 @@ export async function* handleTranslate(
       langMap,
       history,
       userMsg,
-      ...apiSetting,
+      ...responseApiSetting,
     });
     if (!result?.length) {
       throw new Error("translate got an unexpected result");
@@ -1385,7 +1391,14 @@ export async function* handleTranslate(
     }
   };
 
-  const [input, init, userMsg] = await getRequest(enableStream);
+  let activeApiSetting = apiSetting;
+  if (apiType === OPT_TRANS_GOOGLE && isGoogleRateLimited()) {
+    activeApiSetting = getGoogle2FallbackSetting(apiSetting);
+  }
+  const [input, init, userMsg] = await getRequest(
+    enableStream,
+    activeApiSetting
+  );
 
   if (enableStream) {
     try {
@@ -1415,7 +1428,30 @@ export async function* handleTranslate(
     return;
   }
 
-  yield* runNonStream(input, init, userMsg);
+  try {
+    yield* runNonStream(input, init, userMsg, activeApiSetting);
+  } catch (error) {
+    const canFallback =
+      apiType === OPT_TRANS_GOOGLE &&
+      activeApiSetting.apiType === OPT_TRANS_GOOGLE &&
+      input.startsWith("https://translate.googleapis.com/") &&
+      isGoogleRateLimitError(error);
+    if (!canFallback) throw error;
+
+    markGoogleRateLimited();
+    kissLog("Google rate limited, fallback to Google2", error);
+    const fallbackSetting = getGoogle2FallbackSetting(apiSetting);
+    const [fallbackInput, fallbackInit, fallbackUserMsg] = await getRequest(
+      false,
+      fallbackSetting
+    );
+    yield* runNonStream(
+      fallbackInput,
+      fallbackInit,
+      fallbackUserMsg,
+      fallbackSetting
+    );
+  }
 }
 
 /**
@@ -1557,16 +1593,18 @@ async function* handleTranslateStreamInternal(
  * @returns
  */
 export const handleMicrosoftLangdetect = async (texts = []) => {
-  const token = await msAuth();
-  const input =
-    "https://api-edge.cognitive.microsofttranslator.com/detect?api-version=3.0";
+  const params = queryString.stringify({
+    from: "",
+    to: "en",
+    isEnterpriseClient: false,
+  });
+  const input = `https://edge.microsoft.com/translate/translatetext?${params}`;
   const init = {
     headers: {
       "Content-type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     method: "POST",
-    body: JSON.stringify(texts.map((text) => ({ Text: text }))),
+    body: JSON.stringify(texts),
   };
 
   const res = await fetchData(input, init, {
@@ -1574,7 +1612,7 @@ export const handleMicrosoftLangdetect = async (texts = []) => {
   });
 
   if (Array.isArray(res)) {
-    return res.map((r) => r.language);
+    return res.map((r) => r.detectedLanguage?.language || "");
   }
 
   return [];

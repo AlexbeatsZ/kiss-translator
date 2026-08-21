@@ -24,6 +24,10 @@ const filesToSync = [
         replacement: `REACT_APP_VERSION=${version}`,
     },
     {
+        path: path.join(rootDir, "public/version.txt"),
+        type: "text",
+    },
+    {
         path: path.join(rootDir, "public/manifest.json"),
         type: "json",
         key: "version",
@@ -49,6 +53,17 @@ for (const file of filesToSync) {
             // 处理 .env 文件
             let content = await fs.readFile(file.path, "utf-8");
             const newContent = content.replace(file.pattern, file.replacement);
+
+            if (content !== newContent) {
+                await fs.writeFile(file.path, newContent, "utf-8");
+                console.log(chalk.green(`✅ 已更新: ${path.relative(rootDir, file.path)}`));
+                syncCount++;
+            } else {
+                console.log(chalk.gray(`⏭️  无需更新: ${path.relative(rootDir, file.path)}`));
+            }
+        } else if (file.type === "text") {
+            const content = await fs.readFile(file.path, "utf-8");
+            const newContent = `${version}\n`;
 
             if (content !== newContent) {
                 await fs.writeFile(file.path, newContent, "utf-8");

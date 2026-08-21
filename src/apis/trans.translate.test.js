@@ -15,15 +15,18 @@ jest.mock("../libs/docInfo", () => ({
   getDocInfo: () => ({}),
 }));
 
-import { handleTranslate } from "./trans";
+import { handleMicrosoftLangdetect, handleTranslate } from "./trans";
 import {
   DEFAULT_API_LIST,
+  OPT_TRANS_GOOGLE,
   OPT_TRANS_LOCAL_AGY,
   OPT_TRANS_LOCAL_CODEX,
+  OPT_TRANS_MICROSOFT,
   OPT_TRANS_OPENAI,
 } from "../config";
 import { fetchData, fetchStream } from "../libs/fetch";
 import { trustedTypesHelper } from "../libs/trustedTypes";
+import { clearGoogleRateLimitCooldown } from "../libs/googleFallback";
 
 const getApiSetting = (apiType) => ({
   ...DEFAULT_API_LIST.find((api) => api.apiType === apiType),
@@ -56,6 +59,7 @@ async function collectAsyncGenerator(generator) {
 
 describe("handleTranslate", () => {
   afterEach(() => {
+    clearGoogleRateLimitCooldown();
     jest.clearAllMocks();
     jest.restoreAllMocks();
   });
@@ -342,6 +346,171 @@ describe("handleTranslate", () => {
     expect(body.messages[0].content).toBe("Translate hello.");
     expect(body.messages[0].content).not.toContain("# Context");
     expect(body.messages[0].content).not.toContain("Doc context");
+  });
+
+  test("uses the current no-token Microsoft Edge endpoint", async () => {
+    fetchData.mockResolvedValueOnce([
+      {
+        detectedLanguage: { language: "en", score: 1 },
+        translations: [{ text: "你好", to: "zh-Hans" }],
+      },
+    ]);
+
+    const result = await collectAsyncGenerator(
+      handleTranslate(["hello"], {
+        from: "",
+        to: "zh-Hans",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        langMap: () => "",
+        glossary: "",
+        apiSetting: {
+          ...getApiSetting(OPT_TRANS_MICROSOFT),
+          useStream: false,
+        },
+        usePool: false,
+      })
+    );
+
+    expect(fetchData.mock.calls[0][0]).toBe(
+      "https://edge.microsoft.com/translate/translatetext?from=&to=zh-Hans&isEnterpriseClient=false"
+    );
+    expect(fetchData.mock.calls[0][1].headers.Authorization).toBeUndefined();
+    expect(JSON.parse(fetchData.mock.calls[0][1].body)).toEqual(["hello"]);
+    expect(result).toEqual([{ id: 0, result: ["你好", "en"] }]);
+  });
+
+  test("uses the current Microsoft endpoint for language detection", async () => {
+    fetchData.mockResolvedValueOnce([
+      {
+        detectedLanguage: { language: "ja", score: 1 },
+        translations: [{ text: "health check", to: "en" }],
+      },
+    ]);
+
+    await expect(handleMicrosoftLangdetect(["死活監視"])).resolves.toEqual([
+      "ja",
+    ]);
+
+    expect(fetchData.mock.calls[0][0]).toBe(
+      "https://edge.microsoft.com/translate/translatetext?from=&to=en&isEnterpriseClient=false"
+    );
+    expect(fetchData.mock.calls[0][1].headers.Authorization).toBeUndefined();
+    expect(JSON.parse(fetchData.mock.calls[0][1].body)).toEqual(["死活監視"]);
+  });
+
+  test("falls back to Google2 when the legacy Google endpoint is rate limited", async () => {
+    fetchData
+      .mockRejectedValueOnce(
+        new Error(
+          JSON.stringify({
+            url: "https://www.google.com/sorry/index",
+            status: 429,
+            response: "unusual traffic",
+          })
+        )
+      )
+      .mockResolvedValueOnce([["你好"], ["en"]])
+      .mockResolvedValueOnce([["世界"], ["en"]]);
+
+    const result = await collectAsyncGenerator(
+      handleTranslate(["hello"], {
+        from: "auto",
+        to: "zh-CN",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        langMap: () => "",
+        glossary: "",
+        apiSetting: {
+          ...getApiSetting(OPT_TRANS_GOOGLE),
+          useStream: false,
+        },
+        usePool: false,
+      })
+    );
+
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    expect(fetchData.mock.calls[1][0]).toBe(
+      "https://translate-pa.googleapis.com/v1/translateHtml"
+    );
+    expect(fetchData.mock.calls[1][1].headers["X-Goog-API-Key"]).toBeTruthy();
+    expect(result).toEqual([{ id: 0, result: ["你好", "en"] }]);
+
+    const secondResult = await collectAsyncGenerator(
+      handleTranslate(["world"], {
+        from: "auto",
+        to: "zh-CN",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        langMap: () => "",
+        glossary: "",
+        apiSetting: {
+          ...getApiSetting(OPT_TRANS_GOOGLE),
+          useStream: false,
+        },
+        usePool: false,
+      })
+    );
+
+    expect(fetchData).toHaveBeenCalledTimes(3);
+    expect(fetchData.mock.calls[2][0]).toBe(
+      "https://translate-pa.googleapis.com/v1/translateHtml"
+    );
+    expect(secondResult).toEqual([{ id: 0, result: ["世界", "en"] }]);
+  });
+
+  test("falls back to Google2 when Google returns a verification page", async () => {
+    fetchData
+      .mockResolvedValueOnce(
+        '<html><a href="https://www.google.com/sorry/index">unusual traffic</a></html>'
+      )
+      .mockResolvedValueOnce([["你好"], ["en"]]);
+
+    const result = await collectAsyncGenerator(
+      handleTranslate(["hello"], {
+        from: "auto",
+        to: "zh-CN",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        langMap: () => "",
+        glossary: "",
+        apiSetting: {
+          ...getApiSetting(OPT_TRANS_GOOGLE),
+          useStream: false,
+        },
+        usePool: false,
+      })
+    );
+
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    expect(fetchData.mock.calls[1][0]).toBe(
+      "https://translate-pa.googleapis.com/v1/translateHtml"
+    );
+    expect(result).toEqual([{ id: 0, result: ["你好", "en"] }]);
+  });
+
+  test("does not hide ordinary Google network failures", async () => {
+    fetchData.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await expect(
+      collectAsyncGenerator(
+        handleTranslate(["hello"], {
+          from: "auto",
+          to: "zh-CN",
+          fromLang: "auto",
+          toLang: "zh-CN",
+          langMap: () => "",
+          glossary: "",
+          apiSetting: {
+            ...getApiSetting(OPT_TRANS_GOOGLE),
+            useStream: false,
+          },
+          usePool: false,
+        })
+      )
+    ).rejects.toThrow("Failed to fetch");
+
+    expect(fetchData).toHaveBeenCalledTimes(1);
   });
 
   test("replaces external docInfo placeholders in user prompt", async () => {
