@@ -18,7 +18,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Google `gtx` translation and detection fall back to the built-in Google2 batch endpoint only after explicit 429 or Google `/sorry` evidence, then keep a ten-minute cooldown; ordinary network failures remain visible. Chrome BuiltinAI same-language results are treated as a skipped translation rather than an exception.
 - Automatic page translation now performs a conservative CJK target-language preflight before provider dispatch. Translation wrappers stay detached until real translated content or an error exists, and auto-detected text with an unknown source language does not stream to the page before the final same-language decision; clearly Chinese-dominant content no longer consumes AI/API requests or causes loading/identical-text flicker.
 - Same-language dispatch/rendering fix commit `ebf917e` is pushed to `origin/feat/settings-menu-switches`.
-- Provider-repair source commit `7750628` is pushed to `origin/feat/settings-menu-switches`; GitHub Pages commit `d3c429d` publishes v2.0.30. The public `version.txt` and userscript were verified at v2.0.30 with the new Microsoft endpoint, no retired auth endpoint, and the Google fallback code present.
+- Same-language flicker source commit `ebf917e` and v2.0.31 release commit `73d2140` are pushed to `origin/feat/settings-menu-switches`; GitHub Pages commit `7ad153a` publishes v2.0.31. The live `version.txt`, userscript `@version`/`@updateURL`, and userscript SHA-256 were verified after publication.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
 - Local Agy and Codex profiles call the standalone loopback service `cli2api` (`C:/Users/Meta/Project/Workspaces/cli2api`, default `http://127.0.0.1:17891`, auth disabled by default); browser code never launches a process itself.
 - Completely removed browser right-click context menus (`contextMenus` permission, background listener/methods, `MSG_CONTEXT_MENUS`, and settings toggle) and floating action button (`ContentFab.js`, `Draggable.js`, `fabManager.js`, `Fab.js`, `STOKEY_FAB`, and runtime hooks).
@@ -51,7 +51,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - [x] Repair Microsoft translation/detection after the Edge auth endpoint retirement, handle BuiltinAI same-language skips, and add bounded Google 429 verification-page fallback.
 - [x] Add `public/version.txt` to the version synchronization path so force-publishing GitHub Pages preserves update detection.
 - [x] Eliminate same-target-language request waste and visual flicker with a conservative CJK preflight plus deferred translation-wrapper insertion.
-- [ ] Publish the same-language flicker fix as the next Tampermonkey auto-update release and verify the live userscript/version endpoints.
+- [x] Publish the same-language flicker fix as Tampermonkey auto-update v2.0.31, verify the live userscript/version endpoints plus artifact hash, and remove local generated build/cache artifacts afterward.
 
 # Build / Run / Test
 
