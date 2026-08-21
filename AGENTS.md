@@ -2,9 +2,11 @@
 
 Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page translation and subtitle translation. Remove unrelated dictionary, vocabulary, selection, input, hover, standalone-text, playground, and general cloud-sync slices; preserve retained stored configuration; synchronize only the no-auto-translate website list; add local Agy and Codex adapters through a controlled companion; and ship a distinctive bilingual-reading UI based on Anthropic's official `frontend-design` skill.
 
+The primary user-facing delivery channel is the Tampermonkey userscript auto-update URL on `alexbeatsz.github.io`; Chrome/extension builds are validation or explicitly requested deliverables, not the default release path.
+
 # Current State
 
-- Version: `2.0.30`
+- Version: `2.0.31`
 - Branch: `feat/settings-menu-switches`
 - Baseline commit: `daa82b6`
 - UI stack: React 18, Material UI 5, React Router 6.
@@ -24,7 +26,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
 - Native YouTube subtitles are reliably hidden using injected `!important` `<style>` sheet and inline offset; CC observer re-binds across SPA navigation without injecting player buttons.
 - Global UI defaults and fallbacks are strictly simplified to Chinese (`zh` / `zh_CN`).
-- Verification: 33 Jest suites/233 tests pass; the Chrome production build passes. The earlier Web/userscript production outputs contain v2.0.30 and the current Microsoft endpoint, with no retired auth endpoint.
+- Verification: 33 Jest suites/233 tests pass; focused userscript-mode same-language rendering tests pass (2 suites/23 tests); the Web/userscript v2.0.31 production build passes. The Chrome production build is validation-only and is not the release artifact.
 
 # Active Work
 
@@ -49,6 +51,7 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - [x] Repair Microsoft translation/detection after the Edge auth endpoint retirement, handle BuiltinAI same-language skips, and add bounded Google 429 verification-page fallback.
 - [x] Add `public/version.txt` to the version synchronization path so force-publishing GitHub Pages preserves update detection.
 - [x] Eliminate same-target-language request waste and visual flicker with a conservative CJK preflight plus deferred translation-wrapper insertion.
+- [ ] Publish the same-language flicker fix as the next Tampermonkey auto-update release and verify the live userscript/version endpoints.
 
 # Build / Run / Test
 
@@ -62,6 +65,8 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Focused settings tests can be run directly with the project runtime: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand src/views/Options/index.test.js src/views/Options/Layout.test.js src/views/Options/Apis.test.js src/views/Options/ReusableAutocomplete.test.js src/libs/modelList.test.js`
 - Focused provider resilience tests: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand src/apis/index.test.js src/apis/trans.translate.test.js`
 - If the active pnpm wrapper is not the repository-pinned version, run local binaries directly rather than rewriting workspace/package-manager configuration.
+- Tampermonkey release: bump the package version, run `pnpm sync-version`, run `pnpm build:web`, verify `build/web/kiss-translator.user.js` has the new `@version` plus the `alexbeatsz.github.io` `@downloadURL`/`@updateURL`, then run `pnpm deploy:gh-pages`.
+- After a Tampermonkey release, verify both `https://alexbeatsz.github.io/kiss-translator/version.txt` and `https://alexbeatsz.github.io/kiss-translator/kiss-translator.user.js` with a cache-busting query. Source push or a Chrome build alone is not delivery.
 
 # Durable Lessons
 
@@ -81,4 +86,5 @@ Rebuild 翻译 (formerly KISS Translator) as a focused browser tool for page tra
 - Unauthenticated vendor web endpoints are drift-prone: verify the exact live request contract before patching. Microsoft now accepts raw string arrays at `edge.microsoft.com/translate/translatetext` without a JWT; Google's legacy `gtx` endpoint may return 429 or a `/sorry` page for a shared proxy exit, so only those explicit signals may activate Google2 fallback and cooldown.
 - Provider-returned `sourceLanguage` is too late to protect quota or visual stability. For auto-detected page text, apply safe local target-script checks before dispatch and do not attach loading/partial-result DOM until the source is known not to match the target.
 - Page translation has a no-placeholder rendering and same-language dispatch contract. Read `docs/design/page-translation-rendering.md` before changing language preflight, wrapper insertion, stream visibility, same-language handling, or retry rendering.
+- The actual installed product updates through Tampermonkey's `@updateURL`. Any user-facing fix intended for the installed script must increment `@version` via the synchronized package version and be published to `gh-pages`; rebuilding another browser target does not update the user.
 
