@@ -242,9 +242,6 @@ function SiteExclusions({ rules }) {
 }
 
 function SiteExclusionSync({ rules }) {
-  const [githubToken, setGithubToken] = useState("");
-  const [encryptionKey, setEncryptionKey] = useState("");
-  const [gistId, setGistId] = useState("");
   const [status, setStatus] = useState("正在读取同步状态…");
   const [busy, setBusy] = useState(false);
 
@@ -258,17 +255,11 @@ function SiteExclusionSync({ rules }) {
 
   const handleConnect = async () => {
     setBusy(true);
-    setStatus("正在连接并合并网站列表…");
+    setStatus("正在连接 ROG 同步服务并合并网站列表…");
     try {
-      await configureSiteExclusionSync({
-        githubToken,
-        encryptionKey,
-        gistId,
-      });
+      await configureSiteExclusionSync();
       await syncSiteExclusionsNow(true);
       await rules.reload();
-      setGithubToken("");
-      setEncryptionKey("");
       await refreshSummary();
     } catch (error) {
       setStatus(`连接失败：${error.message}`);
@@ -291,16 +282,13 @@ function SiteExclusionSync({ rules }) {
     }
   };
 
-  const handleDisconnect = async () => {
+  const handleReset = async () => {
     setBusy(true);
     try {
       await disconnectSiteExclusionSync();
-      setGithubToken("");
-      setEncryptionKey("");
-      setGistId("");
-      setStatus("已删除本机同步凭据；网站列表仍保留在本机。");
+      setStatus("已清除本机同步缓存；下次同步会重新从本机规则与 ROG 服务合并。");
     } catch (error) {
-      setStatus(`断开失败：${error.message}`);
+      setStatus(`重置失败：${error.message}`);
     } finally {
       setBusy(false);
     }
@@ -308,44 +296,14 @@ function SiteExclusionSync({ rules }) {
 
   return (
     <SettingsSection
-      title="不自动翻译网站 · 设备同步"
-      description="仅同步上面的域名列表；语言、翻译引擎、API、快捷键和调优参数都不会上传。"
+      title="不自动翻译网站 · 跨设备同步"
+      description="只同步这个网站列表；语言、翻译服务、API 凭据、字幕与其他设置都不会上传。"
     >
       <Stack spacing={2}>
         <Typography variant="body2" color="text.secondary">
-          使用 GitHub Secret
-          Gist，每天自动拉取一次，本机修改会尽快上传。域名列表先用独立口令加密；令牌和口令只保存在当前设备。
+          使用 Tailscale 私网连接 ROG 上的自托管同步服务。浏览器只访问本机
+          127.0.0.1:17892；OMEN 和 Mac 通过持久 SSH 隧道连接 ROG，不再使用 GitHub Gist。
         </Typography>
-        <SettingsGrid minColumnWidth={260}>
-          <TextField
-            fullWidth
-            size="small"
-            type="password"
-            autoComplete="new-password"
-            label="GitHub Gist 专用令牌"
-            value={githubToken}
-            onChange={(event) => setGithubToken(event.target.value)}
-            helperText="只授予 gist 权限；已连接时留空会保留原令牌。"
-          />
-          <TextField
-            fullWidth
-            size="small"
-            type="password"
-            autoComplete="new-password"
-            label="同步加密口令"
-            value={encryptionKey}
-            onChange={(event) => setEncryptionKey(event.target.value)}
-            helperText="至少 6 个字符；其他设备必须填写同一个口令。"
-          />
-          <TextField
-            fullWidth
-            size="small"
-            label="Gist ID（可选）"
-            value={gistId}
-            onChange={(event) => setGistId(event.target.value)}
-            helperText="可粘贴 Gist ID 或网址；留空会自动查找或创建。"
-          />
-        </SettingsGrid>
         <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
           <Button variant="contained" disabled={busy} onClick={handleConnect}>
             {busy ? "处理中…" : "连接并同步"}
@@ -353,16 +311,8 @@ function SiteExclusionSync({ rules }) {
           <Button variant="outlined" disabled={busy} onClick={handleSyncNow}>
             立即同步
           </Button>
-          <Button color="error" disabled={busy} onClick={handleDisconnect}>
-            断开并删除本机凭据
-          </Button>
-          <Button
-            component={Link}
-            href="https://github.com/settings/tokens/new?scopes=gist&description=Translator%20site%20sync"
-            target="_blank"
-            rel="noreferrer"
-          >
-            创建 gist 专用令牌
+          <Button color="warning" disabled={busy} onClick={handleReset}>
+            重置本机同步缓存
           </Button>
         </Stack>
         <Typography
