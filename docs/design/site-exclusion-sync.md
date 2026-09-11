@@ -1,6 +1,6 @@
 # No-auto-translate site synchronization
 
-Read this document before changing Translator cloud synchronization, the no-auto-translate website list, its storage representation, or GitHub credential handling.
+Read this document before changing Translator synchronization, the no-auto-translate website list, its storage representation, or the local sync transport.
 
 ## Scope boundary
 
@@ -17,23 +17,19 @@ The following data is explicitly local-only and must never be included in the re
 
 The sync implementation derives a sorted domain-pattern list from the rule store. It does not serialize the full rule store or global settings.
 
-## Remote storage and credentials
+## Transport and server
 
-Translator and Dark Model can use the same GitHub Secret Gist, with separate files. Translator writes `translator-site-exclusions_v1.json`; Dark Model writes `dark-model-config_v1.json`.
+The browser always talks to `http://127.0.0.1:17892`. It never contains a Tailnet hostname, GitHub token, or remote-service credential.
 
-A Secret Gist is unlisted, not access-controlled. The document body is therefore encrypted with AES-256-GCM using PBKDF2-HMAC-SHA-256, 100,000 iterations, a fresh 16-byte salt, and a fresh 12-byte IV for every upload.
+ROG is the authoritative sync host. A small self-hosted service listens only on ROG loopback port `17892`. OMEN and Mac expose the same loopback port locally through persistent SSH local-forward tunnels that connect to ROG over Tailscale. The server is therefore unreachable from the public network and does not require a public listener or Tailscale Funnel/Serve rule.
 
-Each device stores the following only in its local extension/userscript storage:
+The server stores only the synchronization document and encrypts it at rest with AES-256-GCM using a random 32-byte key stored locally on ROG. The transport between OMEN/Mac and ROG is protected by SSH over the Tailnet. Browser storage contains no GitHub PAT or shared encryption passphrase.
 
-- a dedicated classic GitHub PAT with only the `gist` scope;
-- an independent encryption passphrase of at least six characters;
-- the Gist id, a random device id, the last merged document, and scheduling metadata.
-
-Credentials must never appear in logs, exports, repository files, Issues, or documentation examples using real values. A decryption error is a hard stop and must not trigger an upload.
+The server data and key are operational state and must not be committed to a repository. Logs must not contain synced domain lists or encryption keys.
 
 ## Merge model
 
-The decrypted document is a versioned map keyed by domain pattern. Every entry stores an included/excluded boolean, `updatedAt`, and `deviceId`. A false entry is a deletion tombstone.
+The document is a versioned map keyed by domain pattern. Every entry stores an included/excluded boolean, `updatedAt`, and `deviceId`. A false entry is a deletion tombstone.
 
 Merge is last-writer-wins per domain. `updatedAt` is primary and `deviceId` is the deterministic tie-breaker. Unique entries from either device are retained. Tombstones prevent an offline device from resurrecting an older deletion.
 
@@ -44,16 +40,24 @@ When applying the merged list locally:
 - removing an exclusion deletes a simple exclusion-only rule;
 - if a legacy rule contains other custom fields, it is preserved and its `transOpen` falls back to `"*"`.
 
+## Migration from GitHub Gist
+
+Existing local sync state may contain a GitHub token, Gist id, encryption passphrase, and last merged document from versions before 2.0.33. The new state normalizer intentionally retains only `deviceId`, the last merged document, timestamps, and dirty state. The first successful write therefore removes old Gist credentials from browser storage without needing to read or log them.
+
+The current local rule list and retained last-merged document seed the new ROG document. The old Gist is not deleted automatically and remains an external rollback source until the user chooses to remove it.
+
 ## Scheduling and UI
 
-The visible sync card sits immediately after the no-auto-translate website list. It states the narrow data scope, accepts the dedicated PAT and passphrase directly, and supports optional Gist id override, manual sync, and local credential removal.
+The visible sync card sits immediately after the no-auto-translate website list. It states the narrow data scope and the Tailscale/ROG topology. There are no PAT, Gist id, or passphrase fields. Manual sync always bypasses the 24-hour pull interval.
 
-Local list edits mark synchronization dirty. The next scheduled attempt uploads them, and every top-level userscript page checks for unrecorded list changes before applying the 24-hour pull interval. Manual sync always bypasses the interval.
+Local list edits mark synchronization dirty. The next scheduled attempt uploads them, and every top-level userscript page checks for unrecorded list changes before applying the 24-hour pull interval.
 
 ## Acceptance
 
 - Pure tests prove that only `pattern + transOpen=false` entries are extracted.
 - Applying remote data preserves global settings, translation profiles, unrelated rules, and unrelated rule fields.
-- Tests cover per-domain merge, deletion tombstones, encrypted round trips, and wrong-passphrase refusal.
-- Production userscript and Chrome builds succeed.
-- The published settings page visibly exposes the sync card immediately below the website list.
+- Tests cover per-domain merge and deletion tombstones.
+- The ROG service accepts only loopback connections, encrypts its data file at rest, and survives restart.
+- OMEN and Mac local port `17892` reach the ROG health endpoint only through persistent SSH tunnels over Tailscale.
+- Production userscript build succeeds and contains only the loopback sync endpoint.
+- The published settings page visibly exposes the Tailscale sync card immediately below the website list.
