@@ -154,16 +154,34 @@ const readRemoteDocument = async (gist, encryptionKey) => {
   if (file.truncated) {
     throw new Error("远端网站列表异常大，已拒绝覆盖本机数据");
   }
+
+  let rawContent = file.content;
   let content;
   try {
-    content = JSON.parse(file.content);
+    content = JSON.parse(rawContent);
   } catch {
-    throw new Error("远端网站同步文件损坏");
+    if (!file.raw_url) {
+      throw new Error("远端网站同步文件损坏");
+    }
+
+    const response = await fetchPatcher(file.raw_url, {
+      method: "GET",
+      headers: {
+        Accept: "application/vnd.github.raw+json",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`GitHub Gist 原始文件读取失败（${response.status}）`);
+    }
+    rawContent = await response.text();
+    try {
+      content = JSON.parse(rawContent);
+    } catch {
+      throw new Error("远端网站同步文件损坏");
+    }
   }
-  return decryptSiteExclusionDocument(
-    content?.value || file.content,
-    encryptionKey
-  );
+
+  return decryptSiteExclusionDocument(content?.value || rawContent, encryptionKey);
 };
 
 const uploadDocument = async (state, gist, document) => {
