@@ -15,7 +15,15 @@ import {
   recordSiteExclusionChanges,
 } from "./siteExclusionSyncCore";
 
-const LOCAL_SYNC_ENDPOINT = "http://127.0.0.1:17892";
+const syncTransport =
+  globalThis.__KISS_SYNC_TRANSPORT__ &&
+  typeof globalThis.__KISS_SYNC_TRANSPORT__ === "object"
+    ? globalThis.__KISS_SYNC_TRANSPORT__
+    : {};
+const LOCAL_SYNC_ENDPOINT = String(
+  syncTransport.endpoint || "http://127.0.0.1:17892"
+).replace(/\/+$/, "");
+const LOCAL_SYNC_TOKEN = String(syncTransport.token || "");
 const SYNC_INTERVAL_MS = 60 * 60 * 1000;
 
 let syncInFlight = null;
@@ -72,6 +80,9 @@ const localSyncRequest = async (method, path, body) => {
     method,
     headers: {
       Accept: "application/json",
+      ...(LOCAL_SYNC_TOKEN
+        ? { Authorization: `Bearer ${LOCAL_SYNC_TOKEN}` }
+        : {}),
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
