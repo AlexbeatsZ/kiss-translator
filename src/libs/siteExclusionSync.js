@@ -16,7 +16,7 @@ import {
 } from "./siteExclusionSyncCore";
 
 const LOCAL_SYNC_ENDPOINT = "http://127.0.0.1:17892";
-const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const SYNC_INTERVAL_MS = 60 * 60 * 1000;
 
 let syncInFlight = null;
 let syncTimer = null;

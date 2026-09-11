@@ -48,9 +48,9 @@ The current local rule list and retained last-merged document seed the new ROG d
 
 ## Scheduling and UI
 
-The visible sync card sits immediately after the no-auto-translate website list. It states the narrow data scope and the Tailscale/ROG topology. There are no PAT, Gist id, or passphrase fields. Manual sync always bypasses the 24-hour pull interval.
+The visible sync card sits immediately after the no-auto-translate website list. It states the narrow data scope and the Tailscale/ROG topology. There are no PAT, Gist id, or passphrase fields. Manual sync always bypasses the 1-hour pull interval.
 
-Local list edits mark synchronization dirty. The next scheduled attempt uploads them, and every top-level userscript page checks for unrecorded list changes before applying the 24-hour pull interval.
+Local list edits mark synchronization dirty. The next scheduled attempt uploads them, and every top-level userscript page checks for unrecorded list changes before applying the 1-hour pull interval.
 
 ## Acceptance
 

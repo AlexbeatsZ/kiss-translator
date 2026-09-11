@@ -6,7 +6,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 
 # Current State
 
-- Version: `2.0.33`
+- Version: `2.0.34`
 - Branch: `feat/settings-menu-switches`
 - Baseline commit: `daa82b6`
 - UI stack: React 18, Material UI 5, React Router 6.
@@ -14,6 +14,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Settings uses the default-dark Nocturne reading console: a compact desktop rail, fixed three-item mobile bar, source-to-engine-to-output context, and progressive disclosure for advanced controls.
 - `/apis` is the canonical translation-service/model manager and the first settings destination; `/page` owns page translation defaults plus a simple no-auto-translate website list; `/rules` now redirects to `/page`. The full website-rule editor (`Rules.js`) has been removed rather than hidden. Retained storage fields and `apiSlug` references are unchanged.
 - `/page` now has a Tailscale-backed self-hosted sync card immediately below the no-auto-translate website list. Only patterns with `transOpen: "false"` are synchronized; browser code talks only to `127.0.0.1:17892`, with OMEN/Mac reaching the ROG authority through persistent SSH tunnels over Tailscale. All languages, engines, credentials, shortcuts, tuning, subtitles, and unrelated rule fields remain local-only.
+- Automatic no-auto-translate synchronization checks the ROG authority at most once per hour when local state is clean; local edits still mark the state dirty and schedule a near-immediate upload, while manual sync always bypasses the interval.
 - Microsoft page translation and language detection use Edge's current no-token `translate/translatetext` endpoint; the retired `translate/auth` JWT flow and its auth module are removed.
 - Google `gtx` translation and detection fall back to the built-in Google2 batch endpoint only after explicit 429 or Google `/sorry` evidence, then keep a ten-minute cooldown; ordinary network failures remain visible. Chrome BuiltinAI same-language results are treated as a skipped translation rather than an exception.
 - Automatic page translation now performs a conservative CJK target-language preflight before provider dispatch. Translation wrappers stay detached until real translated content or an error exists, and auto-detected text with an unknown source language does not stream to the page before the final same-language decision; clearly Chinese-dominant content no longer consumes AI/API requests or causes loading/identical-text flicker.
@@ -26,7 +27,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
 - Native YouTube subtitles are reliably hidden using injected `!important` `<style>` sheet and inline offset; CC observer re-binds across SPA navigation without injecting player buttons.
 - Global UI defaults and fallbacks are strictly simplified to Chinese (`zh` / `zh_CN`).
-- Verification: 33 Jest suites/233 tests pass; focused userscript-mode same-language rendering tests pass (2 suites/23 tests); the Web/userscript v2.0.31 production build passes. The Chrome production build is validation-only and is not the release artifact.
+- Verification: 33 Jest suites/233 tests pass; focused userscript-mode same-language rendering tests pass (2 suites/23 tests); the Web/userscript v2.0.34 production build passes. The Chrome production build is validation-only and is not the release artifact.
 
 # Active Work
 
@@ -49,6 +50,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - [x] Run full test suite and rebuild Chrome extension.
 - [x] Complete and publish v2.0.29 narrow no-auto-translate website synchronization.
 - [x] Replace GitHub Gist site-exclusion sync with the ROG-hosted Tailscale/SSH loopback service for v2.0.33; retain the narrow sync boundary and remove GitHub credentials from browser state on migration.
+- [x] Reduce the clean-state remote pull interval from 24 hours to 1 hour and publish the change as v2.0.34.
 - [x] Repair Microsoft translation/detection after the Edge auth endpoint retirement, handle BuiltinAI same-language skips, and add bounded Google 429 verification-page fallback.
 - [x] Add `public/version.txt` to the version synchronization path so force-publishing GitHub Pages preserves update detection.
 - [x] Eliminate same-target-language request waste and visual flicker with a conservative CJK preflight plus deferred translation-wrapper insertion.
