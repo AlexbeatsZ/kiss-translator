@@ -18,6 +18,12 @@ describe("target-language script preflight", () => {
     ).toBe(true);
   });
 
+  test("recognizes short Chinese UI text without mistaking Japanese kana", () => {
+    expect(isLikelyTargetLanguageText("设置", "zh-CN")).toBe(true);
+    expect(isLikelyTargetLanguageText("中文说明", "zh-CN")).toBe(true);
+    expect(isLikelyTargetLanguageText("設定を変更", "zh-CN")).toBe(false);
+  });
+
   test("keeps English and Japanese text eligible for Chinese translation", () => {
     expect(
       isLikelyTargetLanguageText(

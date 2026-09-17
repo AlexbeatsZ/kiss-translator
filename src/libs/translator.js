@@ -31,6 +31,11 @@ import { injectInternalCss } from "./injector";
 import { isExt } from "./client";
 import { sendBgMsg } from "./msg";
 import { getDocInfo } from "./docInfo";
+import {
+  isEffectivelyUnchangedTranslation,
+  isSameLanguage,
+  isSameLanguageSkipError,
+} from "./language";
 
 /**
  * @class Translator
@@ -298,11 +303,25 @@ export class Translator {
   #${APP_CONSTS.boxID}, .${APP_CONSTS.boxID}_warpper,
   #${APP_CONSTS.popupID}, .${APP_CONSTS.popupID}_warpper`;
 
-  static BUILTIN_IGNORE_SELECTOR = `address, area, audio, br, canvas,
-  data, datalist, embed, head, iframe, input, noscript, map,
-  object, option, param, picture, progress,
-  select, script, style, svg, track, textarea, template,
+  // 无论“智能扫描”还是“扫描全部区域”，都必须尊重网页作者明确的
+  // no-translate 标记并跳过不可读/可编辑/代码类子树。
+  static BUILTIN_HARD_IGNORE_SELECTOR = `address, area, audio, br, canvas,
+  code, data, datalist, embed, head, iframe, input, kbd, noscript, map,
+  object, option, output, param, picture, progress, samp,
+  select, script, style, svg, track, textarea, template, var,
   video, wbr, .notranslate, [contenteditable='true'], [translate='no']`;
+
+  // 智能扫描默认只服务阅读内容，页面外壳、交互控件和辅助 UI 不进入翻译队列。
+  static BUILTIN_SMART_IGNORE_SELECTOR = `nav, aside, form, menu, dialog,
+  [aria-hidden='true'], [role='navigation'], [role='banner'],
+  [role='contentinfo'], [role='search'], [role='menu'], [role='menubar'],
+  [role='menuitem'], [role='toolbar'], [role='tablist'], [role='tab'],
+  [role='button'], [role='switch'], [role='combobox'], [role='listbox'],
+  [role='option'], [role='searchbox'], [role='dialog'], [role='alertdialog'],
+  [role='tooltip']`;
+
+  static CORE_CONTENT_SELECTOR = `main, article, [role='main'], [role='article'],
+  [itemprop='articleBody']`;
 
   #setting; // 设置选项
   #rule; // 规则
@@ -414,17 +433,22 @@ export class Translator {
 
   // 忽略元素
   get #ignoreSelector() {
-    if (this.#rule.scanAll === "true" || this.#rule.isPlainText) {
-      return Translator.KISS_IGNORE_SELECTOR;
-    }
-
-    const selectors = [Translator.KISS_IGNORE_SELECTOR];
+    const selectors = [
+      Translator.KISS_IGNORE_SELECTOR,
+      Translator.BUILTIN_HARD_IGNORE_SELECTOR,
+    ];
     if (this.#rule.autoScan !== "false") {
-      selectors.push(Translator.BUILTIN_IGNORE_SELECTOR);
+      if (this.#rule.scanAll !== "true" && !this.#rule.isPlainText) {
+        selectors.push(Translator.BUILTIN_SMART_IGNORE_SELECTOR);
+      }
     }
 
     const userSelector = this.#rule.ignoreSelector?.trim();
-    if (userSelector) {
+    if (
+      userSelector &&
+      this.#rule.scanAll !== "true" &&
+      !this.#rule.isPlainText
+    ) {
       selectors.push(userSelector);
     }
 
@@ -434,8 +458,63 @@ export class Translator {
   #isIgnoredElement(node) {
     return (
       node?.nodeType === Node.ELEMENT_NODE &&
-      node.matches?.(this.#ignoreSelector)
+      (node.matches?.(this.#ignoreSelector) || this.#isPageChromeElement(node))
     );
+  }
+
+  #isPageChromeElement(node) {
+    if (
+      this.#rule.scanAll === "true" ||
+      this.#rule.isPlainText ||
+      node?.nodeType !== Node.ELEMENT_NODE
+    ) {
+      return false;
+    }
+
+    const shell = node.closest?.("header, footer");
+    if (!shell) return false;
+
+    return !shell.closest?.(Translator.CORE_CONTENT_SELECTOR);
+  }
+
+  #isInsideIgnoredTree(node) {
+    const element =
+      node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+    if (!element) return false;
+
+    return Boolean(
+      element.closest?.(this.#ignoreSelector) ||
+        this.#isPageChromeElement(element)
+    );
+  }
+
+  #matchesRuleSelector(node) {
+    const selector = this.#rule.selector?.trim();
+    if (!selector || !Translator.isElement(node)) return false;
+
+    try {
+      return node.matches(selector);
+    } catch (err) {
+      kissLog("invalid selector", selector, err);
+      return false;
+    }
+  }
+
+  #isAutoScanContentNode(node) {
+    if (!Translator.isElement(node)) return false;
+    if (this.#rule.scanAll === "true" || this.#rule.isPlainText) return true;
+    if (this.#matchesRuleSelector(node)) return true;
+
+    const rootsSelector = this.#rule.rootsSelector?.trim();
+    if (rootsSelector && rootsSelector !== "body") {
+      try {
+        if (node.closest(rootsSelector)) return true;
+      } catch (err) {
+        kissLog("invalid rootsSelector", rootsSelector, err);
+      }
+    }
+
+    return Boolean(node.closest(Translator.CORE_CONTENT_SELECTOR));
   }
 
   #matchesBlockSelector(node) {
@@ -1111,7 +1190,7 @@ export class Translator {
   #findChangeContainer(startNode) {
     if (
       !Translator.isElementOrFragment(startNode) ||
-      startNode.closest?.(this.#ignoreSelector)
+      this.#isInsideIgnoredTree(startNode)
     ) {
       return null;
     }
@@ -1227,7 +1306,7 @@ export class Translator {
     }
 
     rootNode.querySelectorAll(this.#rule.selector).forEach((node) => {
-      if (!node.closest?.(this.#ignoreSelector)) {
+      if (!this.#isInsideIgnoredTree(node)) {
         this.#startObserveNode(node);
       }
     });
@@ -1238,7 +1317,7 @@ export class Translator {
     if (
       !Translator.isElementOrFragment(rootNode) ||
       // rootNode.matches?.(this.#rule.keepSelector) ||
-      rootNode.matches?.(this.#ignoreSelector)
+      this.#isInsideIgnoredTree(rootNode)
     ) {
       return;
     }
@@ -1261,7 +1340,7 @@ export class Translator {
 
     const hasBlock = this.#hasBlockNode(rootNode);
 
-    if (hasText || !hasBlock) {
+    if ((hasText || !hasBlock) && this.#isAutoScanContentNode(rootNode)) {
       this.#startObserveNode(rootNode);
     }
 
@@ -1301,6 +1380,16 @@ export class Translator {
     } = this.#rule;
     const { langDetector, skipLangs = [] } = this.#setting;
     if (fromLang === "auto") {
+      const declaredLangNode = node.closest?.("[lang]");
+      const declaredLang = declaredLangNode?.getAttribute?.("lang") || "";
+      const hasSpecificDeclaredLang =
+        declaredLangNode &&
+        declaredLangNode !== document.documentElement &&
+        declaredLangNode !== document.body;
+      if (hasSpecificDeclaredLang && isSameLanguage(declaredLang, toLang)) {
+        return;
+      }
+
       // 明显已经是目标语言的 CJK 文本在进入异步检测和翻译队列前直接跳过。
       // 这既避免 AI/API 额度消耗，也避免先插入加载态、最后再撤回造成的视觉闪烁。
       if (isLikelyTargetLanguageText(node.textContent, toLang)) {
@@ -1311,8 +1400,8 @@ export class Translator {
       deLang = await tryDetectLang(node.textContent, langDetector);
       if (
         deLang &&
-        (toLang.slice(0, 2) === deLang.slice(0, 2) ||
-          skipLangs.includes(deLang))
+        (isSameLanguage(toLang, deLang) ||
+          skipLangs.some((lang) => isSameLanguage(lang, deLang)))
       ) {
         // 保留处理状态，不做删除
         // this.#processedNodes.delete(node);
@@ -1444,7 +1533,7 @@ export class Translator {
 
     if (
       Translator.TAGS.BREAK_LINE.has(node.nodeName?.toUpperCase()) ||
-      node.matches?.(this.#ignoreSelector) ||
+      this.#isIgnoredElement(node) ||
       node.nodeName?.toLowerCase() === this.#translationTagName
     ) {
       return true;
@@ -1934,7 +2023,11 @@ export class Translator {
 
       // 如果翻译文本为空，或者识别出来的源语言与目标语言一致，则不插入译文容器；
       // 已经显示过流式译文时再做一次兜底清理。
-      if (!translatedText || isSameLang) {
+      if (
+        !translatedText ||
+        isSameLang ||
+        isEffectivelyUnchangedTranslation(processedString, translatedText)
+      ) {
         if (wrapper.isConnected) {
           this.#withViewportAnchor(() => {
             wrapper.remove();
@@ -2000,6 +2093,13 @@ export class Translator {
         }
       }
     } catch (err) {
+      if (isSameLanguageSkipError(err)) {
+        if (wrapper?.isConnected) {
+          this.#withViewportAnchor(() => wrapper.remove());
+        }
+        return;
+      }
+
       const errorText = this.#formatTranslateError(err);
       kissLog("translate group error: ", errorText);
       if (err?.message === "Request terminated") {
@@ -2092,15 +2192,17 @@ export class Translator {
 
       // 元素节点
       if (node.nodeType === Node.ELEMENT_NODE) {
-        if (this.#isIgnoredElement(node)) {
-          return "";
-        }
-
         let matchesKeepSelector = false;
         try {
           matchesKeepSelector = node.matches(this.#rule.keepSelector);
         } catch (err) {
           kissLog("keepSelector match error", this.#rule.keepSelector, err);
+        }
+
+        // code/math 等元素本身不作为翻译单元，但嵌在正文中时必须以占位符
+        // 原样保留；网页作者标记的其他忽略元素则完全不发送给服务。
+        if (this.#isIgnoredElement(node)) {
+          return matchesKeepSelector ? pushReplace(node.outerHTML) : "";
         }
 
         if (

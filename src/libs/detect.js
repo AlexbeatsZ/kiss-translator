@@ -62,16 +62,17 @@ export const isLikelyTargetLanguageText = (text, targetLang) => {
     count >= minimum && count / Math.max(1, scriptTotal) >= ratio;
 
   if (target.startsWith("zh")) {
-    // 有假名的文本优先视为日文，避免把日文汉字误判成中文。
-    return kana < 2 && hangul < 2 && isDominant(han, 4);
+    // 任意假名或谚文都足以否定中文判断；纯汉字短文本则宁可静默保留，
+    // 避免把“设置”“确定”等已经是中文的短标签送给翻译服务。
+    return kana === 0 && hangul === 0 && isDominant(han, 2);
   }
 
   if (target.startsWith("ja")) {
-    return isDominant(kana + han, 4) && kana >= 2;
+    return isDominant(kana + han, 2) && kana >= 1;
   }
 
   if (target.startsWith("ko")) {
-    return isDominant(hangul, 4);
+    return isDominant(hangul, 2);
   }
 
   return false;

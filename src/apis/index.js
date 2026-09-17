@@ -39,6 +39,10 @@ import {
   isGoogleRateLimitError,
   markGoogleRateLimited,
 } from "../libs/googleFallback";
+import {
+  isEffectivelyUnchangedTranslation,
+  isSameLanguage,
+} from "../libs/language";
 
 const PROMPT_CACHE_SALT = "prompt-cache";
 const PROMPT_CACHE_SCOPE_BATCH = "batch";
@@ -382,7 +386,11 @@ export const apiTranslate = async ({
   if (useCache) {
     const cache = await getHttpCachePolyfill(cacheInput);
     if (cache?.trText) {
-      return cache;
+      return {
+        ...cache,
+        isSame:
+          cache.isSame || isEffectivelyUnchangedTranslation(text, cache.trText),
+      };
     }
   }
   if (signal?.aborted) {
@@ -485,12 +493,24 @@ export const apiTranslate = async ({
     trText = translation;
   }
 
-  if (!trText) {
+  // 判断是否发生了“源语言与目标语言相同”的无效翻译情况 (如英文网页翻译为英文)
+  const isSame =
+    providerIsSame ||
+    isEffectivelyUnchangedTranslation(text, trText) ||
+    (fromLang === "auto" &&
+      (isSameLanguage(srLang, toLang) ||
+        isSameLanguage(srCode, toLang) ||
+        isSameLanguage(srLang, to)));
+
+  if (!trText && !isSame) {
     throw new Error("tanslate api got empty trtext");
   }
 
-  // 判断是否发生了“源语言与目标语言相同”的无效翻译情况 (如英文网页翻译为英文)
-  const isSame = providerIsSame || (fromLang === "auto" && srLang === to);
+  // 一些提供商用空字符串表达“源语言已经等于目标语言”。保留原文只用于
+  // 缓存和统一返回结构；页面渲染层会依据 isSame 静默跳过。
+  if (!trText && isSame) {
+    trText = text;
+  }
 
   // 4. 将成功的结果写入本地网络缓存中
   if (useCache) {

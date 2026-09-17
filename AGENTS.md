@@ -6,7 +6,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 
 # Current State
 
-- Version: `2.0.35`
+- Version: `2.0.36`
 - Branch: `feat/settings-menu-switches`
 - Baseline commit: `daa82b6`
 - UI stack: React 18, Material UI 5, React Router 6.
@@ -18,6 +18,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Microsoft page translation and language detection use Edge's current no-token `translate/translatetext` endpoint; the retired `translate/auth` JWT flow and its auth module are removed.
 - Google `gtx` translation and detection fall back to the built-in Google2 batch endpoint only after explicit 429 or Google `/sorry` evidence, then keep a ten-minute cooldown; ordinary network failures remain visible. Chrome BuiltinAI same-language results are treated as a skipped translation rather than an exception.
 - Automatic page translation now performs a conservative CJK target-language preflight before provider dispatch. Translation wrappers stay detached until real translated content or an error exists, and auto-detected text with an unknown source language does not stream to the page before the final same-language decision; clearly Chinese-dominant content no longer consumes AI/API requests or causes loading/identical-text flicker.
+- Smart page scanning now follows a reading-content boundary: semantic paragraphs/headings remain eligible, generic leaf text is limited to semantic content containers or explicit roots, page chrome/interactive ARIA regions are excluded, and author `notranslate`/`translate="no"` markers remain hard exclusions even in scan-all mode. Short CJK text, provider language aliases, unchanged results, and explicit same-language outcomes are silent no-ops rather than inline errors.
 - Same-language dispatch/rendering fix commit `ebf917e` is pushed to `origin/feat/settings-menu-switches`.
 - Same-language flicker source commit `ebf917e` and v2.0.31 release commit `73d2140` are pushed to `origin/feat/settings-menu-switches`; GitHub Pages commit `7ad153a` publishes v2.0.31. The live `version.txt`, userscript `@version`/`@updateURL`, and userscript SHA-256 were verified after publication.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
@@ -27,7 +28,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
 - Native YouTube subtitles are reliably hidden using injected `!important` `<style>` sheet and inline offset; CC observer re-binds across SPA navigation without injecting player buttons.
 - Global UI defaults and fallbacks are strictly simplified to Chinese (`zh` / `zh_CN`).
-- Verification: 33 Jest suites/233 tests pass; focused userscript-mode same-language rendering tests pass (2 suites/23 tests); the Web/userscript v2.0.35 production build passes. The Chrome production build is validation-only and is not the release artifact.
+- Verification: 34 Jest suites/243 tests pass, including smart content filtering, hard no-translate boundaries, provider language aliases, and silent same-language outcomes; the Web/userscript v2.0.36 production build passes. The Chrome production build is validation-only and is not the release artifact.
 
 # Active Work
 
@@ -54,6 +55,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - [x] Repair Microsoft translation/detection after the Edge auth endpoint retirement, handle BuiltinAI same-language skips, and add bounded Google 429 verification-page fallback.
 - [x] Add `public/version.txt` to the version synchronization path so force-publishing GitHub Pages preserves update detection.
 - [x] Eliminate same-target-language request waste and visual flicker with a conservative CJK preflight plus deferred translation-wrapper insertion.
+- [x] Replace broad leaf-node auto-scanning with reading-content filtering and make every same-language/no-translation outcome silent.
 - [x] Publish the same-language flicker fix as Tampermonkey auto-update v2.0.31, verify the live userscript/version endpoints plus artifact hash, and remove local generated build/cache artifacts afterward.
 
 # Build / Run / Test
@@ -89,5 +91,6 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Unauthenticated vendor web endpoints are drift-prone: verify the exact live request contract before patching. Microsoft now accepts raw string arrays at `edge.microsoft.com/translate/translatetext` without a JWT; Google's legacy `gtx` endpoint may return 429 or a `/sorry` page for a shared proxy exit, so only those explicit signals may activate Google2 fallback and cooldown.
 - Provider-returned `sourceLanguage` is too late to protect quota or visual stability. For auto-detected page text, apply safe local target-script checks before dispatch and do not attach loading/partial-result DOM until the source is known not to match the target.
 - Page translation has a no-placeholder rendering and same-language dispatch contract. Read `docs/design/page-translation-rendering.md` before changing language preflight, wrapper insertion, stream visibility, same-language handling, or retry rendering.
+- Smart scanning must distinguish hard author/runtime exclusions from soft reading-content exclusions. “Scan all” may include navigation, but it must never override `.notranslate`, `translate="no"`, editable controls, scripts/styles, or code-like subtrees; same-language/no-op responses are control flow, not retryable errors.
 - The actual installed product updates through Tampermonkey's `@updateURL`. Any user-facing fix intended for the installed script must increment `@version` via the synchronized package version and be published to `gh-pages`; rebuilding another browser target does not update the user.
 

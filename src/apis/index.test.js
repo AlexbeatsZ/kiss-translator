@@ -324,6 +324,56 @@ describe("apiTranslate prompt queue isolation", () => {
   });
 });
 
+describe("apiTranslate same-language normalization", () => {
+  beforeEach(() => {
+    mockGetCacheDigest.mockResolvedValue("a".repeat(64));
+    getBatchQueue.mockImplementation(() => ({
+      addTask: jest.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("treats an empty AI result with a target-language alias as a skip", async () => {
+    getBatchQueue.mockReturnValue({
+      addTask: jest.fn().mockResolvedValue(["", "zh-CN"]),
+    });
+
+    await expect(
+      apiTranslate({
+        text: "已经是中文",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        apiSetting: getOpenAiApiSetting("batch prompt"),
+        useCache: false,
+      })
+    ).resolves.toMatchObject({
+      trText: "已经是中文",
+      isSame: true,
+    });
+  });
+
+  test("treats an unchanged provider result as a skip", async () => {
+    getBatchQueue.mockReturnValue({
+      addTask: jest.fn().mockResolvedValue(["OpenAI", ""]),
+    });
+
+    await expect(
+      apiTranslate({
+        text: "OpenAI",
+        fromLang: "auto",
+        toLang: "zh-CN",
+        apiSetting: getOpenAiApiSetting("batch prompt"),
+        useCache: false,
+      })
+    ).resolves.toMatchObject({
+      isSame: true,
+    });
+  });
+});
+
 describe("apiTranslate non-batch stream", () => {
   beforeEach(() => {
     mockGetCacheDigest.mockResolvedValue("a".repeat(64));

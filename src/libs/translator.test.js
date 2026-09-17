@@ -204,6 +204,61 @@ describe("Translator rule styles", () => {
     ).not.toBeNull();
   });
 
+  test("silently skips provider errors that mean source and target are the same", async () => {
+    apiTranslate.mockRejectedValue(
+      new Error("检测到源语言和目标语言相同，无需翻译")
+    );
+    document.body.innerHTML =
+      '<main id="root"><p id="target">Already translated content</p></main>';
+
+    createTranslator({ fromLang: "auto", toLang: "zh-CN" });
+    await flushAsync();
+    await flushAsync();
+
+    expect(apiTranslate).toHaveBeenCalledTimes(1);
+    expect(
+      document.querySelector(`.${Translator.KISS_CLASS.warpper}`)
+    ).toBeNull();
+  });
+
+  test("smart scanning ignores generic page chrome but keeps semantic content", async () => {
+    document.body.innerHTML = `
+      <div id="root">
+        <header><div>Account settings</div></header>
+        <div class="toolbar-copy">Sort results</div>
+        <main><div class="article-copy">Long form article content</div></main>
+        <p>Standalone paragraph content</p>
+      </div>
+    `;
+
+    createTranslator({ rootsSelector: "body" });
+    await flushAsync();
+
+    const requestedTexts = apiTranslate.mock.calls.map(([args]) => args.text);
+    expect(requestedTexts).toContain("Long form article content");
+    expect(requestedTexts).toContain("Standalone paragraph content");
+    expect(requestedTexts).not.toContain("Account settings");
+    expect(requestedTexts).not.toContain("Sort results");
+  });
+
+  test("always honors author no-translate markers even in scan-all mode", async () => {
+    document.body.innerHTML = `
+      <main id="root">
+        <p translate="no">Keep this original</p>
+        <p class="notranslate">Keep this too</p>
+        <p>Translate this paragraph</p>
+      </main>
+    `;
+
+    createTranslator({ scanAll: "true" });
+    await flushAsync();
+
+    const requestedTexts = apiTranslate.mock.calls.map(([args]) => args.text);
+    expect(requestedTexts).toContain("Translate this paragraph");
+    expect(requestedTexts).not.toContain("Keep this original");
+    expect(requestedTexts).not.toContain("Keep this too");
+  });
+
   test("skips whitespace-only groups around block children in selected list items", async () => {
     apiTranslate.mockImplementation(({ text }) =>
       Promise.resolve({
@@ -276,6 +331,24 @@ describe("Translator rule styles", () => {
     expect(combinedRequestedText).toContain("tail");
     expect(wrapper).not.toBeNull();
     expect(wrapper.textContent).toBe("Translated mixed inline content");
+  });
+
+  test("keeps inline code as an untranslated placeholder inside content", async () => {
+    apiTranslate.mockImplementation(({ text }) =>
+      Promise.resolve({
+        trText: `Translated ${text}`,
+        isSame: false,
+      })
+    );
+    document.body.innerHTML =
+      '<main id="root"><p id="target">Run <code>npm test</code> now</p></main>';
+
+    createTranslator();
+    await flushAsync();
+
+    const wrapper = document.querySelector(`.${Translator.KISS_CLASS.warpper}`);
+    expect(wrapper).not.toBeNull();
+    expect(wrapper.querySelector("code")?.textContent).toBe("npm test");
   });
 
   test("continues scanning block children after processing mixed parent nodes", async () => {
