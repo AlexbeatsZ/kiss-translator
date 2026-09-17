@@ -1,0 +1,35 @@
+{
+  "app_name": {
+    "message": "翻译"
+  },
+  "app_description": {
+    "message": "网页翻译与字幕翻译扩展"
+  },
+  "translate_selection": {
+    "message": "翻譯 \"%s\""
+  },
+  "toggle_translate": {
+    "message": "開啟翻譯"
+  },
+  "toggle_translate_only": {
+    "message": "僅看譯文"
+  },
+  "toggle_style": {
+    "message": "切換樣式"
+  },
+  "toggle_never_translate": {
+    "message": "切換當前網站是否永久不自動翻譯"
+  },
+  "open_options": {
+    "message": "開啟設定"
+  },
+  "open_tranbox": {
+    "message": "開啟彈出視窗"
+  },
+  "open_separate_window": {
+    "message": "打開獨立視窗"
+  },
+  "toggle_tranbox": {
+    "message": "切換劃詞翻譯"
+  }
+}
