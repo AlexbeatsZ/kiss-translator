@@ -19,6 +19,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Google `gtx` translation and detection fall back to the built-in Google2 batch endpoint only after explicit 429 or Google `/sorry` evidence, then keep a ten-minute cooldown; ordinary network failures remain visible. Chrome BuiltinAI same-language results are treated as a skipped translation rather than an exception.
 - Automatic page translation now performs a conservative CJK target-language preflight before provider dispatch. Translation wrappers stay detached until real translated content or an error exists, and auto-detected text with an unknown source language does not stream to the page before the final same-language decision; clearly Chinese-dominant content no longer consumes AI/API requests or causes loading/identical-text flicker.
 - Smart page scanning now follows a reading-content boundary: semantic paragraphs/headings remain eligible, generic leaf text is limited to semantic content containers or explicit roots, page chrome/interactive ARIA regions are excluded, and author `notranslate`/`translate="no"` markers remain hard exclusions even in scan-all mode. Short CJK text, provider language aliases, unchanged results, and explicit same-language outcomes are silent no-ops rather than inline errors.
+- Reading-content filtering and silent same-language/no-op handling are published in source commit `34fe426` and Tampermonkey v2.0.36. GitHub Pages commit `5bafee7` serves the release; the live `version.txt`, userscript metadata, and SHA-256 were verified against the clean local build.
 - Same-language dispatch/rendering fix commit `ebf917e` is pushed to `origin/feat/settings-menu-switches`.
 - Same-language flicker source commit `ebf917e` and v2.0.31 release commit `73d2140` are pushed to `origin/feat/settings-menu-switches`; GitHub Pages commit `7ad153a` publishes v2.0.31. The live `version.txt`, userscript `@version`/`@updateURL`, and userscript SHA-256 were verified after publication.
 - The visible product has three settings routes: translation options, page translation, and subtitles. Popup and content startup expose only page translation controls plus subtitle runtime support.
@@ -56,6 +57,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - [x] Add `public/version.txt` to the version synchronization path so force-publishing GitHub Pages preserves update detection.
 - [x] Eliminate same-target-language request waste and visual flicker with a conservative CJK preflight plus deferred translation-wrapper insertion.
 - [x] Replace broad leaf-node auto-scanning with reading-content filtering and make every same-language/no-translation outcome silent.
+- [x] Publish the filtering/no-op repair as Tampermonkey auto-update v2.0.36 and verify the live userscript/version endpoints plus artifact hash.
 - [x] Publish the same-language flicker fix as Tampermonkey auto-update v2.0.31, verify the live userscript/version endpoints plus artifact hash, and remove local generated build/cache artifacts afterward.
 
 # Build / Run / Test
