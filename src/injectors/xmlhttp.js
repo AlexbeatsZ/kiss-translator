@@ -5,29 +5,114 @@
  */
 export const XMLHttpRequestInjector = () => {
   try {
+    if (XMLHttpRequest.prototype.open.kissSubtitleInterceptor) return;
     const originalOpen = XMLHttpRequest.prototype.open;
+    const originalFetch = window.fetch;
+    const listeners = new WeakMap();
+    let sawCaptionRequest = false;
+    const captionUrl = (input) => {
+      try {
+        const url = new URL(
+          typeof input === "string" ? input : input?.url || input?.href,
+          window.location.href
+        );
+        return url.origin === window.location.origin &&
+          url.pathname === "/api/timedtext"
+          ? url.href
+          : null;
+      } catch {
+        return null;
+      }
+    };
+    const publish = (url, response, status, contentType, retryAfter) => {
+      window.postMessage(
+        {
+          type: "KISS_XHR_DATA_YOUTUBE",
+          url,
+          response,
+          status,
+          contentType,
+          retryAfter,
+        },
+        window.location.origin
+      );
+    };
+    const publishFetch = (request, url) => {
+      request
+        .then((response) => {
+          const copy = response.clone();
+          return copy
+            .text()
+            .then((text) =>
+              publish(
+                response.url || url,
+                text,
+                response.status,
+                response.headers.get("Content-Type"),
+                response.headers.get("Retry-After")
+              )
+            );
+        })
+        .catch(() => {});
+    };
     XMLHttpRequest.prototype.open = function (...args) {
-      const url = args[1];
-      // 匹配 YouTube 的 timedtext 字幕网络请求链接
-      if (typeof url === "string" && url.includes("timedtext")) {
-        this.addEventListener("load", function () {
-          // 向主应用派发字幕数据，使用了安全的原点限制 (window.location.origin)
-          // REVIEW: 接口拦截不完全风险。
-          // 目前仅重写拦截了 `XMLHttpRequest` 对象，但这极易因网页底层升级或使用了 `fetch` API 获取字幕而失效。
-          // 许多现代网页应用正在用 `fetch` 全面替代 `XHR`。
-          // 推荐同步劫持 `window.fetch` 方法，以实现对不同 HTTP 请求客户端的完整兼容拦截。
-          window.postMessage(
-            {
-              type: "KISS_XHR_DATA_YOUTUBE",
-              url: this.responseURL,
-              response: this.responseText,
-            },
-            window.location.origin
-          );
-        });
+      const previous = listeners.get(this);
+      if (previous) this.removeEventListener("load", previous);
+      const url = captionUrl(args[1]);
+      if (url) {
+        sawCaptionRequest = true;
+        const listener = function () {
+          try {
+            const response =
+              this.responseType === "json"
+                ? JSON.stringify(this.response)
+                : this.responseText;
+            publish(
+              this.responseURL || url,
+              response,
+              this.status,
+              this.getResponseHeader("Content-Type"),
+              this.getResponseHeader("Retry-After")
+            );
+          } catch {
+            // Other response types must not break the player's own load listeners.
+          }
+        };
+        listeners.set(this, listener);
+        this.addEventListener("load", listener);
       }
       return originalOpen.apply(this, args);
     };
+    XMLHttpRequest.prototype.open.kissSubtitleInterceptor = true;
+    if (typeof originalFetch === "function") {
+      window.fetch = function (...args) {
+        const request = originalFetch.apply(this, args);
+        const url = captionUrl(args[0]);
+        if (url) {
+          sawCaptionRequest = true;
+          publishFetch(request, url);
+        }
+        return request;
+      };
+
+      // Tampermonkey starts at document-end. Recover one request that completed
+      // before interception, preserving the player's signed URL and PO token.
+      Promise.resolve()
+        .then(() => {
+          if (sawCaptionRequest) return;
+          const videoId = new URL(window.location.href).searchParams.get("v");
+          if (!videoId) return;
+          const entries =
+            window.performance?.getEntriesByType?.("resource") || [];
+          const entry = [...entries].reverse().find(({ name }) => {
+            const url = captionUrl(name);
+            return url && new URL(url).searchParams.get("v") === videoId;
+          });
+          if (entry)
+            publishFetch(originalFetch.call(window, entry.name), entry.name);
+        })
+        .catch(() => {});
+    }
   } catch (err) {
     console.log("XMLHttpRequestInjector", err);
   }

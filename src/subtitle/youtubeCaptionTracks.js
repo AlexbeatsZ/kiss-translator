@@ -132,10 +132,12 @@ export function findCaptionTrack(captionTracks, lang, kind) {
 export async function getCaptionTracks(videoId) {
   try {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
-    // REVIEW: 每次处理字幕都会重新 fetch 播放页并正则匹配 ytInitialPlayerResponse。
-    // 这会造成二次网页下载，也可能在高频使用时被 YouTube 视为异常流量。
-    // 后续可优先从当前页面全局对象或客户端内部 API 读取。
-    const html = await fetch(url).then((r) => r.text());
+    // Only original-track recovery from a translated request needs discovery.
+    // A page-global player response can belong to an earlier SPA video.
+    const html = await fetch(url).then((r) => {
+      if (!r.ok) throw new SubtitleRequestError("http", r.status);
+      return r.text();
+    });
     const match = html.match(/ytInitialPlayerResponse\s*=\s*(\{.*?\});/s);
     if (!match) return {};
     const data = JSON.parse(match[1]);
@@ -150,6 +152,37 @@ export async function getCaptionTracks(videoId) {
   }
 }
 
+export class SubtitleRequestError extends Error {
+  constructor(code, status = 0, retryAfter = null) {
+    super(`YouTube captions: ${code}${status ? ` (${status})` : ""}`);
+    this.name = "SubtitleRequestError";
+    this.code = code;
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
+// Intercepted data is authoritative. Never treat a verification/error page as
+// an empty caption track or refetch it repeatedly as if it were malformed JSON.
+export function parseSubtitleResponse(responseText, metadata = {}) {
+  const { status = 200, retryAfter } = metadata;
+  if (
+    status === 429 ||
+    /<title>\s*Sorry\.{0,3}\s*<\/title>/i.test(responseText || "")
+  ) {
+    throw new SubtitleRequestError("rate-limit", status || 429, retryAfter);
+  }
+  if (status >= 400) throw new SubtitleRequestError("http", status);
+  if (!responseText?.trim()) throw new SubtitleRequestError("empty", status);
+  try {
+    const json = JSON.parse(responseText);
+    if (!Array.isArray(json?.events)) throw new Error("Missing caption events");
+    return json.events;
+  } catch {
+    throw new SubtitleRequestError("invalid-response", status);
+  }
+}
+
 /**
  * 获取字幕详细事件数组。
  * 当前拦截响应已经是目标原文字幕时直接解析，否则按选中轨道重新请求 JSON3 字幕。
@@ -159,43 +192,34 @@ export async function getCaptionTracks(videoId) {
  * @param {string} responseText 当前拦截请求的响应文本。
  * @returns {Promise<Array<object>|null>} YouTube json3 events 数组。
  */
-export async function getSubtitleEvents(capUrl, potUrl, responseText) {
+export async function getSubtitleEvents(
+  capUrl,
+  potUrl,
+  responseText,
+  metadata = {}
+) {
   if (
     !potUrl.searchParams.get("tlang") &&
     potUrl.searchParams.get("kind") === capUrl.searchParams.get("kind") &&
     isSameLang(potUrl.searchParams.get("lang"), capUrl.searchParams.get("lang"))
   ) {
-    try {
-      const json = JSON.parse(responseText);
-      return json?.events;
-    } catch (err) {
-      logger.info("Youtube Provider: parse responseText", err);
-      return null;
-    }
+    return parseSubtitleResponse(responseText, metadata);
+  }
+  // Preserve the signed request for other consumers.
+  potUrl = new URL(potUrl.href);
+  potUrl.searchParams.delete("tlang");
+  potUrl.searchParams.delete("name");
+  potUrl.searchParams.set("lang", capUrl.searchParams.get("lang"));
+  potUrl.searchParams.set("fmt", "json3");
+  if (capUrl.searchParams.get("kind")) {
+    potUrl.searchParams.set("kind", capUrl.searchParams.get("kind"));
+  } else {
+    potUrl.searchParams.delete("kind");
   }
 
-  try {
-    // REVIEW: 这里沿用原有就地修改 potUrl.searchParams 的行为。
-    // 如果 potUrl 被其他调用方共享，可能产生副作用；本次拆分不改变该行为。
-    potUrl.searchParams.delete("tlang");
-    potUrl.searchParams.delete("name");
-    potUrl.searchParams.set("lang", capUrl.searchParams.get("lang"));
-    potUrl.searchParams.set("fmt", "json3");
-    if (capUrl.searchParams.get("kind")) {
-      potUrl.searchParams.set("kind", capUrl.searchParams.get("kind"));
-    } else {
-      potUrl.searchParams.delete("kind");
-    }
-
-    const res = await fetch(potUrl.href);
-    if (res?.ok) {
-      const json = await res.json();
-      return json?.events;
-    }
-    logger.info(`Youtube Provider: Failed to fetch subtitles: ${res.status}`);
-    return null;
-  } catch (error) {
-    logger.info("Youtube Provider: fetching subtitles error", error);
-    return null;
-  }
+  const res = await fetch(potUrl.href);
+  return parseSubtitleResponse(await res.text(), {
+    status: res.status,
+    retryAfter: res.headers?.get("Retry-After"),
+  });
 }

@@ -167,6 +167,9 @@ export class YouTubePlayerUi {
       return;
     }
 
+    if (this.#notificationEl && !this.#notificationEl.isConnected) {
+      this.#notificationEl = null;
+    }
     if (!this.#notificationEl) this.createNotificationElement();
     if (!this.#notificationEl) return;
 

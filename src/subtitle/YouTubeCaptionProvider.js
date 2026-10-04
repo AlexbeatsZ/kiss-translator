@@ -13,6 +13,7 @@ import {
   getCaptionTracks,
   getSubtitleEvents,
   isSameLang,
+  parseSubtitleResponse,
 } from "./youtubeCaptionTracks.js";
 import { eventsToSubtitles } from "./youtubeAiSegmentation.js";
 import {
@@ -34,7 +35,7 @@ import {
  * YouTube 字幕翻译与双语渲染入口。
  * 负责页面生命周期、字幕轨处理调度、异步竞态保护，并把结果交给播放器渲染器。
  */
-class YouTubeCaptionProvider {
+export class YouTubeCaptionProvider {
   // 扩展配置选项对象
   #setting = {};
 
@@ -73,6 +74,9 @@ class YouTubeCaptionProvider {
   #playerUi = null;
   // YouTube 底部控制条原生字幕激活状态的 DOM 监听器
   #ytSubtitleStateObserver = null;
+  #currentVideoId = null;
+  #retryAfterTime = 0;
+  #lastFailureNotice = 0;
 
   /**
    * 创建 YouTube 字幕处理器实例，并初始化用户配置、国际化和播放器 UI 管理器。
@@ -133,11 +137,14 @@ class YouTubeCaptionProvider {
    * @returns {void}
    */
   initialize() {
+    this.#currentVideoId = this.#videoId;
     window.addEventListener("message", (event) => {
+      if (event.source && event.source !== window) return;
+      if (event.origin && event.origin !== window.location.origin) return;
       if (event.data?.type === MSG_XHR_DATA_YOUTUBE) {
         const { url, response } = event.data;
-        if (url && response) {
-          this.#handleInterceptedRequest(url, response);
+        if (url && typeof response === "string") {
+          this.#handleInterceptedRequest(url, response, event.data);
         }
       }
     });
@@ -145,24 +152,7 @@ class YouTubeCaptionProvider {
     window.addEventListener("yt-navigate-finish", () => {
       logger.debug("Youtube Provider: yt-navigate-finish", this.#videoId);
 
-      this.#destroyManager();
-      clearMsgHistory(this.#setting.apiSlug);
-
-      this.#subtitles = [];
-      this.#events = [];
-      this.#rawSubtitleEvents = [];
-      this.#flatEvents = [];
-      this.#progressed = 0;
-      this.#fromLang = "auto";
-      this.#docInfo = {};
-      this.#fullDescription = "";
-      this.#processingId = null;
-      this.#processingVersion += 1;
-      this.#activeTrackKey = null;
-      this.#aiChunkScheduler = null;
-      this.#subtitleAbortController?.abort();
-      this.#subtitleAbortController = null;
-
+      this.#resetForVideo();
       this.#bindYtSubtitleButton();
     });
 
@@ -171,6 +161,29 @@ class YouTubeCaptionProvider {
     waitForElement(YT_AD_SELECTOR, (adContainer) => {
       this.#moAds(adContainer);
     });
+  }
+
+  #resetForVideo() {
+    if (this.#currentVideoId === this.#videoId) return;
+    this.#currentVideoId = this.#videoId;
+    this.#destroyManager();
+    this.#playerUi.destroy();
+    clearMsgHistory(this.#setting.apiSlug);
+
+    this.#subtitles = [];
+    this.#events = [];
+    this.#rawSubtitleEvents = [];
+    this.#flatEvents = [];
+    this.#progressed = 0;
+    this.#fromLang = "auto";
+    this.#docInfo = {};
+    this.#fullDescription = "";
+    this.#processingId = null;
+    this.#processingVersion += 1;
+    this.#activeTrackKey = null;
+    this.#aiChunkScheduler = null;
+    this.#subtitleAbortController?.abort();
+    this.#subtitleAbortController = null;
   }
 
   /**
@@ -278,7 +291,7 @@ class YouTubeCaptionProvider {
 
           if (node.matches(adLayoutSelector)) {
             logger.debug("Youtube Provider: Ad ends!");
-            if (!this.#setting.showOrigin) {
+            if (this.#managerInstance && !this.#setting.showOrigin) {
               this.#playerUi.hideYtCaption();
             }
             if (videoEl && skipAd) {
@@ -385,14 +398,25 @@ class YouTubeCaptionProvider {
    * @param {string} responseText 被拦截请求的响应文本。
    * @returns {Promise<void>}
    */
-  async #handleInterceptedRequest(url, responseText) {
+  async #handleInterceptedRequest(url, responseText, metadata = {}) {
+    this.#resetForVideo();
     const videoId = this.#videoId;
     if (!videoId) {
       logger.debug("Youtube Provider: videoId not found.");
       return;
     }
 
-    const potUrl = new URL(url);
+    let potUrl;
+    try {
+      potUrl = new URL(url, window.location.origin);
+    } catch {
+      return;
+    }
+    if (
+      potUrl.origin !== window.location.origin ||
+      potUrl.pathname !== "/api/timedtext"
+    )
+      return;
     if (videoId !== potUrl.searchParams.get("v")) {
       logger.debug("Youtube Provider: skip other timedtext:", videoId);
       return;
@@ -403,6 +427,19 @@ class YouTubeCaptionProvider {
       logger.debug("Youtube Provider: timedtext lang not found:", url);
       return;
     }
+
+    // Validate before caption discovery, state replacement or another request.
+    // A healthy player response may recover immediately after a node change.
+    let interceptedEvents;
+    try {
+      interceptedEvents = parseSubtitleResponse(responseText, metadata);
+    } catch (error) {
+      this.#reportCaptionFailure(error);
+      return;
+    }
+    if (!interceptedEvents.length) return;
+    if (potUrl.searchParams.get("tlang") && Date.now() < this.#retryAfterTime)
+      return;
 
     const interceptedKind = potUrl.searchParams.get("kind") || null;
     const trackKey = buildTrackKey(potUrl);
@@ -424,50 +461,57 @@ class YouTubeCaptionProvider {
     this.#subtitleAbortController = new AbortController();
     this.#aiChunkScheduler = null;
 
-    if (this.#flatEvents.length) {
-      this.#destroyManager();
-      clearMsgHistory(this.#setting.apiSlug);
-      this.#subtitles = [];
-      this.#events = [];
-      this.#rawSubtitleEvents = [];
-      this.#flatEvents = [];
-      this.#progressed = 0;
-      this.#activeTrackKey = null;
-      this.#aiChunkScheduler = null;
-    }
-
     try {
       this.#playerUi.showNotification(
         this.#i18n("starting_to_process_subtitle")
       );
 
       const { toLang } = this.#setting;
-      const { captionTracks, fullDescription } =
-        await getCaptionTracks(videoId);
-      if (this.#isStaleProcessing(processingVersion)) return;
-
-      this.#fullDescription = fullDescription || "";
-      const captionTrack = findCaptionTrack(
-        captionTracks,
-        lang,
-        interceptedKind
-      );
-      if (!captionTrack) {
-        logger.debug("Youtube Provider: CaptionTrack not found:", videoId);
-        return;
+      let events = interceptedEvents;
+      if (potUrl.searchParams.get("tlang")) {
+        const { captionTracks, fullDescription } =
+          await getCaptionTracks(videoId);
+        if (this.#isStaleProcessing(processingVersion)) return;
+        this.#fullDescription = fullDescription || "";
+        const captionTrack = findCaptionTrack(
+          captionTracks,
+          lang,
+          interceptedKind
+        );
+        // The selected request still identifies the original track if watch
+        // metadata is unavailable. Keep its signature/token for recovery.
+        const capUrl = new URL(
+          captionTrack?.baseUrl || potUrl.href,
+          window.location.origin
+        );
+        events = await getSubtitleEvents(
+          capUrl,
+          potUrl,
+          responseText,
+          metadata
+        );
       }
-      if (!captionTrack.baseUrl.startsWith("https")) {
-        captionTrack.baseUrl = window.location.origin + captionTrack.baseUrl;
-      }
-      const capUrl = new URL(captionTrack.baseUrl);
-      const events = await getSubtitleEvents(capUrl, potUrl, responseText);
       if (this.#isStaleProcessing(processingVersion)) return;
 
       if (!events?.length) {
         logger.debug("Youtube Provider: events not got:", videoId);
         return;
       }
+      // Keep working captions until a replacement track has been acquired.
+      if (this.#flatEvents.length) {
+        this.#destroyManager();
+        clearMsgHistory(this.#setting.apiSlug);
+        this.#subtitles = [];
+        this.#events = [];
+        this.#rawSubtitleEvents = [];
+        this.#flatEvents = [];
+        this.#progressed = 0;
+        this.#activeTrackKey = null;
+        this.#aiChunkScheduler = null;
+      }
       this.#rawSubtitleEvents = events;
+      this.#retryAfterTime = 0;
+      this.#lastFailureNotice = 0;
 
       logger.debug(
         `Youtube Provider: lang: ${lang}, fromLang: ${fromLang}, toLang: ${toLang}`
@@ -502,8 +546,12 @@ class YouTubeCaptionProvider {
         signal: this.#subtitleAbortController.signal,
       });
     } catch (error) {
-      logger.warn("Youtube Provider: handle subtitle", error);
-      this.#playerUi.showNotification(this.#i18n("subtitle_load_failed"));
+      if (
+        this.#isStaleProcessing(processingVersion) ||
+        error?.name === "AbortError"
+      )
+        return;
+      this.#reportCaptionFailure(error);
     } finally {
       if (
         !this.#isStaleProcessing(processingVersion) &&
@@ -512,6 +560,33 @@ class YouTubeCaptionProvider {
         this.#processingId = null;
       }
     }
+  }
+
+  #reportCaptionFailure(error) {
+    const now = Date.now();
+    const rateLimited = error?.code === "rate-limit";
+    if (rateLimited) {
+      const seconds = Number(error.retryAfter);
+      const retryDate = Date.parse(error.retryAfter);
+      const delay =
+        Number.isFinite(seconds) && seconds > 0
+          ? seconds * 1000
+          : Number.isFinite(retryDate) && retryDate > now
+            ? retryDate - now
+            : 60000;
+      this.#retryAfterTime = now + Math.max(60000, Math.min(delay, 10 * 60000));
+    }
+    if (!this.#managerInstance) this.#playerUi.showYtCaption();
+    if (this.#lastFailureNotice && now - this.#lastFailureNotice < 30000)
+      return;
+    this.#lastFailureNotice = now;
+    logger.warn("Youtube Provider: caption acquisition failed", error);
+    this.#playerUi.showNotification(
+      this.#i18n(
+        rateLimited ? "subtitle_rate_limited" : "subtitle_load_failed"
+      ),
+      10000
+    );
   }
 
   /**

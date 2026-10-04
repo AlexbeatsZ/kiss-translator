@@ -59,4 +59,19 @@ describe("YouTubePlayerUi", () => {
     ui.destroy();
     expect(document.querySelector(".kiss-notification")).toBeNull();
   });
+
+  test("notifications attach to the replacement player after navigation", () => {
+    document.body.innerHTML = "<div><div><video></video></div></div>";
+    const ui = new YouTubePlayerUi({
+      getSetting: () => setting,
+      getVideoEl: () => document.querySelector("video"),
+    });
+    ui.showNotification("first player");
+    const original = document.querySelector(".kiss-notification");
+    document.body.innerHTML = "<div><div><video></video></div></div>";
+    ui.showNotification("new player");
+    const replacement = document.querySelector(".kiss-notification");
+    expect(replacement).not.toBe(original);
+    expect(replacement.textContent).toBe("new player");
+  });
 });

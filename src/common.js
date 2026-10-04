@@ -248,6 +248,9 @@ export async function run(isUserscript = false) {
       return;
     }
 
+    // Subtitle capture must not wait for website sync or page scanning.
+    if (!isIframe) runSubtitle({ href, setting });
+
     // 仅同步“不自动翻译的网站”域名列表。语言、引擎、API、快捷键和
     // 其他 Translator 设置始终保留在本机。
     if (isUserscript && !isIframe) {
@@ -270,9 +273,6 @@ export async function run(isUserscript = false) {
     if (isIframe) {
       return;
     }
-
-    // 9. 启动视频字幕翻译子模块 (仅在顶级 frame 下运行)
-    runSubtitle({ href, setting, rule, isUserscript });
 
     // 10. 油猴环境下仍保留网站规则订阅更新；这属于网页翻译范围。
     if (isUserscript) {

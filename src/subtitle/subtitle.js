@@ -14,8 +14,7 @@ const providers = [
 /**
  * 运行双语字幕翻译服务的主入口。
  * 该函数根据当前网页的 href URL，匹配已注册的视频服务提供商列表。
- * 如果匹配成功，则执行底层的 XHR 拦截脚本注入（用于劫持平台字幕数据请求，如 YouTube 的 timedtext 接口），
- * 接着获取用户的字幕/翻译配置，并初始化启动对应平台的字幕翻译渲染引擎。
+ * 匹配后先启动字幕数据接收器，再注入 XHR/fetch 拦截器，避免遗漏初始字幕请求的回放。
  *
  * @param {object} params - 引导参数对象
  * @param {string} params.href - 当前浏览器网页的完整链接 (document.location.href)
@@ -34,19 +33,15 @@ export function runSubtitle({ href, setting }) {
     // 根据当前网页 URL (href) 查找是否有匹配的字幕服务提供商（例如匹配 YouTube 网址）
     const provider = providers.find((item) => isMatch(href, item.pattern));
     if (provider) {
-      // 1. 注入底层的劫持脚本 (INJECTOR.subtitle)
-      // 该操作会在原生页面环境中动态注入一段 JS 脚本，用以劫持底层的 XHR (XMLHttpRequest) 请求。
-      // 这对于拦截 YouTube 的 timedtext 异步字幕请求并将其回传给当前扩展至关重要。
       const id = "kiss-translator-inject-subtitle-js";
-      injectJs(INJECTOR.subtitle, id);
 
-      // 2. 获取当前字幕翻译所关联的翻译 API 配置 (apiSetting)
+      // 获取当前字幕翻译所关联的翻译 API 配置 (apiSetting)
       const transApis = setting.transApis || [];
       const apiSetting =
         transApis.find((api) => api.apiSlug === subtitleSetting.apiSlug) ||
         DEFAULT_API_SETTING;
 
-      // 3. 启动特定平台的字幕翻译与渲染引擎 (如 YouTubeCaptionProvider)
+      // 启动特定平台的字幕翻译与渲染引擎 (如 YouTubeCaptionProvider)
       // 将整理好的字幕配置、翻译 API 配置、所有已启用的 API 列表以及 UI 界面语言传递给对应的 provider
       provider.start({
         ...subtitleSetting,
@@ -55,6 +50,8 @@ export function runSubtitle({ href, setting }) {
         prompts: setting.prompts,
         uiLang: setting.uiLang,
       });
+      // Register the receiver before the injector can replay an early request.
+      injectJs(INJECTOR.subtitle, id);
     }
   } catch (err) {
     logger.error("start subtitle provider failed", err);

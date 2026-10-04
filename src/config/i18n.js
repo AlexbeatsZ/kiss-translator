@@ -3251,6 +3251,10 @@ export const I18N = {
     ja: `バイリンガル字幕の読み込みに成功しました！`,
     ko: `이중 언어 자막 로딩 성공!`,
   },
+  subtitle_rate_limited: {
+    zh: `YouTube 字幕接口被限流（429）。请稍后重试或切换代理节点后刷新。`,
+    en: `YouTube captions are rate limited (429). Retry later or change your proxy server and reload.`,
+  },
   subtitle_load_failed: {
     zh: `双语字幕加载失败！`,
     en: `Failed to load bilingual subtitles!`,

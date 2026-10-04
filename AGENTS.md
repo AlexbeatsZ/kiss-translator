@@ -6,7 +6,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 
 # Current State
 
-- Version: `2.0.36`
+- Version: `2.0.37`
 - Branch: `feat/settings-menu-switches`
 - Baseline commit: `daa82b6`
 - UI stack: React 18, Material UI 5, React Router 6.
@@ -32,6 +32,11 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Verification: 34 Jest suites/243 tests pass, including smart content filtering, hard no-translate boundaries, provider language aliases, and silent same-language outcomes; the Web/userscript v2.0.36 production build passes. The Chrome production build is validation-only and is not the release artifact.
 
 # Active Work
+
+- [x] Diagnose YouTube missing captions: the identical timedtext request returns 429 on Japan 07/06 but 200 with 1302 events on the existing UK London 01 node; Chrome native Korean and translated Chinese captions recovered on UK. All test node selections were restored.
+- [x] Capture fetch and XHR, recover a missed initial request once, reuse healthy original captions without re-downloading watch metadata, classify rate limits visibly, preserve native captions on failures, and protect captions arriving before SPA navigation finish.
+- [x] Assess server ASR fallback on ROG Z1 Extreme/27.7 GiB/AMD iGPU; CPU benchmarking and an ASR service remain proposed, not deployed. Design: `docs/design/subtitle-asr-fallback.md`.
+- [ ] Publish and verify Tampermonkey v2.0.37 subtitle acquisition repair.
 
 - [x] Remove non-core feature slices and move the local Agy/Codex bridge out to the standalone `cli2api` service.
 - [x] Audit the rejected proof-desk UI against the actual first viewport and task paths.
@@ -76,6 +81,9 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - After a Tampermonkey release, verify both `https://alexbeatsz.github.io/kiss-translator/version.txt` and `https://alexbeatsz.github.io/kiss-translator/kiss-translator.user.js` with a cache-busting query. Source push or a Chrome build alone is not delivery.
 
 # Durable Lessons
+
+- Read `docs/design/youtube-subtitle-acquisition.md` before changing subtitle interception, startup ordering, failure/cooldown handling, or SPA navigation. A healthy original timedtext response must not depend on a second watch-page download. Subtitle capture starts before site sync/page setup.
+- YouTube caption 429 can depend on proxy egress even when video playback works. Compare the identical signed player request across existing nodes and restore test selections; do not attribute the initial restriction to the translator without evidence.
 
 - Treat a successful build as an implementation check, not UI acceptance; verify the exact settings route and its visible interactions.
 - Route changes and mobile list-to-editor transitions must reset the document scroll position; otherwise a newly selected task can open below its own primary controls.
