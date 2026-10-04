@@ -29,14 +29,14 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Subtitle configuration now presents AI sentence breaking (`segSlug`), AI prompt template (`segPromptSlug`), and AI enhanced context (`aiContextSlug`) directly in the main Subtitle options settings page.
 - Native YouTube subtitles are reliably hidden using injected `!important` `<style>` sheet and inline offset; CC observer re-binds across SPA navigation without injecting player buttons.
 - Global UI defaults and fallbacks are strictly simplified to Chinese (`zh` / `zh_CN`).
-- Verification: 34 Jest suites/243 tests pass, including smart content filtering, hard no-translate boundaries, provider language aliases, and silent same-language outcomes; the Web/userscript v2.0.36 production build passes. The Chrome production build is validation-only and is not the release artifact.
+- Verification: clean release commit `a00695d` passes 36 Jest suites/254 tests and the Web/userscript v2.0.37 production build. GitHub Pages commit `bf8a3fb` publishes v2.0.37; cache-busted live version.txt, userscript version/update URLs, and repair markers are verified. Existing uncommitted src/libs/gm.js and gm.test.js changes were excluded from the release. The browser tool blocks extension-internal management pages, so installed-instance update confirmation remains user-side.
 
 # Active Work
 
 - [x] Diagnose YouTube missing captions: the identical timedtext request returns 429 on Japan 07/06 but 200 with 1302 events on the existing UK London 01 node; Chrome native Korean and translated Chinese captions recovered on UK. All test node selections were restored.
 - [x] Capture fetch and XHR, recover a missed initial request once, reuse healthy original captions without re-downloading watch metadata, classify rate limits visibly, preserve native captions on failures, and protect captions arriving before SPA navigation finish.
 - [x] Assess server ASR fallback on ROG Z1 Extreme/27.7 GiB/AMD iGPU; CPU benchmarking and an ASR service remain proposed, not deployed. Design: `docs/design/subtitle-asr-fallback.md`.
-- [ ] Publish and verify Tampermonkey v2.0.37 subtitle acquisition repair.
+- [x] Publish and verify Tampermonkey v2.0.37 subtitle acquisition repair (`a00695d` source, `bf8a3fb` gh-pages); node selections restored and no ASR service deployed.
 
 - [x] Remove non-core feature slices and move the local Agy/Codex bridge out to the standalone `cli2api` service.
 - [x] Audit the rejected proof-desk UI against the actual first viewport and task paths.
@@ -76,6 +76,7 @@ The primary user-facing delivery channel is the Tampermonkey userscript auto-upd
 - Archive / Zip release packages: `pnpm zip` (generates `build/chrome.zip`, `build/edge.zip`, `build/firefox.zip`, `build/thunderbird.zip`, `build/userscript.zip`)
 - Focused settings tests can be run directly with the project runtime: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand src/views/Options/index.test.js src/views/Options/Layout.test.js src/views/Options/Apis.test.js src/views/Options/ReusableAutocomplete.test.js src/libs/modelList.test.js`
 - Focused provider resilience tests: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand src/apis/index.test.js src/apis/trans.translate.test.js`
+- In a Windows managed worktree under .codex, CRA/Jest's escaped absolute test glob may find no tests. Pass --testMatch="**/*.{spec,test}.{js,jsx,ts,tsx}" while keeping its src roots.
 - If the active pnpm wrapper is not the repository-pinned version, run local binaries directly rather than rewriting workspace/package-manager configuration.
 - Tampermonkey release: bump the package version, run `pnpm sync-version`, run `pnpm build:web`, verify `build/web/kiss-translator.user.js` has the new `@version` plus the `alexbeatsz.github.io` `@downloadURL`/`@updateURL`, then run `pnpm deploy:gh-pages`.
 - After a Tampermonkey release, verify both `https://alexbeatsz.github.io/kiss-translator/version.txt` and `https://alexbeatsz.github.io/kiss-translator/kiss-translator.user.js` with a cache-busting query. Source push or a Chrome build alone is not delivery.
